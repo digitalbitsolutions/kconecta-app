@@ -28,6 +28,9 @@
   - PR #2 devops CI merged.
   - PR #3 mobile scaffold merged.
   - PR #4 architecture docs merged.
+  - PR #5 backend provider API skeleton merged.
+  - PR #6 QA provider/auth smoke tests merged.
+  - PR #7 mobile UI/UX baseline merged.
 
 ## Quality/Safety Fixes
 
@@ -48,7 +51,7 @@
 
 ## Current Outcome
 
-- `main` contains merged architecture + mobile + CI + backend contract docs.
+- `main` contains merged architecture + mobile + CI + backend contract and API skeleton docs.
 - Repo is clean and synchronized with origin.
 - Orchestration ready for next task wave focused on real backend + QA implementation.
 
@@ -63,8 +66,29 @@
   - PR #5 (`agent/backend`) -> merged
   - PR #6 (`agent/qa`) -> merged
 
+## Wave 3 Execution (Architecture + Backend + Mobile + QA + DevOps)
+
+- Created and executed task pack:
+  - `ARCH-002` multi-app strategy and admin surface
+  - `BE-002` property listing API skeleton
+  - `MOB-002` manager dashboard + property UX scaffold
+  - `QA-002` property API smoke tests
+  - `OPS-002` dockerized PHP lint in CI
+- Opened, approved, and merged PRs:
+  - PR #8 (`agent/architect`) -> merged
+  - PR #9 (`agent/backend`) -> merged
+  - PR #10 (`agent/mobile`) -> merged
+  - PR #11 (`agent/qa`) -> merged
+  - PR #12 (`agent/devops`) -> merged
+  - PR #13 (`agent/architect`) wave 3 task definitions tracked in repo -> merged
+
 ## Jira Integration Status
 
 - Jira CLI commands are available from orchestrator.
 - Added auto-load from `ai-orchestration/.env.jira`.
-- Current environment is not configured with real Jira credentials yet, so issue creation/linking is pending.
+- Jira credentials are configured and verified.
+- Active project key: `DEV`.
+- Wave 2 tickets linked and completed:
+  - `DEV-7`, `DEV-8`, `DEV-9`
+- Wave 3 tickets linked and completed:
+  - `DEV-10`, `DEV-11`, `DEV-12`, `DEV-13`, `DEV-14`

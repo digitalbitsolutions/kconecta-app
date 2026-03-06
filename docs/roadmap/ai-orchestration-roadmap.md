@@ -20,6 +20,17 @@ Completed:
   - PR #2 devops CI
   - PR #3 mobile scaffold
   - PR #4 architecture docs
+- Wave 2 merged:
+  - PR #5 backend provider API
+  - PR #6 QA provider/auth smoke tests
+  - PR #7 mobile UI/UX baseline
+- Wave 3 merged:
+  - PR #8 architecture multi-app strategy
+  - PR #9 backend property API skeleton
+  - PR #10 manager mobile dashboard and property flows
+  - PR #11 QA property API smoke tests
+  - PR #12 devops dockerized PHP lint in CI
+  - PR #13 wave 3 task definitions tracked
 - Jira integration v1 (optional) added to orchestrator CLI.
 
 ## Delivery Phases
@@ -30,27 +41,27 @@ Completed:
 - Baseline docs for architecture and API contract.
 - Initial CI pipeline for backend/mobile checks.
 
-### Phase 2: Backend Delivery
+### Phase 2: Backend Delivery (In Progress)
 
 - Implement Laravel provider endpoints and service layer.
 - Add request validation and response resources.
 - Add migration-safe schema updates.
 - Define API auth and role scopes against CRM backend.
 
-### Phase 3: Mobile Delivery
+### Phase 3: Mobile Delivery (In Progress)
 
 - Expand React Native module structure.
 - Add shared API client and typed models.
 - Integrate auth/session handling and role-aware navigation.
 - Implement providers, properties, and service-order flows.
 
-### Phase 4: QA + Security
+### Phase 4: QA + Security (In Progress)
 
 - Add API and mobile smoke tests.
 - Add regression suites for critical business flows.
 - Add security checks for auth and access control.
 
-### Phase 5: Release Orchestration
+### Phase 5: Release Orchestration (In Progress)
 
 - Harden CI with mandatory checks for all agent PRs.
 - Add release tagging and changelog generation.
@@ -80,11 +91,13 @@ Automation:
 
 ## Next Milestones
 
-1. Review and merge PR #5 (`backend`) and PR #6 (`qa`) after manual validation.
-2. Add mandatory branch protection/check requirements for `main`.
-3. Configure Jira credentials in `ai-orchestration/.env.jira` and create first issues from tasks.
-4. Link PRs to Jira and enforce transition workflow (`In Progress` -> `In Review` -> `Done`).
+1. Implement real persistence for properties/providers using CRM production-compatible schema contracts (replace in-memory service stubs).
+2. Connect manager app screens to live API client with auth/session and error handling.
+3. Scaffold second mobile app (`apps/providers`) with role-specific navigation and service-order workflows.
+4. Add mandatory branch protection rules in GitHub for `main` with required checks and review count.
+5. Expand CI with API test job (`phpunit`) and React Native lint/test jobs as codebase matures.
 
 Status update:
 
-- Milestone 1 completed on 2026-03-06: PR #5 and PR #6 merged.
+- Jira environment is active and workflow proven (`DEV-7` to `DEV-14` completed).
+- Current repository baseline at main includes merged wave 1-3 outputs and is ready for wave 4 implementation.
