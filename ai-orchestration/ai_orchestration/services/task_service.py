@@ -12,11 +12,12 @@ class TaskService:
         if not task_file.exists():
             raise FileNotFoundError(f"Task file does not exist: {task_file}")
 
+        content = task_file.read_text(encoding="utf-8-sig")
         suffix = task_file.suffix.lower()
         if suffix == ".json":
-            data = json.loads(task_file.read_text(encoding="utf-8"))
+            data = json.loads(content)
         elif suffix in {".yaml", ".yml"}:
-            data = self._load_yaml(task_file)
+            data = self._load_yaml(content)
         else:
             raise ValueError("Task file must be JSON or YAML.")
 
@@ -24,7 +25,7 @@ class TaskService:
             raise ValueError("Task file root must be an object.")
         return TaskSpec.from_dict(data)
 
-    def _load_yaml(self, task_file: Path) -> dict[str, Any]:
+    def _load_yaml(self, content: str) -> dict[str, Any]:
         try:
             import yaml  # type: ignore
         except ModuleNotFoundError as exc:
@@ -32,7 +33,7 @@ class TaskService:
                 "YAML support requires PyYAML. Run: py -m pip install -r ai-orchestration/requirements.txt"
             ) from exc
 
-        content = yaml.safe_load(task_file.read_text(encoding="utf-8"))  # type: ignore[attr-defined]
-        if not isinstance(content, dict):
+        loaded = yaml.safe_load(content)  # type: ignore[attr-defined]
+        if not isinstance(loaded, dict):
             raise ValueError("YAML task root must be an object.")
-        return content
+        return loaded
