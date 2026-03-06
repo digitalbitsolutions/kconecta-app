@@ -2,7 +2,9 @@
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { getSessionSnapshot } from "../auth/session";
 import KpiCard from "../components/KpiCard";
+import { managerEnv } from "../config/env";
 import type { ManagerStackParamList } from "../navigation";
 import { borderRadius, colors, fontSizes, spacing } from "../theme/tokens";
 
@@ -10,6 +12,7 @@ type DashboardNavigation = NativeStackNavigationProp<ManagerStackParamList, "Man
 
 const ManagerDashboardScreen = () => {
   const navigation = useNavigation<DashboardNavigation>();
+  const sessionSnapshot = getSessionSnapshot();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -27,6 +30,17 @@ const ManagerDashboardScreen = () => {
         <Pressable style={styles.primaryAction} onPress={() => navigation.navigate("PropertyList")}>
           <Text style={styles.primaryActionText}>Open Property Portfolio</Text>
         </Pressable>
+
+        {managerEnv.diagnosticsEnabled ? (
+          <View style={styles.diagnosticsCard}>
+            <Text style={styles.diagnosticsTitle}>Environment diagnostics</Text>
+            <Text style={styles.diagnosticsItem}>Stage: {managerEnv.stage}</Text>
+            <Text style={styles.diagnosticsItem}>API: {managerEnv.apiBaseUrl}</Text>
+            <Text style={styles.diagnosticsItem}>
+              Token: {sessionSnapshot.hasToken ? `loaded (${sessionSnapshot.source})` : "missing"}
+            </Text>
+          </View>
+        ) : null}
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Today priorities</Text>
@@ -76,6 +90,25 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     fontWeight: "700",
   },
+  diagnosticsCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+  },
+  diagnosticsTitle: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.md,
+    fontWeight: "700",
+    marginBottom: spacing.sm,
+  },
+  diagnosticsItem: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+    lineHeight: 22,
+  },
   sectionCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -98,4 +131,3 @@ const styles = StyleSheet.create({
 });
 
 export default ManagerDashboardScreen;
-
