@@ -1,0 +1,23 @@
+﻿{
+  "id": "QA-003",
+  "title": "Add property detail API tests",
+  "description": "Add feature tests for /api/properties/{id} success and not-found behavior, and keep auth guard coverage.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/AuthGuardTest.php"
+  ],
+  "acceptance_criteria": [
+    "Authenticated request gets 200 for existing property id",
+    "Authenticated request gets 404 for unknown property id",
+    "Guest request remains unauthorized"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "skills": ["qa-core"],
+    "suite": "api-smoke",
+    "rag": {"enabled": true, "top_k": 3},
+    "wave": "wave4"
+  }
+}

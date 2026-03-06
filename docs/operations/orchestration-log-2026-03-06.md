@@ -31,6 +31,13 @@
   - PR #5 backend provider API skeleton merged.
   - PR #6 QA provider/auth smoke tests merged.
   - PR #7 mobile UI/UX baseline merged.
+  - PR #8 architecture multi-app strategy merged.
+  - PR #9 backend property list API merged.
+  - PR #10 manager mobile dashboard/property flow merged.
+  - PR #11 QA property list tests merged.
+  - PR #12 CI dockerized PHP lint merged.
+  - PR #13 wave 3 task definitions tracked.
+  - PR #14 orchestration log and roadmap refresh merged.
 
 ## Quality/Safety Fixes
 
@@ -51,9 +58,9 @@
 
 ## Current Outcome
 
-- `main` contains merged architecture + mobile + CI + backend contract and API skeleton docs.
+- `main` now includes manager app UI foundation, API client integration, property list/detail API skeleton, and QA coverage for these endpoints.
 - Repo is clean and synchronized with origin.
-- Orchestration ready for next task wave focused on real backend + QA implementation.
+- Wave 4 core-feature increment is merged and traceable in Jira.
 
 ## Wave 2 Execution (Backend + QA)
 
@@ -82,6 +89,17 @@
   - PR #12 (`agent/devops`) -> merged
   - PR #13 (`agent/architect`) wave 3 task definitions tracked in repo -> merged
 
+## Wave 4 Execution (Core Feature Set Increment)
+
+- Created and executed task pack:
+  - `BE-003` property detail API endpoint
+  - `MOB-003` manager app API client integration for property list/detail
+  - `QA-003` property detail API tests
+- Opened, approved, and merged PRs:
+  - PR #17 (`agent/backend`) -> merged
+  - PR #16 (`agent/qa`) -> merged
+  - PR #15 (`agent/mobile`) -> merged
+
 ## Jira Integration Status
 
 - Jira CLI commands are available from orchestrator.
@@ -92,3 +110,6 @@
   - `DEV-7`, `DEV-8`, `DEV-9`
 - Wave 3 tickets linked and completed:
   - `DEV-10`, `DEV-11`, `DEV-12`, `DEV-13`, `DEV-14`
+- Wave 4 tickets linked and completed:
+  - `DEV-15`, `DEV-16`, `DEV-17`
+- Epic-level ticket `DEV-1` moved to `In Progress` and linked to wave 4 decomposition comments.

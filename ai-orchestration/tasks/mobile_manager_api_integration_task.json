@@ -1,0 +1,25 @@
+﻿{
+  "id": "MOB-003",
+  "title": "Integrate manager property screens with API client",
+  "description": "Add a lightweight API client in React Native manager app and wire PropertyList/PropertyDetail screens to fetch from /api/properties and /api/properties/{id} with loading and error states.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/client.ts",
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/screens/PropertyListScreen.tsx",
+    "apps/manager/src/screens/PropertyDetailScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "List screen fetches properties from API layer",
+    "Detail screen fetches selected property by id",
+    "Loading and error UI states are handled"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "skills": ["mobile-core"],
+    "stack": "React Native with TypeScript",
+    "rag": {"enabled": true, "top_k": 4},
+    "wave": "wave4"
+  }
+}

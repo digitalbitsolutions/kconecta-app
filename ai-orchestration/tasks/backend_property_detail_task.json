@@ -1,0 +1,24 @@
+﻿{
+  "id": "BE-003",
+  "title": "Add property detail API endpoint",
+  "description": "Extend Laravel API with /api/properties/{id} endpoint and service method to return a single property payload for manager detail screen.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "routes/api.php",
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php"
+  ],
+  "acceptance_criteria": [
+    "GET /api/properties/{id} is protected by auth middleware",
+    "Returns property payload for existing id",
+    "Returns 404 payload for unknown id"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "skills": ["backend-core"],
+    "domain": "property",
+    "rag": {"enabled": true, "top_k": 4},
+    "wave": "wave4"
+  }
+}
