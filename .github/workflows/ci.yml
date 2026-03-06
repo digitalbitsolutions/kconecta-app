@@ -39,6 +39,27 @@ jobs:
             exit 1
           fi
 
+      - name: Lint PHP syntax in Docker
+        run: |
+          if [ -d "app" ] || [ -d "routes" ] || [ -d "tests" ]; then
+            docker run --rm -v "$PWD:/workspace" -w /workspace php:8.3-cli sh -lc '
+              set -e
+              targets=""
+              for dir in app routes tests; do
+                if [ -d "$dir" ]; then
+                  targets="$targets $dir"
+                fi
+              done
+              if [ -z "$targets" ]; then
+                echo "No PHP target directories found."
+                exit 1
+              fi
+              find $targets -type f -name "*.php" -print0 | xargs -0 -n1 php -l
+            '
+          else
+            echo "No PHP directories found, skipping PHP lint."
+          fi
+
       - name: Upload orchestration logs artifact
         if: always()
         uses: actions/upload-artifact@v4
