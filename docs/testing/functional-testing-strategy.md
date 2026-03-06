@@ -22,6 +22,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 3. Auth control flow: invalid token -> `401` for provider/property list endpoints
 4. Auth parser regression: lowercase `bearer` scheme remains accepted
 5. Mobile timeout regression: client timeout value stays configurable via env and documented in release notes
+6. Data-source contract: list endpoints expose `meta.source` as `database` or `in_memory`
 
 ## Execution Checklist
 
@@ -32,6 +33,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 3. Run API smoke tests in QA suite.
 4. Verify CI checks are green on all related PRs.
 5. Record Jira evidence (PR link + test result summary).
+6. Confirm `meta.source` contract in provider/property list responses.
 
 ## Entry Criteria
 
