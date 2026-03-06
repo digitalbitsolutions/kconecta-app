@@ -81,5 +81,13 @@ class MobileApiFlowTest extends TestCase
             ->getJson("/api/properties");
         $propertyListResponse->assertUnauthorized();
     }
-}
 
+    public function test_lowercase_bearer_scheme_is_accepted(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "bearer " . self::API_TOKEN])
+            ->getJson("/api/providers");
+
+        $response->assertOk();
+    }
+}

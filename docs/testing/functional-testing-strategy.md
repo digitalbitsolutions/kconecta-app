@@ -20,6 +20,8 @@ Validate end-to-end functional behavior of native app API contracts before relea
 1. Provider mobile flow: `/api/providers` -> `/api/providers/{id}`
 2. Manager mobile flow: `/api/properties` -> `/api/properties/{id}`
 3. Auth control flow: invalid token -> `401` for provider/property list endpoints
+4. Auth parser regression: lowercase `bearer` scheme remains accepted
+5. Mobile timeout regression: client timeout value stays configurable via env and documented in release notes
 
 ## Execution Checklist
 
