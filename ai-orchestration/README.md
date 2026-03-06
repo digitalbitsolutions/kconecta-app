@@ -111,6 +111,9 @@ Run from repository root (`D:\still\kconecta-app`):
 py ai-orchestration/orchestrator.py preflight
 ```
 
+`preflight` now exposes `checks.llm_routing.providers.*.error` for provider diagnostics
+(for example: AG quota limits, endpoint DNS/connectivity issues).
+
 Auto-pull missing required models:
 
 ```powershell

@@ -69,6 +69,8 @@ class LlmRouter:
         raise RuntimeError("All LLM providers failed. " + " | ".join(errors))
 
     def preflight_status(self) -> dict[str, Any]:
+        google = self.google_ag.diagnose()
+        windsurf = self.windsurf.diagnose()
         return {
             "default_policy": self._policy_text(),
             "providers": {
@@ -76,14 +78,8 @@ class LlmRouter:
                     "configured": True,
                     "healthy": self.ollama.health_check(),
                 },
-                "google_ag": {
-                    **self.google_ag.configuration_status(),
-                    "healthy": self.google_ag.health_check(),
-                },
-                "windsurf": {
-                    **self.windsurf.configuration_status(),
-                    "healthy": self.windsurf.health_check(),
-                },
+                "google_ag": google,
+                "windsurf": windsurf,
             },
         }
 
