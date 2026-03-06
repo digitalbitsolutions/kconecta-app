@@ -1,0 +1,25 @@
+﻿{
+  "id": "MOB-004",
+  "title": "Add mobile env and session token configuration",
+  "description": "Implement manager app environment module and session token bootstrap so API client consistently targets configured base URL and bearer token.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/config/env.ts",
+    "apps/manager/src/auth/session.ts",
+    "apps/manager/src/api/client.ts",
+    "apps/manager/src/screens/ManagerDashboardScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "API base URL comes from environment contract",
+    "Bearer token bootstrap is available for release testing",
+    "Manager screen exposes current environment diagnostics"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "skills": ["mobile-core"],
+    "stack": "React Native with TypeScript",
+    "rag": {"enabled": true, "top_k": 4},
+    "wave": "wave5"
+  }
+}

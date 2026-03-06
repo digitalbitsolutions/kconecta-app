@@ -4,6 +4,7 @@
 
 - Public contracts are exposed under `/api/v1/*`.
 - New fields are additive in `v1`; breaking changes require `v2`.
+- Transitional endpoints may exist under `/api/*` while legacy CRM modules are aligned to `v1`.
 
 ## Property Domain (Manager App)
 
@@ -44,8 +45,12 @@ Ownership:
 
 ## Auth and Scope Boundary
 
-- All endpoints require authenticated sessions/tokens.
+- All endpoints require either authenticated CRM session or valid mobile bearer token.
 - Tenant or organization scope is enforced server-side.
+- Mobile bearer token contract:
+  - Request header: `Authorization: Bearer <token>`
+  - Server expected token: `KC_MOBILE_API_TOKEN`
+  - Mobile config source: `EXPO_PUBLIC_MOBILE_API_TOKEN`
 - Role checks:
   - manager endpoints -> manager/admin
   - provider endpoints -> provider/admin
