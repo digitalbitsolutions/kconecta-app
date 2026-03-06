@@ -5,9 +5,11 @@ use App\Http\Controllers\Api\ProviderController;
 use App\Http\Controllers\Api\PropertyController;
 use Illuminate\Support\Facades\Route;
 
-Route::post("/login", [AuthController::class, "login"]);
-Route::post("/refresh", [AuthController::class, "refresh"]);
-Route::post("/logout", [AuthController::class, "logout"]);
+Route::prefix("auth")->group(function (): void {
+    Route::post("/login", [AuthController::class, "login"]);
+    Route::post("/refresh", [AuthController::class, "refresh"]);
+    Route::post("/logout", [AuthController::class, "logout"]);
+});
 
 Route::get("/providers", [ProviderController::class, "index"]);
 Route::get("/providers/{id}", [ProviderController::class, "show"]);

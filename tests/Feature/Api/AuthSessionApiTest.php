@@ -1,58 +1,111 @@
-<?php
+﻿<?php
 
 namespace Tests\Feature\Api;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
 
 class AuthSessionApiTest extends TestCase
 {
-    public function test_login_endpoint_returns_token_on_success()
+    use RefreshDatabase;
+
+    private const API_TOKEN = "kconecta-dev-token";
+
+    public function test_login_requires_email_and_password_fields(): void
     {
-        $response = $this->postJson('/api/login', [
-            'email' => 'test@example.com',
-            'password' => 'password',
+        $response = $this->postJson("/api/auth/login", []);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(["email", "password"]);
+    }
+
+    public function test_login_rejects_invalid_password(): void
+    {
+        $response = $this->postJson("/api/auth/login", [
+            "email" => "manager@kconecta.local",
+            "password" => "wrong-password",
         ]);
 
-        $response->assertStatus(200);
-        $response->assertJsonStructure(['token']);
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("error.code", "INVALID_CREDENTIALS");
     }
 
-    public function test_login_endpoint_returns_error_on_failure()
+    public function test_login_returns_scaffold_contract_payload(): void
     {
-        $response = $this->postJson('/api/login', [
-            'email' => 'test@example.com',<｜begin▁of▁sentence｜>
-            'password' => 'wrong_password',
+        $response = $this->postJson("/api/auth/login", [
+            "email" => "manager@kconecta.local",
+            "password" => "kconecta-dev-password",
         ]);
 
-        $response->assertStatus(401);
-        $response->assertJsonStructure(['error']);
+        $response
+            ->assertOk()
+            ->assertJsonStructure([
+                "data" => [
+                    "access_token",
+                    "refresh_token",
+                    "token_type",
+                    "expires_in",
+                    "scope",
+                    "role",
+                    "issued_at",
+                ],
+                "meta" => ["contract", "mode"],
+            ])
+            ->assertJsonPath("data.token_type", "Bearer")
+            ->assertJsonPath("meta.contract", "auth-session-v1");
     }
 
-    public function test_refresh_endpoint_returns_new_token()
+    public function test_refresh_requires_authorized_token(): void
     {
-        $user = User::factory()->create();
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $response = $this->postJson("/api/auth/refresh");
 
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer '.$token,
-        ])->postJson('/api/refresh');
-
-        $response->assertStatus(200);
-        $response->assertJsonStructure(['token']);
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("error.code", "TOKEN_INVALID");
     }
 
-    public function test_logout_endpoint_invalidates_token()
+    public function test_refresh_returns_rotated_tokens_for_authorized_token(): void
     {
-        $user = User::factory()->create();
-        $token = $user->createToken('auth_token')->plainTextToken;
-
         $response = $this->withHeaders([
-            'Authorization' => 'Bearer '.$token,
-        ])->postJson('/api/logout');
+            "Authorization" => "Bearer " . self::API_TOKEN,
+        ])->postJson("/api/auth/refresh", [
+            "refresh_token" => "rtk_seed_refresh",
+        ]);
 
-        $response->assertStatus(200);
-        $response->assertJson(['message' => 'Tokens Revoked']);
+        $response
+            ->assertOk()
+            ->assertJsonStructure([
+                "data" => ["access_token", "refresh_token", "token_type", "expires_in", "issued_at"],
+                "meta" => ["contract", "mode"],
+            ])
+            ->assertJsonPath("data.refresh_token", "rtk_seed_refresh");
+    }
+
+    public function test_logout_requires_authorized_token(): void
+    {
+        $response = $this->withHeaders([
+            "Authorization" => "Bearer invalid-token",
+        ])->postJson("/api/auth/logout");
+
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("error.code", "TOKEN_INVALID");
+    }
+
+    public function test_logout_returns_revoke_payload_for_authorized_token(): void
+    {
+        $response = $this->withHeaders([
+            "Authorization" => "Bearer " . self::API_TOKEN,
+        ])->postJson("/api/auth/logout");
+
+        $response
+            ->assertOk()
+            ->assertJsonStructure([
+                "data" => ["revoked", "revoked_at"],
+                "meta" => ["contract", "mode"],
+            ])
+            ->assertJsonPath("data.revoked", true);
     }
 }

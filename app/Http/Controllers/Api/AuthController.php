@@ -3,38 +3,81 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\ApiAccessService;
 use App\Services\AuthSessionService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
-    public function login(Request $request)
+    public function __construct(
+        private readonly AuthSessionService $authSessionService,
+        private readonly ApiAccessService $apiAccessService
+    )
     {
-        $credentials = $request->only('email', 'password');
+    }
 
-        if (Auth::attempt($credentials)) {
-            $user = Auth::user();
-            $token = $user->createToken('auth_token')->plainTextToken;
+    public function login(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            "email" => ["required", "string"],
+            "password" => ["required", "string"],
+        ]);
 
-            return response()->json(['token' => $token]);
+        if (!$this->authSessionService->canLogin((string) $payload["password"])) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => "INVALID_CREDENTIALS",
+                        "message" => "Invalid credentials",
+                    ],
+                ],
+                401
+            );
         }
 
-        return response()->json(['error' => 'Unauthorized'], 401);
+        return response()->json(
+            $this->authSessionService->buildLoginPayload((string) $payload["email"]),
+            200
+        );
     }
 
-    public function refresh(Request $request)
+    public function refresh(Request $request): JsonResponse
     {
-        $user = $request->user();
-        $token = $user->createToken('auth_token')->plainTextToken;
+        if (!$this->apiAccessService->isAuthorized($request)) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => "TOKEN_INVALID",
+                        "message" => "Unauthorized",
+                    ],
+                ],
+                401
+            );
+        }
 
-        return response()->json(['token' => $token]);
+        $refreshToken = trim((string) $request->input("refresh_token", ""));
+
+        return response()->json(
+            $this->authSessionService->buildRefreshPayload($refreshToken),
+            200
+        );
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request): JsonResponse
     {
-        $request->user()->tokens()->delete();
+        if (!$this->apiAccessService->isAuthorized($request)) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => "TOKEN_INVALID",
+                        "message" => "Unauthorized",
+                    ],
+                ],
+                401
+            );
+        }
 
-        return response()->json(['message' => 'Tokens Revoked']);
+        return response()->json($this->authSessionService->buildLogoutPayload(), 200);
     }
 }
