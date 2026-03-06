@@ -1,0 +1,26 @@
+{
+  "id": "BE-007",
+  "title": "Enable DB-first provider and property retrieval with safe fallback",
+  "description": "Update backend service layer so providers and properties are fetched from CRM-compatible tables when available, while preserving in-memory fallback for local bootstrap and CI stability.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Services/ProviderService.php",
+    "app/Services/PropertyService.php",
+    "docs/architecture/mobile-release-contract.md",
+    ".env.docker.example"
+  ],
+  "acceptance_criteria": [
+    "Provider and property endpoints attempt database retrieval first",
+    "Fallback to in-memory datasets remains available when tables are absent",
+    "Response metadata identifies data source mode for observability",
+    "Environment variables document table and data source overrides"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "skills": ["backend-core"],
+    "domain": "data-persistence",
+    "wave": "wave9",
+    "rag": {"enabled": true, "top_k": 4}
+  }
+}

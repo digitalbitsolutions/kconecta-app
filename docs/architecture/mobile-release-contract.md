@@ -23,6 +23,22 @@ Define the minimum environment and auth contract required for native app release
   - Server-side expected token for mobile bearer auth.
   - Must match `EXPO_PUBLIC_MOBILE_API_TOKEN` in each environment.
 
+## Backend Data Source Variables (v0.2.0)
+
+- `KC_PROVIDER_DATA_SOURCE`, `KC_PROPERTY_DATA_SOURCE`
+  - `auto`: DB-first with in-memory fallback.
+  - `database`: strict DB read.
+  - `seed`: force in-memory dataset.
+- `KC_PROVIDER_TABLE`, `KC_PROPERTY_TABLE`
+  - Table names used by backend read services.
+  - Allow compatibility with CRM schema naming without code changes.
+
+## API Observability Contract
+
+- Provider/property list endpoints include `meta.source` with:
+  - `database` when payload comes from DB table reads.
+  - `in_memory` when fallback dataset is used.
+
 ## Auth Strategy (Current Increment)
 
 - API requests are authorized when either condition is true:
