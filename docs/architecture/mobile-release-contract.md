@@ -39,12 +39,62 @@ Define the minimum environment and auth contract required for native app release
   - `database` when payload comes from DB table reads.
   - `in_memory` when fallback dataset is used.
 
-## Auth Strategy (Current Increment)
+## Auth/Session Lifecycle Contract (Wave 10)
 
-- API requests are authorized when either condition is true:
-  - CRM-authenticated user session exists (web/admin flows).
-  - Valid bearer token matches `KC_MOBILE_API_TOKEN` (native app flows).
-- Anonymous and invalid-token requests must return `401`.
+### Session States
+
+- `unauthenticated`: no active access token.
+- `authenticated`: access token is valid and scope-checked.
+- `refreshing`: client is exchanging refresh token for a new access token.
+- `expired`: access token expired; one refresh attempt is allowed.
+- `terminated`: logout/revocation completed and local credentials wiped.
+
+### Login Contract
+
+- Endpoint: `POST /api/v1/auth/login`
+- Expected response shape:
+  - `access_token`
+  - `refresh_token`
+  - `expires_at` (ISO-8601 UTC timestamp)
+  - `scope` (role-aware permission list)
+- Client responsibilities:
+  - Persist tokens in secure storage.
+  - Keep token metadata in memory only while app is running.
+
+### Refresh Contract
+
+- Endpoint: `POST /api/v1/auth/refresh`
+- Trigger: first `401` with code `TOKEN_EXPIRED`.
+- Behavior:
+  - Rotate access token.
+  - Optionally rotate refresh token.
+  - Retry the failed request once after successful refresh.
+- If refresh fails (`TOKEN_INVALID` or `TOKEN_REVOKED`), client moves to `unauthenticated`.
+
+### Logout Contract
+
+- Endpoint: `POST /api/v1/auth/logout`
+- Backend responsibilities:
+  - Revoke current token chain.
+  - Return idempotent success on repeated logout.
+- Client responsibilities:
+  - Clear secure storage tokens.
+  - Clear in-memory session cache.
+  - Redirect to auth entry screen.
+
+### Role and Scope Rules
+
+- `manager`: property CRUD, provider read, manager dashboards.
+- `provider`: own profile/services/availability and assigned jobs.
+- `admin`: full cross-domain access.
+- Insufficient scope must return `403` (never `200` with filtered side effects).
+
+### Bootstrap Compatibility Mode
+
+- Until all auth endpoints are deployed, native apps may use static bearer auth:
+  - `Authorization: Bearer <KC_MOBILE_API_TOKEN>`
+- Static token mode remains valid for bootstrap/read endpoints only.
+- Final target is refreshable role-scoped session tokens.
 
 ## Environment Routing Guidance
 
@@ -63,3 +113,13 @@ Define the minimum environment and auth contract required for native app release
   - Store credentials with platform secure storage.
   - Add endpoint-level role scopes for manager/provider/admin.
 
+## Backward Compatibility and Migration Notes
+
+- Existing CRM contracts remain valid while native apps are onboarded.
+- Mobile clients depend only on public API contracts, never direct DB access.
+- Module internals can evolve as long as `v1` response contracts remain backward compatible.
+- Migration order:
+  1. Release additive `/api/v1/auth/*` endpoints.
+  2. Keep static token acceptance enabled during rollout.
+  3. Flip clients to login/refresh flow.
+  4. Retire static token from mobile once all clients are migrated.
