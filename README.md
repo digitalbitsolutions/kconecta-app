@@ -40,3 +40,4 @@ La fabrica local AI esta documentada en:
 - [ai-orchestration/README.md](ai-orchestration/README.md)
 - [docs/roadmap/ai-orchestration-roadmap.md](docs/roadmap/ai-orchestration-roadmap.md)
 - [docs/operations/orchestration-log-2026-03-06.md](docs/operations/orchestration-log-2026-03-06.md)
+- [docs/release-notes/native-mobile-v0.1.0.md](docs/release-notes/native-mobile-v0.1.0.md)
