@@ -9,32 +9,7 @@ class PropertyService
      */
     public function listProperties(array $filters = []): array
     {
-        $rows = [
-            [
-                "id" => 101,
-                "title" => "Modern Loft Center",
-                "city" => "Madrid",
-                "status" => "available",
-                "manager_id" => "mgr-001",
-                "price" => 235000,
-            ],
-            [
-                "id" => 102,
-                "title" => "Family Home North",
-                "city" => "Barcelona",
-                "status" => "reserved",
-                "manager_id" => "mgr-001",
-                "price" => 310000,
-            ],
-            [
-                "id" => 103,
-                "title" => "City Apartment East",
-                "city" => "Valencia",
-                "status" => "available",
-                "manager_id" => "mgr-002",
-                "price" => 198000,
-            ],
-        ];
+        $rows = $this->seedRows();
 
         $filtered = array_values(
             array_filter(
@@ -63,6 +38,50 @@ class PropertyService
                     "city" => $filters["city"] ?? null,
                     "manager_id" => $filters["manager_id"] ?? null,
                 ],
+            ],
+        ];
+    }
+
+    public function findPropertyById(int $id): ?array
+    {
+        foreach ($this->seedRows() as $row) {
+            if ((int) $row["id"] === $id) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Temporary in-memory dataset used until DB-backed repository is wired.
+     */
+    private function seedRows(): array
+    {
+        return [
+            [
+                "id" => 101,
+                "title" => "Modern Loft Center",
+                "city" => "Madrid",
+                "status" => "available",
+                "manager_id" => "mgr-001",
+                "price" => 235000,
+            ],
+            [
+                "id" => 102,
+                "title" => "Family Home North",
+                "city" => "Barcelona",
+                "status" => "reserved",
+                "manager_id" => "mgr-001",
+                "price" => 310000,
+            ],
+            [
+                "id" => 103,
+                "title" => "City Apartment East",
+                "city" => "Valencia",
+                "status" => "available",
+                "manager_id" => "mgr-002",
+                "price" => 198000,
             ],
         ];
     }

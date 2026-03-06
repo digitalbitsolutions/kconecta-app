@@ -25,4 +25,20 @@ class PropertyController extends Controller
 
         return response()->json($payload, 200);
     }
+
+    public function show(int $id): JsonResponse
+    {
+        $property = $this->propertyService->findPropertyById($id);
+        if ($property === null) {
+            return response()->json(
+                [
+                    "message" => "Property not found",
+                    "property_id" => $id,
+                ],
+                404
+            );
+        }
+
+        return response()->json(["data" => $property], 200);
+    }
 }
