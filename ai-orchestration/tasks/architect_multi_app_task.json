@@ -1,0 +1,23 @@
+﻿{
+  "id": "ARCH-002",
+  "title": "Define multi-app strategy and admin surface",
+  "description": "Document the target architecture for two native apps (real-estate managers and home-service providers) and define whether admin should be a separate app or a web/admin surface with security and operations tradeoffs.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/multi-app-strategy.md",
+    "docs/architecture/api-boundary.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Clear decision record for admin surface",
+    "Domain boundaries and app responsibilities are explicit",
+    "Rollout roadmap and compatibility strategy are documented"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "skills": ["architect-core"],
+    "owner": "architecture-team",
+    "rag": {"enabled": true, "top_k": 4}
+  }
+}
