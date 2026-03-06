@@ -47,7 +47,10 @@ class GitService:
         return "(unknown)"
 
     def status_porcelain(self, cwd: Path | None = None) -> list[str]:
-        result = self.run(["status", "--porcelain"], cwd=cwd)
+        result = self.run(
+            ["status", "--porcelain=1", "--untracked-files=all"],
+            cwd=cwd,
+        )
         output = result.stdout.strip()
         return output.splitlines() if output else []
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import urllib.error
 import urllib.request
 from typing import Any
@@ -13,11 +14,16 @@ class OllamaClient:
     def __init__(
         self,
         base_url: str = DEFAULT_OLLAMA_BASE_URL,
-        timeout_seconds: int = 180,
+        timeout_seconds: int | None = None,
         runner: CommandRunner | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
-        self.timeout_seconds = timeout_seconds
+        env_timeout = os.environ.get("KC_OLLAMA_TIMEOUT_SECONDS", "600")
+        try:
+            default_timeout = max(30, int(env_timeout))
+        except ValueError:
+            default_timeout = 600
+        self.timeout_seconds = timeout_seconds if timeout_seconds is not None else default_timeout
         self.runner = runner or CommandRunner()
 
     def health_check(self) -> bool:
