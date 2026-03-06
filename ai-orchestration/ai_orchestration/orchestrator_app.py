@@ -15,6 +15,7 @@ from .constants import (
     DEFAULT_WORKTREE_DIRNAME,
     LOG_FILE,
     REQUIRED_OLLAMA_MODELS,
+    SEMANTIC_COMMIT_PREFIXES,
 )
 from .models import TaskSpec
 from .services.aider_service import AiderService
@@ -159,7 +160,7 @@ class Orchestrator:
         )
         changed_files = self.git.changed_files(cwd=worktree)
         self._validate_changed_files_within_scope(changed_files, file_scope)
-        commit_message = output.commit_message or f"{task.commit_type}: {task.title}"
+        commit_message = self._normalize_commit_message(output.commit_message, task)
         committed_files = self.git.commit(
             cwd=worktree,
             message=commit_message,
@@ -285,6 +286,25 @@ class Orchestrator:
             raise RuntimeError(
                 "Aider changed files outside allowed scope: " + ", ".join(out_of_scope)
             )
+
+    def _normalize_commit_message(self, candidate: str, task: TaskSpec) -> str:
+        fallback = f"{task.commit_type}: {task.title}"
+        normalized = (candidate or "").strip()
+        if not normalized:
+            return fallback
+
+        if ":" not in normalized:
+            return fallback
+
+        prefix, body = normalized.split(":", maxsplit=1)
+        prefix = prefix.strip().lower()
+        body = body.strip() or task.title
+        if prefix not in SEMANTIC_COMMIT_PREFIXES:
+            return fallback
+
+        if prefix != task.commit_type:
+            return f"{task.commit_type}: {body}"
+        return f"{prefix}: {body}"
 
     def _model_is_available(self, required_model: str, installed_models: set[str]) -> bool:
         if required_model in installed_models:
