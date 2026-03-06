@@ -36,7 +36,17 @@ Completed:
   - PR #17 backend property detail endpoint
   - PR #16 QA property detail tests
   - PR #15 manager app API client integration
+- Wave 5-8 merged:
+  - PR #19, #21, #22, #20 release env + token gate
+  - PR #23, #24, #25, #26 providers integration
+  - PR #27, #28 functional test strategy and API flow tests
+  - PR #29, #30, #31, #32 bugfix and regression hardening
+  - PR #33 release notes publication
 - Jira integration v1 (optional) added to orchestrator CLI.
+- Wave 9 started:
+  - DB-first provider/property retrieval with fallback controls.
+  - API `meta.source` contract in list endpoints.
+  - QA smoke suite aligned with data-source metadata.
 
 ## Delivery Phases
 
@@ -96,7 +106,7 @@ Automation:
 
 ## Next Milestones
 
-1. Replace in-memory property/provider datasets with DB-backed repositories compatible with CRM schema in Docker (`kconecta-app` MySQL).
+1. Complete DB persistence wave by adding write operations and pagination over CRM-backed tables.
 2. Add auth/session layer for mobile API requests (token storage, refresh, unauthorized redirect).
 3. Extend manager app with create/update/reserve actions and form validation.
 4. Expand providers app workflows and connect to backend service-order endpoints.
@@ -107,4 +117,5 @@ Status update:
 
 - Jira environment is active and workflow proven (`DEV-7` to `DEV-17` completed).
 - `DEV-1` (core feature set) is in progress and decomposed into merged wave 4 sub-tasks.
-- Current repository baseline at main includes merged wave 1-4 outputs and is ready for DB/auth integration.
+- Current repository baseline at main includes merged wave 1-8 outputs.
+- Wave 9 persistence increment is in progress on top of Docker Desktop MySQL (`kconecta-app` volume).

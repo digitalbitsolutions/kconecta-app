@@ -1,0 +1,26 @@
+{
+  "id": "ARCH-005",
+  "title": "Document wave9 persistence alignment and rollout controls",
+  "description": "Capture v0.2.0 persistence strategy for DB-first backend reads, fallback controls, and rollout guidance across local Docker and production-like environments.",
+  "agent": "architect",
+  "priority": "medium",
+  "files_scope": [
+    "docs/roadmap/ai-orchestration-roadmap.md",
+    "docs/operations/orchestration-log-2026-03-06.md",
+    "docs/architecture/mobile-release-contract.md",
+    "README.md"
+  ],
+  "acceptance_criteria": [
+    "Roadmap reflects wave9 persistence milestone",
+    "Operations log captures implementation and validation notes",
+    "Environment contract includes backend data-source configuration",
+    "Repository README includes updated backend runtime guidance"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "skills": ["architect-core"],
+    "owner": "architecture-team",
+    "wave": "wave9",
+    "rag": {"enabled": true, "top_k": 4}
+  }
+}

@@ -113,3 +113,24 @@
 - Wave 4 tickets linked and completed:
   - `DEV-15`, `DEV-16`, `DEV-17`
 - Epic-level ticket `DEV-1` moved to `In Progress` and linked to wave 4 decomposition comments.
+
+## Wave 9 Kickoff (Persistence Alignment)
+
+- Objective: start v0.2.0 by moving provider/property reads to DB-first mode.
+- Implemented:
+  - `ProviderService` and `PropertyService` now try DB tables first and fall back to in-memory seeds when unavailable.
+  - Added backend env controls:
+    - `KC_PROVIDER_DATA_SOURCE`
+    - `KC_PROPERTY_DATA_SOURCE`
+    - `KC_PROVIDER_TABLE`
+    - `KC_PROPERTY_TABLE`
+  - Added API observability field `meta.source` (`database` | `in_memory`) on list endpoints.
+  - Updated smoke tests to validate `meta.source` contract without coupling to one runtime mode.
+- Validation:
+  - Syntax checks executed with `php -n -l` for modified backend/services and feature tests.
+  - Host PHP profile is misconfigured for extension loading; standard `php -l` is not reliable in this workstation profile.
+- Jira tracking:
+  - Epic: `DEV-38` (In Progress)
+  - Tasks: `DEV-39` (ARCH-005), `DEV-40` (BE-007), `DEV-41` (QA-008)
+  - Sprint: `DEV Wave 9` (active, 2026-03-06 -> 2026-03-20)
+  - Previous sprint `DEV Wave 8` moved to closed state after completion.
