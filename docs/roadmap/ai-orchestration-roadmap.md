@@ -80,7 +80,11 @@ Automation:
 
 ## Next Milestones
 
-1. Run real `backend` task BE-001 with Laravel skeleton aligned to CRM backend repository structure.
-2. Run real `qa` task QA-001 after backend route/controller exist.
-3. Add mandatory branch protection/check requirements for `main`.
-4. Configure Jira env vars and test `jira-preflight` + first issue creation.
+1. Review and merge PR #5 (`backend`) and PR #6 (`qa`) after manual validation.
+2. Add mandatory branch protection/check requirements for `main`.
+3. Configure Jira credentials in `ai-orchestration/.env.jira` and create first issues from tasks.
+4. Link PRs to Jira and enforce transition workflow (`In Progress` -> `In Review` -> `Done`).
+
+Status update:
+
+- Milestone 1 completed on 2026-03-06: PR #5 and PR #6 merged.

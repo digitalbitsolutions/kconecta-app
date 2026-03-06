@@ -5,6 +5,7 @@ import json
 import os
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Any
 
 from ..models import TaskSpec
@@ -18,24 +19,44 @@ class JiraService:
         user_email: str | None = None,
         api_token: str | None = None,
         project_key: str | None = None,
+        env_file: Path | None = None,
         timeout_seconds: int = 30,
     ) -> None:
-        self.base_url = (base_url or os.environ.get("JIRA_BASE_URL", "")).rstrip("/")
-        self.user_email = user_email or os.environ.get("JIRA_USER_EMAIL", "")
-        self.api_token = api_token or os.environ.get("JIRA_API_TOKEN", "")
-        self.project_key = (project_key or os.environ.get("JIRA_PROJECT_KEY", "")).strip().upper()
+        env_values = self._load_env_file(env_file or Path("ai-orchestration/.env.jira"))
+
+        self.base_url = (
+            base_url
+            or os.environ.get("JIRA_BASE_URL")
+            or env_values.get("JIRA_BASE_URL", "")
+        ).rstrip("/")
+        self.user_email = (
+            user_email
+            or os.environ.get("JIRA_USER_EMAIL")
+            or env_values.get("JIRA_USER_EMAIL", "")
+        )
+        self.api_token = (
+            api_token
+            or os.environ.get("JIRA_API_TOKEN")
+            or env_values.get("JIRA_API_TOKEN", "")
+        )
+        self.project_key = (
+            project_key
+            or os.environ.get("JIRA_PROJECT_KEY")
+            or env_values.get("JIRA_PROJECT_KEY", "")
+        ).strip().upper()
         self.timeout_seconds = timeout_seconds
 
     def configuration_status(self) -> dict[str, Any]:
+        values = {
+            "JIRA_BASE_URL": self.base_url,
+            "JIRA_USER_EMAIL": self.user_email,
+            "JIRA_API_TOKEN": self.api_token,
+            "JIRA_PROJECT_KEY": self.project_key,
+        }
         missing = [
             name
-            for name, value in (
-                ("JIRA_BASE_URL", self.base_url),
-                ("JIRA_USER_EMAIL", self.user_email),
-                ("JIRA_API_TOKEN", self.api_token),
-                ("JIRA_PROJECT_KEY", self.project_key),
-            )
-            if not value
+            for name, value in values.items()
+            if not value or self._is_placeholder_value(name, value)
         ]
         return {
             "configured": not missing,
@@ -300,3 +321,36 @@ class JiraService:
                 chars.append("-")
         normalized = "".join(chars).strip("-")
         return normalized[:255] if normalized else "n-a"
+
+    def _is_placeholder_value(self, key: str, value: str) -> bool:
+        candidate = value.strip().lower()
+        placeholders = {
+            "JIRA_BASE_URL": {
+                "https://your-domain.atlassian.net",
+                "your-domain",
+            },
+            "JIRA_USER_EMAIL": {
+                "you@example.com",
+            },
+            "JIRA_API_TOKEN": {
+                "your_jira_api_token",
+            },
+        }
+        if key in placeholders and candidate in placeholders[key]:
+            return True
+        return "your_" in candidate or "example.com" in candidate
+
+    def _load_env_file(self, env_file: Path) -> dict[str, str]:
+        try:
+            if not env_file.exists():
+                return {}
+            values: dict[str, str] = {}
+            for raw_line in env_file.read_text(encoding="utf-8").splitlines():
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", maxsplit=1)
+                values[key.strip()] = value.strip().strip("\"'").strip()
+            return values
+        except OSError:
+            return {}

@@ -85,7 +85,7 @@ Jira environment template:
 
 ```powershell
 Copy-Item ai-orchestration/jira.env.example ai-orchestration/.env.jira
-# Fill values in ai-orchestration/.env.jira and export env vars in your shell
+# Fill values in ai-orchestration/.env.jira (the orchestrator loads this file automatically)
 ```
 
 ## Commands
