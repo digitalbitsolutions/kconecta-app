@@ -1,0 +1,21 @@
+{
+  "id": "ARCH-AG-001",
+  "title": "Draft admin and mobile contract addendum",
+  "description": "Write an architecture addendum for manager/provider/admin API contract boundaries.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/api-boundary.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Boundaries are explicit per role",
+    "Admin surface ownership is documented",
+    "Backward compatibility notes are included"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "llm_provider": "auto",
+    "planning_model": "gemini-2.5-pro"
+  }
+}

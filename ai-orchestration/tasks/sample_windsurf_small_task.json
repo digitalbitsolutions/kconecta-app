@@ -1,0 +1,21 @@
+{
+  "id": "MOB-SMALL-001",
+  "title": "Tune provider list empty-state copy",
+  "description": "Apply a small UX copy tweak in providers list empty state message.",
+  "agent": "mobile",
+  "priority": "low",
+  "files_scope": [
+    "apps/providers/src/screens/ProviderListScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Copy is updated in the empty-state block",
+    "No navigation behavior changes",
+    "TypeScript compilation remains valid"
+  ],
+  "commit_type": "fix",
+  "metadata": {
+    "task_size": "small",
+    "llm_provider": "auto",
+    "review_model": "swe-1"
+  }
+}

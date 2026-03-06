@@ -1,0 +1,36 @@
+{
+  "id": "OPS-003",
+  "title": "Align orchestration policy for Gemini planning, DeepSeek codegen, and Windsurf review",
+  "description": "Implement multi-model phase routing in the orchestrator: Google AG for planning, local Ollama DeepSeek for implementation, Windsurf for short review tasks, and deterministic fallback to Ollama when external providers fail.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "ai-orchestration/ai_orchestration/constants.py",
+    "ai-orchestration/ai_orchestration/models.py",
+    "ai-orchestration/ai_orchestration/agents/base_agent.py",
+    "ai-orchestration/ai_orchestration/agents/factory.py",
+    "ai-orchestration/ai_orchestration/orchestrator_app.py",
+    "ai-orchestration/ai_orchestration/services/google_ag_client.py",
+    "ai-orchestration/ai_orchestration/services/windsurf_client.py",
+    "ai-orchestration/ai_orchestration/services/llm_router.py",
+    "ai-orchestration/llm.providers.env.example",
+    "ai-orchestration/README.md",
+    "README.md",
+    ".gitignore"
+  ],
+  "acceptance_criteria": [
+    "Planning uses Google AG by default when configured",
+    "Implementation/proposal uses local Ollama models by default",
+    "Review phase uses Windsurf when configured",
+    "Any external failure falls back to Ollama without breaking task execution",
+    "Agent output includes model trace for planning/proposal/review",
+    "Local secret file ai-orchestration/.env.llm is ignored by git"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "skills": ["devops-core"],
+    "platform": "orchestration",
+    "wave": "wave9",
+    "rag": {"enabled": true, "top_k": 4}
+  }
+}

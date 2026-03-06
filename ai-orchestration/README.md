@@ -2,7 +2,9 @@
 
 Local, reproducible AI orchestration for semi-autonomous development using:
 
-- `Ollama` (local LLMs only)
+- `Ollama` (local fallback/default)
+- `Google Antigravity/AG` (optional, when configured)
+- `Windsurf` with `swe-1` for short review tasks (optional, when configured)
 - `Aider` (automatic file editing)
 - `git` branches/worktrees for agent isolation
 - `gh` CLI for draft PR workflow
@@ -20,9 +22,10 @@ orchestrator.py
   -> skill loading (agent defaults + task-specific skills)
   -> optional MCP calls for runtime/tool context
   -> local RAG context retrieval
+  -> LLM routing by phase (planning -> Google AG, proposal -> Ollama, review -> Windsurf, fallback -> Ollama)
   -> branch/worktree bootstrap
   -> task assignment to agent
-  -> local LLM planning/proposal
+  -> planning/proposal/review execution
   -> aider applies edits in agent worktree
   -> semantic commit on agent branch
   -> draft PR creation
@@ -74,6 +77,9 @@ ai-orchestration/
 - `aider-chat` installed (`aider` in PATH or `py -m aider.main`)
 - Optional but recommended: GitHub CLI (`gh`) authenticated
 - Optional for tracking: Jira Cloud project + API token
+- Optional external LLM credentials:
+  - `GOOGLE_AG_API_KEY`
+  - `WINDSURF_API_KEY`
 
 Install optional dependencies:
 
@@ -86,6 +92,13 @@ Jira environment template:
 ```powershell
 Copy-Item ai-orchestration/jira.env.example ai-orchestration/.env.jira
 # Fill values in ai-orchestration/.env.jira (the orchestrator loads this file automatically)
+```
+
+Optional LLM providers template:
+
+```powershell
+Copy-Item ai-orchestration/llm.providers.env.example ai-orchestration/.env.llm
+# Fill credentials; orchestrator auto-loads this file
 ```
 
 ## Commands
@@ -138,6 +151,17 @@ Apply mode (uses Aider + commit):
 
 ```powershell
 py ai-orchestration/orchestrator.py run-task --agent mobile --task-file ai-orchestration/tasks/sample_mobile_task.json
+```
+
+External routing examples:
+
+```powershell
+# Default policy:
+# planning -> Google AG, proposal -> Ollama, review -> Windsurf
+py ai-orchestration/orchestrator.py run-task --agent mobile --task-file ai-orchestration/tasks/sample_windsurf_small_task.json --dry-run
+
+# Keep default policy and pin planning model to Google AG
+py ai-orchestration/orchestrator.py run-task --agent architect --task-file ai-orchestration/tasks/sample_google_ag_task.json --dry-run
 ```
 
 ### 4) Create draft PR
@@ -268,6 +292,11 @@ Task file supports JSON or YAML with fields:
 `metadata` v1 extensions:
 
 - `skills`: array of skill IDs
+- `llm_provider`: `auto|ollama|google_ag|windsurf`
+- `llm_model`: optional global model override (recommended with explicit `llm_provider`)
+- `planning_model`: optional planning-only model override
+- `proposal_model`: optional proposal-only model override
+- `review_model`: optional review-only model override
 - `rag`:
   - `enabled` (bool)
   - `query` (string, optional override)
@@ -284,9 +313,11 @@ Each agent produces:
 
 - `plan_summary`
 - `proposed_changes`
+- `review_notes`
 - `target_files`
 - `validation_steps`
 - `commit_message`
+- `model_trace` (provider/model used for planning, proposal, and review)
 
 ## Branch and commit safety
 
@@ -329,8 +360,8 @@ The orchestration scaffold itself does not modify database data.
 
 ## Reproducibility notes
 
-- Local inference only (`Ollama` API).
-- No external model APIs.
+- Default inference is local (`Ollama` API).
+- External providers are optional and only used when explicitly configured.
 - Runtime artifacts are logged in:
   - `ai-orchestration/logs/audit.jsonl`
   - `ai-orchestration/logs/transcripts/`

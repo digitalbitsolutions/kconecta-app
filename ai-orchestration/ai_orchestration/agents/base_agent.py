@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from ..constants import MODEL_ROUTING
 from ..models import AgentExecutionContext, AgentOutput, TaskSpec
-from ..services.ollama_client import OllamaClient
+from ..services.llm_router import LlmRouter
 
 
 @dataclass
@@ -20,8 +20,8 @@ class AgentProfile:
 class BaseAgent:
     profile: AgentProfile
 
-    def __init__(self, ollama: OllamaClient) -> None:
-        self.ollama = ollama
+    def __init__(self, llm_router: LlmRouter) -> None:
+        self.llm_router = llm_router
 
     def execute(
         self,
@@ -34,20 +34,44 @@ class BaseAgent:
         coding_model = self._select_coding_model(task)
 
         planning_prompt = self._planning_prompt(task, context=context)
-        plan_summary = self.ollama.generate(
-            planning_model,
-            planning_prompt,
+        plan_summary, planning_route = self.llm_router.generate(
+            task=task,
+            phase="planning",
+            default_model=planning_model,
+            prompt=planning_prompt,
             system=self._system_prompt(),
         )
 
         proposal_prompt = self._proposal_prompt(task, plan_summary, context=context)
-        proposal_raw = self.ollama.generate(
-            coding_model,
-            proposal_prompt,
+        proposal_raw, proposal_route = self.llm_router.generate(
+            task=task,
+            phase="proposal",
+            default_model=coding_model,
+            prompt=proposal_prompt,
             system=self._system_prompt(),
         )
 
-        return self._normalize_output(task, plan_summary, proposal_raw, context=context)
+        review_prompt = self._review_prompt(task, plan_summary, proposal_raw, context=context)
+        review_notes, review_route = self.llm_router.generate(
+            task=task,
+            phase="review",
+            default_model=MODEL_ROUTING["lightweight"],
+            prompt=review_prompt,
+            system=self._review_system_prompt(),
+        )
+
+        return self._normalize_output(
+            task,
+            plan_summary,
+            proposal_raw,
+            context=context,
+            review_notes=review_notes,
+            model_trace={
+                "planning": planning_route,
+                "proposal": proposal_route,
+                "review": review_route,
+            },
+        )
 
     def _select_coding_model(self, task: TaskSpec) -> str:
         if task.priority in {"low", "trivial"}:
@@ -59,6 +83,13 @@ class BaseAgent:
             "You are a deterministic software agent. "
             "Do not use markdown code fences. "
             "Return concise structured outputs only."
+        )
+
+    def _review_system_prompt(self) -> str:
+        return (
+            "You are a strict code reviewer. "
+            "Focus on defects, regressions, readability issues, and missed validation. "
+            "Keep output concise and actionable."
         )
 
     def _planning_prompt(self, task: TaskSpec, *, context: AgentExecutionContext) -> str:
@@ -121,6 +152,29 @@ class BaseAgent:
             "Do not include markdown fences."
         )
 
+    def _review_prompt(
+        self,
+        task: TaskSpec,
+        plan_summary: str,
+        proposal_raw: str,
+        *,
+        context: AgentExecutionContext,
+    ) -> str:
+        acceptance = "\n".join(f"- {item}" for item in task.acceptance_criteria) or "- (not provided)"
+        proposal_excerpt = self._compact_text(proposal_raw, limit=2800)
+        skills_text = self._skills_proposal_text(context)
+        return (
+            f"Task: {task.id} - {task.title}\n"
+            f"Plan summary:\n{self._compact_text(plan_summary, limit=1200)}\n\n"
+            f"Acceptance criteria:\n{acceptance}\n\n"
+            f"Skill guidance:\n{skills_text}\n\n"
+            "Review the proposed implementation and return concise notes with:\n"
+            "1) potential bugs or regressions\n"
+            "2) readability/refactor suggestions\n"
+            "3) missing tests or validations\n\n"
+            f"Proposed implementation (excerpt):\n{proposal_excerpt}\n"
+        )
+
     def _normalize_output(
         self,
         task: TaskSpec,
@@ -128,8 +182,11 @@ class BaseAgent:
         proposal_raw: str,
         *,
         context: AgentExecutionContext,
+        review_notes: str = "",
+        model_trace: dict[str, object] | None = None,
     ) -> AgentOutput:
         fallback_validation = self._merged_validation_steps(task, context=context)
+        compact_review_notes = self._compact_text(review_notes, limit=1800)
         payload = self._parse_json_object(proposal_raw)
         if payload:
             commit_message = str(payload.get("commit_message", "")).strip()
@@ -138,19 +195,23 @@ class BaseAgent:
             return AgentOutput(
                 plan_summary=str(payload.get("plan_summary", plan_summary)).strip(),
                 proposed_changes=str(payload.get("proposed_changes", proposal_raw)).strip(),
+                review_notes=compact_review_notes,
                 target_files=self._sanitize_files(payload.get("target_files"), task.files_scope),
                 validation_steps=self._sanitize_steps(
                     payload.get("validation_steps"), fallback_validation
                 ),
                 commit_message=commit_message,
+                model_trace=dict(model_trace or {}),
             )
 
         return AgentOutput(
             plan_summary=plan_summary.strip(),
             proposed_changes=self._strip_code_fences(proposal_raw),
+            review_notes=compact_review_notes,
             target_files=list(task.files_scope),
             validation_steps=fallback_validation,
             commit_message=f"{task.commit_type}: {task.title}",
+            model_trace=dict(model_trace or {}),
         )
 
     def _parse_json_object(self, raw: str) -> dict[str, object] | None:
@@ -192,6 +253,12 @@ class BaseAgent:
         text = re.sub(r"^```(?:json|text)?", "", text)
         text = re.sub(r"```$", "", text)
         return text.strip()
+
+    def _compact_text(self, raw: str, *, limit: int) -> str:
+        normalized = " ".join(raw.replace("\r", " ").replace("\n", " ").split())
+        if len(normalized) <= limit:
+            return normalized
+        return normalized[:limit] + "..."
 
     def _merged_validation_steps(
         self,
