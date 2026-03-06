@@ -158,6 +158,7 @@ class Orchestrator:
             model="deepseek-coder:6.7b",
         )
         changed_files = self.git.changed_files(cwd=worktree)
+        self._validate_changed_files_within_scope(changed_files, file_scope)
         commit_message = output.commit_message or f"{task.commit_type}: {task.title}"
         committed_files = self.git.commit(
             cwd=worktree,
@@ -268,6 +269,23 @@ class Orchestrator:
         except Exception as exc:
             return f"(not available) {exc}"
 
+    def _validate_changed_files_within_scope(
+        self,
+        changed_files: list[str],
+        file_scope: list[str],
+    ) -> None:
+        if not changed_files:
+            return
+
+        allowed = {path.replace("\\", "/").strip() for path in file_scope}
+        out_of_scope = [
+            path for path in changed_files if path.replace("\\", "/").strip() not in allowed
+        ]
+        if out_of_scope:
+            raise RuntimeError(
+                "Aider changed files outside allowed scope: " + ", ".join(out_of_scope)
+            )
+
     def _model_is_available(self, required_model: str, installed_models: set[str]) -> bool:
         if required_model in installed_models:
             return True
@@ -370,26 +388,29 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     orchestrator = Orchestrator(resolve_repo_root())
-
-    if args.command == "preflight":
-        result = orchestrator.preflight(fix_models=args.fix_models)
-    elif args.command == "bootstrap-branches":
-        result = orchestrator.bootstrap_branches(base_branch=args.base)
-    elif args.command == "run-task":
-        result = orchestrator.run_task(
-            agent_name=args.agent,
-            task_file=Path(args.task_file),
-            dry_run=args.dry_run,
-        )
-    elif args.command == "create-pr":
-        result = orchestrator.create_pr(agent_name=args.agent, base_branch=args.base)
-    elif args.command == "approve-merge":
-        result = orchestrator.approve_merge(pr_id=args.pr)
-    elif args.command == "merge-pr":
-        result = orchestrator.merge_pr(pr_id=args.pr, skip_checks=args.skip_checks)
-    else:
-        parser.error(f"Unsupported command: {args.command}")
-        return 2
+    try:
+        if args.command == "preflight":
+            result = orchestrator.preflight(fix_models=args.fix_models)
+        elif args.command == "bootstrap-branches":
+            result = orchestrator.bootstrap_branches(base_branch=args.base)
+        elif args.command == "run-task":
+            result = orchestrator.run_task(
+                agent_name=args.agent,
+                task_file=Path(args.task_file),
+                dry_run=args.dry_run,
+            )
+        elif args.command == "create-pr":
+            result = orchestrator.create_pr(agent_name=args.agent, base_branch=args.base)
+        elif args.command == "approve-merge":
+            result = orchestrator.approve_merge(pr_id=args.pr)
+        elif args.command == "merge-pr":
+            result = orchestrator.merge_pr(pr_id=args.pr, skip_checks=args.skip_checks)
+        else:
+            parser.error(f"Unsupported command: {args.command}")
+            return 2
+    except Exception as exc:
+        print(json.dumps({"error": str(exc)}, indent=2, ensure_ascii=True))
+        return 1
 
     print(json.dumps(result, indent=2, ensure_ascii=True))
     return 0
