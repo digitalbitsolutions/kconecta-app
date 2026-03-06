@@ -1,23 +1,16 @@
-﻿import { providerEnv } from "../config/env";
+import { TokenStore } from './tokenStore';
 
-export type SessionTokenSource = "env" | "runtime";
+export type SessionTokenSource = 'env' | 'runtime';
 
 type SessionState = {
-  accessToken: string;
   source: SessionTokenSource;
   initializedAt: string;
 };
 
-let currentSession: SessionState | null = providerEnv.mobileApiToken
-  ? {
-      accessToken: providerEnv.mobileApiToken,
-      source: "env",
-      initializedAt: new Date().toISOString(),
-    }
-  : null;
+let currentSession: SessionState | null = null;
 
 export function getAccessToken(): string | null {
-  return currentSession?.accessToken ?? null;
+  return TokenStore.getToken();
 }
 
 export function setRuntimeToken(token: string): void {
@@ -26,32 +19,33 @@ export function setRuntimeToken(token: string): void {
     clearSession();
     return;
   }
+  TokenStore.setToken(normalized);
   currentSession = {
-    accessToken: normalized,
-    source: "runtime",
+    source: 'runtime',
     initializedAt: new Date().toISOString(),
   };
 }
 
 export function clearSession(): void {
+  TokenStore.clearToken();
   currentSession = null;
 }
 
 export function getSessionSnapshot(): {
   hasToken: boolean;
-  source: SessionTokenSource | "none";
+  source: SessionTokenSource | 'none';
   initializedAt: string | null;
 } {
   if (!currentSession) {
     return {
       hasToken: false,
-      source: "none",
+      source: 'none',
       initializedAt: null,
     };
   }
 
   return {
-    hasToken: true,
+    hasToken: !!TokenStore.getToken(),
     source: currentSession.source,
     initializedAt: currentSession.initializedAt,
   };
