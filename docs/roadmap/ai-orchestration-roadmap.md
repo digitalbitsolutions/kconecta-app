@@ -31,6 +31,11 @@ Completed:
   - PR #11 QA property API smoke tests
   - PR #12 devops dockerized PHP lint in CI
   - PR #13 wave 3 task definitions tracked
+  - PR #14 orchestration log/roadmap update
+- Wave 4 merged:
+  - PR #17 backend property detail endpoint
+  - PR #16 QA property detail tests
+  - PR #15 manager app API client integration
 - Jira integration v1 (optional) added to orchestrator CLI.
 
 ## Delivery Phases
@@ -43,7 +48,7 @@ Completed:
 
 ### Phase 2: Backend Delivery (In Progress)
 
-- Implement Laravel provider endpoints and service layer.
+- Implement Laravel provider/property endpoints and service layer.
 - Add request validation and response resources.
 - Add migration-safe schema updates.
 - Define API auth and role scopes against CRM backend.
@@ -51,8 +56,8 @@ Completed:
 ### Phase 3: Mobile Delivery (In Progress)
 
 - Expand React Native module structure.
-- Add shared API client and typed models.
-- Integrate auth/session handling and role-aware navigation.
+- Add shared API client and typed models. (Done for manager property flows)
+- Integrate auth/session handling and role-aware navigation. (Pending)
 - Implement providers, properties, and service-order flows.
 
 ### Phase 4: QA + Security (In Progress)
@@ -91,13 +96,15 @@ Automation:
 
 ## Next Milestones
 
-1. Implement real persistence for properties/providers using CRM production-compatible schema contracts (replace in-memory service stubs).
-2. Connect manager app screens to live API client with auth/session and error handling.
-3. Scaffold second mobile app (`apps/providers`) with role-specific navigation and service-order workflows.
-4. Add mandatory branch protection rules in GitHub for `main` with required checks and review count.
-5. Expand CI with API test job (`phpunit`) and React Native lint/test jobs as codebase matures.
+1. Replace in-memory property/provider datasets with DB-backed repositories compatible with CRM schema in Docker (`kconecta-app` MySQL).
+2. Add auth/session layer for mobile API requests (token storage, refresh, unauthorized redirect).
+3. Extend manager app with create/update/reserve actions and form validation.
+4. Expand providers app workflows and connect to backend service-order endpoints.
+5. Add mandatory branch protection rules in GitHub for `main` with required checks and review count.
+6. Expand CI with API test job (`phpunit`) and React Native lint/test jobs as codebase matures.
 
 Status update:
 
-- Jira environment is active and workflow proven (`DEV-7` to `DEV-14` completed).
-- Current repository baseline at main includes merged wave 1-3 outputs and is ready for wave 4 implementation.
+- Jira environment is active and workflow proven (`DEV-7` to `DEV-17` completed).
+- `DEV-1` (core feature set) is in progress and decomposed into merged wave 4 sub-tasks.
+- Current repository baseline at main includes merged wave 1-4 outputs and is ready for DB/auth integration.
