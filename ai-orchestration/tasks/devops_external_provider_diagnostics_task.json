@@ -1,0 +1,26 @@
+{
+  "id": "OPS-004",
+  "title": "Add actionable external provider diagnostics in preflight",
+  "description": "Extend LLM preflight checks to report compact provider-specific error reasons for Google AG and Windsurf (quota, auth, DNS/connectivity), so fallback behavior is observable and debuggable.",
+  "agent": "devops",
+  "priority": "medium",
+  "files_scope": [
+    "ai-orchestration/ai_orchestration/services/google_ag_client.py",
+    "ai-orchestration/ai_orchestration/services/windsurf_client.py",
+    "ai-orchestration/ai_orchestration/services/llm_router.py",
+    "ai-orchestration/README.md"
+  ],
+  "acceptance_criteria": [
+    "preflight includes compact provider error details when unhealthy",
+    "Google AG diagnostics capture quota/auth/HTTP failures",
+    "Windsurf diagnostics capture endpoint/connectivity failures",
+    "documentation references the new diagnostics fields"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "skills": ["devops-core"],
+    "platform": "orchestration",
+    "wave": "wave9",
+    "rag": {"enabled": true, "top_k": 3}
+  }
+}

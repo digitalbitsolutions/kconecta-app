@@ -44,13 +44,35 @@ class WindsurfClient:
         }
 
     def health_check(self) -> bool:
+        return self.diagnose()["healthy"]
+
+    def diagnose(self) -> dict[str, Any]:
+        status = self.configuration_status()
+        if not status["configured"]:
+            return {
+                **status,
+                "healthy": False,
+                "error": "Missing WINDSURF_API_KEY.",
+            }
         if not self.is_configured():
-            return False
+            return {
+                **status,
+                "healthy": False,
+                "error": "Missing WINDSURF_API_KEY.",
+            }
         try:
             self._request("GET", "/models")
-            return True
-        except Exception:
-            return False
+            return {
+                **status,
+                "healthy": True,
+                "error": None,
+            }
+        except Exception as exc:
+            return {
+                **status,
+                "healthy": False,
+                "error": self._compact_error(str(exc)),
+            }
 
     def generate(
         self,
@@ -135,3 +157,9 @@ class WindsurfClient:
             raise RuntimeError(f"Windsurf HTTP error {exc.code}: {details}") from exc
         except urllib.error.URLError as exc:
             raise RuntimeError(f"Cannot reach Windsurf at {self.base_url}: {exc}") from exc
+
+    def _compact_error(self, error_text: str) -> str:
+        normalized = " ".join(error_text.replace("\r", " ").replace("\n", " ").split())
+        if len(normalized) > 260:
+            return normalized[:260] + "..."
+        return normalized

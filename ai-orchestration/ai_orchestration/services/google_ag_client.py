@@ -45,14 +45,36 @@ class GoogleAgClient:
         }
 
     def health_check(self) -> bool:
+        return self.diagnose()["healthy"]
+
+    def diagnose(self) -> dict[str, Any]:
+        status = self.configuration_status()
+        if not status["configured"]:
+            return {
+                **status,
+                "healthy": False,
+                "error": "Missing GOOGLE_AG_API_KEY.",
+            }
         if not self.is_configured():
-            return False
+            return {
+                **status,
+                "healthy": False,
+                "error": "Missing GOOGLE_AG_API_KEY.",
+            }
         try:
             path = "/models?key=" + urllib.parse.quote(self.api_key, safe="")
             self._request("GET", path)
-            return True
-        except Exception:
-            return False
+            return {
+                **status,
+                "healthy": True,
+                "error": None,
+            }
+        except Exception as exc:
+            return {
+                **status,
+                "healthy": False,
+                "error": self._compact_error(str(exc)),
+            }
 
     def generate(
         self,
@@ -146,3 +168,9 @@ class GoogleAgClient:
             raise RuntimeError(f"Google AG HTTP error {exc.code}: {details}") from exc
         except urllib.error.URLError as exc:
             raise RuntimeError(f"Cannot reach Google AG at {self.base_url}: {exc}") from exc
+
+    def _compact_error(self, error_text: str) -> str:
+        normalized = " ".join(error_text.replace("\r", " ").replace("\n", " ").split())
+        if len(normalized) > 260:
+            return normalized[:260] + "..."
+        return normalized
