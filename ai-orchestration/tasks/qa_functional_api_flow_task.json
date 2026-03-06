@@ -1,0 +1,24 @@
+﻿{
+  "id": "QA-006",
+  "title": "Add functional API flow smoke tests",
+  "description": "Create end-to-end API smoke tests covering manager and provider mobile flows with bearer token auth for list/detail endpoints.",
+  "agent": "qa",
+  "priority": "high",
+  "files_scope": [
+    "tests/Feature/Api/MobileApiFlowTest.php",
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/ProviderApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "Functional smoke test covers providers list -> detail",
+    "Functional smoke test covers properties list -> detail",
+    "Unauthorized behavior is verified for invalid token"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "skills": ["qa-core"],
+    "suite": "functional-api-smoke",
+    "rag": {"enabled": true, "top_k": 3},
+    "wave": "wave7"
+  }
+}

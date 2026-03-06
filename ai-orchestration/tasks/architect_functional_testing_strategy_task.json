@@ -1,0 +1,22 @@
+﻿{
+  "id": "ARCH-004",
+  "title": "Document functional testing strategy",
+  "description": "Document functional testing approach, scope, and execution steps for manager/provider app API flows during release preparation.",
+  "agent": "architect",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md"
+  ],
+  "acceptance_criteria": [
+    "Scope and critical business flows are listed",
+    "Execution checklist includes local and CI steps",
+    "Entry/exit criteria for release testing are defined"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "skills": ["architect-core"],
+    "owner": "qa-architecture",
+    "rag": {"enabled": true, "top_k": 3},
+    "wave": "wave7"
+  }
+}
