@@ -23,7 +23,9 @@ class MobileApiFlowTest extends TestCase
                 "data" => [
                     "*" => ["id", "name", "role", "status"],
                 ],
+                "meta" => ["source"],
             ]);
+        $this->assertValidDataSource($listResponse->json("meta.source"));
 
         $providers = $listResponse->json("data");
         $this->assertNotEmpty($providers, "Provider list should not be empty.");
@@ -52,7 +54,9 @@ class MobileApiFlowTest extends TestCase
                 "data" => [
                     "*" => ["id", "title", "city", "status", "manager_id", "price"],
                 ],
+                "meta" => ["source"],
             ]);
+        $this->assertValidDataSource($listResponse->json("meta.source"));
 
         $properties = $listResponse->json("data");
         $this->assertNotEmpty($properties, "Property list should not be empty.");
@@ -89,5 +93,14 @@ class MobileApiFlowTest extends TestCase
             ->getJson("/api/providers");
 
         $response->assertOk();
+    }
+
+    private function assertValidDataSource(mixed $source): void
+    {
+        $this->assertContains(
+            $source,
+            ["database", "in_memory"],
+            "meta.source must be either database or in_memory."
+        );
     }
 }

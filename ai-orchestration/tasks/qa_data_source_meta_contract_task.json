@@ -1,0 +1,26 @@
+{
+  "id": "QA-008",
+  "title": "Extend API smoke tests with data-source metadata contract",
+  "description": "Update provider/property/mobile flow test suites to validate data source metadata emitted by backend list endpoints while remaining agnostic to runtime mode.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "tests/Feature/Api/ProviderApiTest.php",
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/MobileApiFlowTest.php",
+    "docs/testing/functional-testing-strategy.md"
+  ],
+  "acceptance_criteria": [
+    "Provider list tests validate meta.source contract",
+    "Property list tests validate meta.source contract",
+    "Mobile API flow tests validate meta.source contract",
+    "Testing docs describe acceptable source values"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "skills": ["qa-core"],
+    "suite": "api-smoke",
+    "wave": "wave9",
+    "rag": {"enabled": true, "top_k": 3}
+  }
+}

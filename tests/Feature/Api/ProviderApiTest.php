@@ -24,8 +24,9 @@ class ProviderApiTest extends TestCase
                 "data" => [
                     "*" => ["id", "name", "role", "status"],
                 ],
-                "meta" => ["count", "filters" => ["role", "status"]],
+                "meta" => ["count", "filters" => ["role", "status"], "source"],
             ]);
+        $this->assertValidDataSource($response->json("meta.source"));
     }
 
     public function test_authenticated_user_can_filter_providers_by_status(): void
@@ -37,6 +38,7 @@ class ProviderApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath("meta.filters.status", "active");
+        $this->assertValidDataSource($response->json("meta.source"));
     }
 
     public function test_mobile_client_with_bearer_token_can_fetch_providers(): void
@@ -51,8 +53,9 @@ class ProviderApiTest extends TestCase
                 "data" => [
                     "*" => ["id", "name", "role", "status"],
                 ],
-                "meta" => ["count", "filters" => ["role", "status"]],
+                "meta" => ["count", "filters" => ["role", "status"], "source"],
             ]);
+        $this->assertValidDataSource($response->json("meta.source"));
     }
 
     public function test_authenticated_user_can_fetch_provider_detail(): void
@@ -90,5 +93,14 @@ class ProviderApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath("data.id", 1);
+    }
+
+    private function assertValidDataSource(mixed $source): void
+    {
+        $this->assertContains(
+            $source,
+            ["database", "in_memory"],
+            "meta.source must be either database or in_memory."
+        );
     }
 }
