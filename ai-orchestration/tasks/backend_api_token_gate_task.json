@@ -1,0 +1,25 @@
+﻿{
+  "id": "BE-004",
+  "title": "Add API token access gate for mobile apps",
+  "description": "Add controller-level access gate that authorizes either authenticated CRM session users or bearer token clients for mobile app consumption.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Services/ApiAccessService.php",
+    "app/Http/Controllers/Api/ProviderController.php",
+    "app/Http/Controllers/Api/PropertyController.php",
+    "routes/api.php"
+  ],
+  "acceptance_criteria": [
+    "API accepts authenticated web users",
+    "API accepts configured bearer token clients",
+    "Unauthorized requests still return 401"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "skills": ["backend-core"],
+    "domain": "auth",
+    "rag": {"enabled": true, "top_k": 4},
+    "wave": "wave5"
+  }
+}

@@ -1,0 +1,23 @@
+﻿{
+  "id": "ARCH-003",
+  "title": "Define mobile release environment contract",
+  "description": "Document release environment variables and token strategy for native apps consuming the CRM API in local/docker and production contexts.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/api-boundary.md"
+  ],
+  "acceptance_criteria": [
+    "Required mobile env variables are documented",
+    "Token/auth strategy is explicit for manager and provider apps",
+    "Operational guidance for Docker/local/prod endpoints is included"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "skills": ["architect-core"],
+    "owner": "architecture-team",
+    "rag": {"enabled": true, "top_k": 4},
+    "wave": "wave5"
+  }
+}
