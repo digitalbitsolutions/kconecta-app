@@ -40,4 +40,30 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("meta.filters.status", "available")
             ->assertJsonPath("meta.filters.city", "Madrid");
     }
+
+    public function test_authenticated_user_can_fetch_property_detail(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->getJson("/api/properties/101");
+
+        $response
+            ->assertOk()
+            ->assertJsonStructure([
+                "data" => ["id", "title", "city", "status", "manager_id", "price"],
+            ])
+            ->assertJsonPath("data.id", 101);
+    }
+
+    public function test_authenticated_user_gets_not_found_for_unknown_property(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->getJson("/api/properties/999999");
+
+        $response
+            ->assertNotFound()
+            ->assertJsonPath("message", "Property not found")
+            ->assertJsonPath("property_id", 999999);
+    }
 }
