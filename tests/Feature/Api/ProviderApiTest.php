@@ -10,6 +10,8 @@ class ProviderApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const API_TOKEN = "kconecta-dev-token";
+
     public function test_authenticated_user_can_fetch_providers(): void
     {
         $user = User::factory()->create();
@@ -35,5 +37,21 @@ class ProviderApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath("meta.filters.status", "active");
+    }
+
+    public function test_mobile_client_with_bearer_token_can_fetch_providers(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/providers");
+
+        $response
+            ->assertOk()
+            ->assertJsonStructure([
+                "data" => [
+                    "*" => ["id", "name", "role", "status"],
+                ],
+                "meta" => ["count", "filters" => ["role", "status"]],
+            ]);
     }
 }

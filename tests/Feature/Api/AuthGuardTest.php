@@ -28,6 +28,14 @@ class AuthGuardTest extends TestCase
         $response->assertUnauthorized();
     }
 
+    public function test_invalid_bearer_token_cannot_access_property_endpoint(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer invalid-token"])
+            ->getJson("/api/properties");
+        $response->assertUnauthorized();
+    }
+
     public function test_authenticated_user_is_not_blocked_by_auth_guard(): void
     {
         $user = User::factory()->create();
