@@ -35,12 +35,29 @@
 - Main contracts:
   - `/api/v1/admin*`
 
+### Auth Session Module
+
+- Responsibilities:
+  - Login, refresh, logout lifecycle orchestration.
+  - Token issuance/revocation and role-scope validation.
+  - Session compatibility between CRM web and native apps.
+- Main contracts:
+  - `/api/v1/auth/login`
+  - `/api/v1/auth/refresh`
+  - `/api/v1/auth/logout`
+
 ## Cross-Cutting Modules
 
 - Auth and roles.
 - Tenant/organization scoping.
 - Logging/audit events.
 - Notification dispatch.
+
+## Surface to Module Mapping
+
+- `manager-app` -> Property Module + Auth Session Module.
+- `provider-app` -> Provider Module + Auth Session Module.
+- `admin-surface` -> Admin Module + Auth Session Module.
 
 ## Compatibility Rules
 

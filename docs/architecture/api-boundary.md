@@ -31,6 +31,17 @@ Ownership:
 - Primary owner: `home_service_provider` app flow.
 - Secondary consumers: manager app for assignment/selection.
 
+## Auth Domain (Shared)
+
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
+
+Ownership:
+
+- Primary owner: backend auth/session module.
+- Consumers: manager app, provider app, admin backoffice (as required).
+
 ## Admin Domain (Backoffice Surface)
 
 - `GET /api/v1/admin/users`
@@ -45,13 +56,21 @@ Ownership:
 
 ## Auth and Scope Boundary
 
-- All endpoints require either authenticated CRM session or valid mobile bearer token.
+- All endpoints require one of:
+  - Authenticated CRM session cookie (web/admin flows).
+  - Mobile bearer token (bootstrap mode).
+  - Access token from `/api/v1/auth/login` (target mode).
 - Tenant or organization scope is enforced server-side.
 - Mobile bearer token contract:
   - Request header: `Authorization: Bearer <token>`
   - Server expected token: `KC_MOBILE_API_TOKEN`
   - Mobile config source: `EXPO_PUBLIC_MOBILE_API_TOKEN`
+- Session token contract:
+  - Token expiry failures return `401` with code `TOKEN_EXPIRED`.
+  - Invalid/revoked tokens return `401` with code `TOKEN_INVALID` or `TOKEN_REVOKED`.
+  - Clients should attempt a single refresh via `POST /api/v1/auth/refresh`.
 - Role checks:
   - manager endpoints -> manager/admin
   - provider endpoints -> provider/admin
   - admin endpoints -> admin only
+- Scope mismatch must return `403`.
