@@ -1,0 +1,21 @@
+﻿{
+  "id": "OPS-002",
+  "title": "Add PHP syntax lint in CI using Docker",
+  "description": "Extend CI workflow with a backend PHP syntax lint job running in Docker so validation does not depend on local XAMPP setup.",
+  "agent": "devops",
+  "priority": "medium",
+  "files_scope": [
+    ".github/workflows/ci.yml"
+  ],
+  "acceptance_criteria": [
+    "CI includes php syntax job",
+    "Job runs php -l across app routes tests when files exist",
+    "Job is deterministic and fails on syntax errors"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "skills": ["devops-core"],
+    "platform": "github-actions",
+    "rag": {"enabled": true, "top_k": 3}
+  }
+}

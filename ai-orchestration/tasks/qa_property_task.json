@@ -1,0 +1,22 @@
+﻿{
+  "id": "QA-002",
+  "title": "Add property API smoke tests",
+  "description": "Create smoke tests for property listing endpoint covering auth guard and status/city filters.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/AuthGuardTest.php"
+  ],
+  "acceptance_criteria": [
+    "Unauthorized request is rejected",
+    "Authenticated request returns data and meta",
+    "Filter parameters are validated by assertions"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "skills": ["qa-core"],
+    "suite": "api-smoke",
+    "rag": {"enabled": true, "top_k": 3}
+  }
+}

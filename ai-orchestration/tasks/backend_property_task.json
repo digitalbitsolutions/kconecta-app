@@ -1,0 +1,23 @@
+﻿{
+  "id": "BE-002",
+  "title": "Add property listing API skeleton",
+  "description": "Implement Laravel API skeleton for property listings used by manager app, including filters for status city and manager_id, and response metadata contract.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "routes/api.php",
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php"
+  ],
+  "acceptance_criteria": [
+    "Property endpoint is registered under auth middleware",
+    "Controller delegates list logic to service",
+    "Response contains data and meta filters"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "skills": ["backend-core"],
+    "domain": "property",
+    "rag": {"enabled": true, "top_k": 4}
+  }
+}

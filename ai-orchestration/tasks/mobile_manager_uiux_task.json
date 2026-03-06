@@ -1,0 +1,27 @@
+﻿{
+  "id": "MOB-002",
+  "title": "Scaffold manager app dashboard and property UX",
+  "description": "Build React Native TypeScript UI foundation for manager app with dashboard KPIs and property list/detail screens using reusable components and design tokens.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/theme/tokens.ts",
+    "apps/manager/src/components/KpiCard.tsx",
+    "apps/manager/src/components/PropertyListItem.tsx",
+    "apps/manager/src/screens/ManagerDashboardScreen.tsx",
+    "apps/manager/src/screens/PropertyListScreen.tsx",
+    "apps/manager/src/screens/PropertyDetailScreen.tsx",
+    "apps/manager/src/navigation/index.tsx"
+  ],
+  "acceptance_criteria": [
+    "Dashboard shows typed KPI cards and actions",
+    "Property list and detail provide clear visual hierarchy",
+    "Theme tokens are centralized and reused across components"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "skills": ["mobile-core"],
+    "stack": "React Native with TypeScript",
+    "rag": {"enabled": true, "top_k": 4}
+  }
+}
