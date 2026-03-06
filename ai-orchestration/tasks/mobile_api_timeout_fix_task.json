@@ -1,0 +1,25 @@
+﻿{
+  "id": "MOB-006",
+  "title": "Add API timeout handling for mobile clients",
+  "description": "Add configurable request timeout and clearer timeout error handling in manager and providers API clients.",
+  "agent": "mobile",
+  "priority": "medium",
+  "files_scope": [
+    "apps/manager/src/config/env.ts",
+    "apps/manager/src/api/client.ts",
+    "apps/providers/src/config/env.ts",
+    "apps/providers/src/api/client.ts"
+  ],
+  "acceptance_criteria": [
+    "Clients abort requests after configured timeout",
+    "Timeout errors return explicit message",
+    "Timeout can be configured by env variable"
+  ],
+  "commit_type": "fix",
+  "metadata": {
+    "skills": ["mobile-core"],
+    "stack": "React Native with TypeScript",
+    "rag": {"enabled": true, "top_k": 3},
+    "wave": "wave8"
+  }
+}
