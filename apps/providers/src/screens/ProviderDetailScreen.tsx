@@ -1,10 +1,11 @@
-import React from 'react';
-import { useRoute } from '@react-navigation/native';
-import type { RouteProp } from '@react-navigation/native';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
-import type { RootStackParamList } from '../navigation';
+﻿import React from "react";
+import { useRoute } from "@react-navigation/native";
+import type { RouteProp } from "@react-navigation/native";
+import { SafeAreaView, StyleSheet, Text, View } from "react-native";
+import type { RootStackParamList } from "../navigation";
+import { borderRadius, colors, fontSizes, spacing } from "../theme/tokens";
 
-type ProviderDetailRoute = RouteProp<RootStackParamList, 'ProviderDetail'>;
+type ProviderDetailRoute = RouteProp<RootStackParamList, "ProviderDetail">;
 
 const ProviderDetailScreen = () => {
   const route = useRoute<ProviderDetailRoute>();
@@ -12,49 +13,108 @@ const ProviderDetailScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.card}>
+      <View style={styles.heroCard}>
         <Text style={styles.title}>{providerName}</Text>
-        <Text style={styles.label}>Provider ID</Text>
-        <Text style={styles.value}>{providerId}</Text>
-        <Text style={styles.note}>
-          API placeholder: fetch provider detail by ID from backend service.
+        <Text style={styles.subtitle}>Trusted professional profile</Text>
+      </View>
+
+      <View style={styles.infoCard}>
+        <Row label="Provider ID" value={providerId} />
+        <Row label="Category" value="Cleaning" />
+        <Row label="City" value="Madrid" />
+        <Row label="Availability" value="Available today" highlight />
+      </View>
+
+      <View style={styles.noteCard}>
+        <Text style={styles.noteTitle}>Integration note</Text>
+        <Text style={styles.noteBody}>
+          This screen is connected to a placeholder contract. Next step is wiring live backend data
+          from `/api/providers/:id`.
         </Text>
       </View>
     </SafeAreaView>
   );
 };
 
+type RowProps = {
+  label: string;
+  value: string;
+  highlight?: boolean;
+};
+
+const Row: React.FC<RowProps> = ({ label, value, highlight = false }) => (
+  <View style={styles.row}>
+    <Text style={styles.rowLabel}>{label}</Text>
+    <Text style={[styles.rowValue, highlight && styles.rowValueHighlight]}>{value}</Text>
+  </View>
+);
+
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: colors.background,
     flex: 1,
-    backgroundColor: '#F7F8FA',
-    padding: 16,
+    padding: spacing.lg,
   },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+  heroCard: {
+    backgroundColor: colors.brand,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.lg,
+    padding: spacing.lg,
   },
   title: {
-    color: '#111827',
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 12,
+    color: colors.surface,
+    fontSize: fontSizes.xl,
+    fontWeight: "800",
   },
-  label: {
-    color: '#6B7280',
-    fontSize: 13,
-    marginBottom: 2,
+  subtitle: {
+    color: colors.brandSoft,
+    fontSize: fontSizes.sm,
+    marginTop: spacing.xs,
   },
-  value: {
-    color: '#111827',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
+  infoCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    padding: spacing.lg,
   },
-  note: {
-    color: '#4B5563',
-    fontSize: 14,
+  row: {
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: spacing.md,
+  },
+  rowLabel: {
+    color: colors.textMuted,
+    fontSize: fontSizes.sm,
+  },
+  rowValue: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.md,
+    fontWeight: "600",
+  },
+  rowValueHighlight: {
+    color: colors.brand,
+  },
+  noteCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+  },
+  noteTitle: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.md,
+    fontWeight: "700",
+    marginBottom: spacing.sm,
+  },
+  noteBody: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+    lineHeight: 20,
   },
 });
 
