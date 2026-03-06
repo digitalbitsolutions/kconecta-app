@@ -1,0 +1,26 @@
+{
+  "id": "QA-009",
+  "title": "Add auth flow smoke and regression suite",
+  "description": "Cover login, refresh, logout, and token-expired scenarios with deterministic API tests and clear failure diagnostics.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "tests/Feature/Api/AuthSessionApiTest.php",
+    "tests/Feature/Api/AuthGuardTest.php",
+    "docs/testing/functional-testing-strategy.md"
+  ],
+  "acceptance_criteria": [
+    "Auth flow smoke tests exist for login/refresh/logout",
+    "Token-expired and invalid-token scenarios are asserted",
+    "Testing strategy doc includes auth regression checklist"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "llm_provider": "auto",
+    "review_model": "swe-1",
+    "skills": ["qa-core"],
+    "suite": "auth-regression",
+    "wave": "wave10",
+    "rag": {"enabled": true, "top_k": 4}
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "ARCH-006",
+  "title": "Define mobile auth/session lifecycle contract",
+  "description": "Document login, refresh, logout, token expiry, and role-scope behavior for manager/provider/admin clients while preserving backward compatibility.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/api-boundary.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Auth/session lifecycle states are explicit",
+    "Role-specific behavior is documented",
+    "Backward compatibility and migration notes are included"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "llm_provider": "auto",
+    "planning_model": "gemini-2.5-pro",
+    "skills": ["architect-core"],
+    "wave": "wave10",
+    "rag": {"enabled": true, "top_k": 4}
+  }
+}

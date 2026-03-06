@@ -1,0 +1,26 @@
+{
+  "id": "BE-008",
+  "title": "Scaffold auth/session API endpoints for mobile clients",
+  "description": "Introduce backend endpoint skeletons for login, refresh, and logout contracts with clear request/response shapes and token validation hooks.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "routes/api.php",
+    "app/Http/Controllers/Api/AuthController.php",
+    "app/Services/AuthSessionService.php",
+    "tests/Feature/Api/AuthSessionApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "Auth endpoints are scaffolded with consistent JSON contract",
+    "Unauthorized and invalid-token paths are explicit",
+    "Tests cover basic contract responses"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "llm_provider": "auto",
+    "skills": ["backend-core"],
+    "domain": "auth",
+    "wave": "wave10",
+    "rag": {"enabled": true, "top_k": 4}
+  }
+}

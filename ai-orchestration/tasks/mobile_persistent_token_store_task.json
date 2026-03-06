@@ -1,0 +1,27 @@
+{
+  "id": "MOB-007",
+  "title": "Implement persistent token storage abstraction in native apps",
+  "description": "Create a typed token storage abstraction and unauthorized handling hooks in manager/providers apps to support durable mobile sessions.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/auth/session.ts",
+    "apps/manager/src/auth/tokenStore.ts",
+    "apps/providers/src/auth/session.ts",
+    "apps/providers/src/auth/tokenStore.ts"
+  ],
+  "acceptance_criteria": [
+    "Session layer delegates token operations to a storage abstraction",
+    "Both manager and providers app use the same contract",
+    "Unauthorized reset hook is explicit and typed"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "llm_provider": "auto",
+    "review_model": "swe-1",
+    "skills": ["mobile-core"],
+    "stack": "React Native with TypeScript",
+    "wave": "wave10",
+    "rag": {"enabled": true, "top_k": 4}
+  }
+}
