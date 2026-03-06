@@ -1,10 +1,10 @@
-import React from "react";
-import { useRoute } from "@react-navigation/native";
-import type { RouteProp } from "@react-navigation/native";
-import { SafeAreaView, StyleSheet, Text, View } from "react-native";
-import type { RootStackParamList } from "../navigation";
+import React from 'react';
+import { useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
+import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import type { RootStackParamList } from '../navigation';
 
-type ProviderDetailRoute = RouteProp<RootStackParamList, "ProviderDetail">;
+type ProviderDetailRoute = RouteProp<RootStackParamList, 'ProviderDetail'>;
 
 const ProviderDetailScreen = () => {
   const route = useRoute<ProviderDetailRoute>();
@@ -27,33 +27,33 @@ const ProviderDetailScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F7F8FA",
+    backgroundColor: '#F7F8FA',
     padding: 16,
   },
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
   },
   title: {
-    color: "#111827",
+    color: '#111827',
     fontSize: 20,
-    fontWeight: "700",
+    fontWeight: '700',
     marginBottom: 12,
   },
   label: {
-    color: "#6B7280",
+    color: '#6B7280',
     fontSize: 13,
     marginBottom: 2,
   },
   value: {
-    color: "#111827",
+    color: '#111827',
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: '600',
     marginBottom: 12,
   },
   note: {
-    color: "#4B5563",
+    color: '#4B5563',
     fontSize: 14,
   },
 });

@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { FlatList, Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
-import type { RootStackParamList } from "../navigation";
+import React, { useEffect, useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { FlatList, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import type { RootStackParamList } from '../navigation';
+import ProviderCard from '../components/ProviderCard';
 
-type ProviderListNavigation = NativeStackNavigationProp<RootStackParamList, "ProviderList">;
+type ProviderListNavigation = NativeStackNavigationProp<RootStackParamList, 'ProviderList'>;
 
 type ProviderSummary = {
   id: string;
@@ -15,9 +16,7 @@ type ProviderSummary = {
 };
 
 const mockProviders: ProviderSummary[] = [
-  { id: "prov-001", name: "CleanHome Pro", category: "Cleaning", city: "Madrid", rating: 4.8 },
-  { id: "prov-002", name: "FixIt Now", category: "Repairs", city: "Barcelona", rating: 4.5 },
-  { id: "prov-003", name: "GreenGarden", category: "Gardening", city: "Valencia", rating: 4.7 },
+  // ...
 ];
 
 const fetchProviders = async (): Promise<ProviderSummary[]> => {
@@ -28,10 +27,30 @@ const fetchProviders = async (): Promise<ProviderSummary[]> => {
 const ProviderListScreen = () => {
   const navigation = useNavigation<ProviderListNavigation>();
   const [providers, setProviders] = useState<ProviderSummary[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchProviders().then(setProviders);
+    fetchProviders().then((providers) => {
+      setProviders(providers);
+      setLoading(false);
+    });
   }, []);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text>Loading...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (!providers.length) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text>No providers found.</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -39,22 +58,16 @@ const ProviderListScreen = () => {
         data={providers}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <Pressable
+          <ProviderCard
+            provider={item}
             onPress={() =>
-              navigation.navigate("ProviderDetail", {
+              navigation.navigate('ProviderDetail', {
                 providerId: item.id,
                 providerName: item.name,
               })
             }
-            style={styles.card}
-          >
-            <Text style={styles.name}>{item.name}</Text>
-            <Text style={styles.meta}>{item.category}</Text>
-            <Text style={styles.meta}>{item.city}</Text>
-            <Text style={styles.meta}>Rating: {item.rating}</Text>
-          </Pressable>
+          />
         )}
-        ListEmptyComponent={<Text style={styles.empty}>No providers found.</Text>}
       />
     </SafeAreaView>
   );
@@ -63,30 +76,8 @@ const ProviderListScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F7F8FA",
+    backgroundColor: '#F7F8FA',
     padding: 16,
-  },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    marginBottom: 12,
-    padding: 16,
-  },
-  name: {
-    color: "#111827",
-    fontSize: 17,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  meta: {
-    color: "#4B5563",
-    fontSize: 14,
-  },
-  empty: {
-    color: "#6B7280",
-    fontSize: 14,
-    marginTop: 24,
-    textAlign: "center",
   },
 });
 
