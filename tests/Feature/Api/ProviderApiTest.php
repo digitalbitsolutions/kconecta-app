@@ -54,4 +54,41 @@ class ProviderApiTest extends TestCase
                 "meta" => ["count", "filters" => ["role", "status"]],
             ]);
     }
+
+    public function test_authenticated_user_can_fetch_provider_detail(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->getJson("/api/providers/1");
+
+        $response
+            ->assertOk()
+            ->assertJsonStructure([
+                "data" => ["id", "name", "role", "status"],
+            ])
+            ->assertJsonPath("data.id", 1);
+    }
+
+    public function test_authenticated_user_gets_not_found_for_unknown_provider(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->getJson("/api/providers/999999");
+
+        $response
+            ->assertNotFound()
+            ->assertJsonPath("message", "Provider not found")
+            ->assertJsonPath("provider_id", 999999);
+    }
+
+    public function test_mobile_client_with_bearer_token_can_fetch_provider_detail(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/providers/1");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("data.id", 1);
+    }
 }
