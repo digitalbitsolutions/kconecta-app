@@ -5,5 +5,6 @@ use App\Http\Controllers\Api\PropertyController;
 use Illuminate\Support\Facades\Route;
 
 Route::get("/providers", [ProviderController::class, "index"]);
+Route::get("/providers/{id}", [ProviderController::class, "show"]);
 Route::get("/properties", [PropertyController::class, "index"]);
 Route::get("/properties/{id}", [PropertyController::class, "show"]);

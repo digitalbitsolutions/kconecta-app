@@ -32,4 +32,24 @@ class ProviderController extends Controller
 
         return response()->json($payload, 200);
     }
+
+    public function show(Request $request, int $id): JsonResponse
+    {
+        if (!$this->apiAccessService->isAuthorized($request)) {
+            return response()->json(["message" => "Unauthorized"], 401);
+        }
+
+        $provider = $this->providerService->findProviderById($id);
+        if ($provider === null) {
+            return response()->json(
+                [
+                    "message" => "Provider not found",
+                    "provider_id" => $id,
+                ],
+                404
+            );
+        }
+
+        return response()->json(["data" => $provider], 200);
+    }
 }
