@@ -1,25 +1,86 @@
-import { AsyncStorage } from 'react-native';
+export type UnauthorizedResetHandler = () => void;
+
+type StorageLike = {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+};
 
 export interface TokenStore {
   getToken(): string | null;
   setToken(token: string): void;
   clearToken(): void;
+  onUnauthorized(handler: UnauthorizedResetHandler | null): void;
+  triggerUnauthorizedReset(): void;
 }
 
-class AsyncTokenStore implements TokenStore {
-  private static readonly TOKEN_KEY = '@manager:token';
-
-  getToken(): string | null {
-    return AsyncStorage.getItem(AsyncTokenStore.TOKEN_KEY);
+function getStorage(): StorageLike | null {
+  const maybeStorage = (globalThis as { localStorage?: StorageLike }).localStorage;
+  if (!maybeStorage) {
+    return null;
   }
 
-  setToken(token: string): void {
-    AsyncStorage.setItem(AsyncTokenStore.TOKEN_KEY, token);
+  if (
+    typeof maybeStorage.getItem !== "function" ||
+    typeof maybeStorage.setItem !== "function" ||
+    typeof maybeStorage.removeItem !== "function"
+  ) {
+    return null;
   }
 
-  clearToken(): void {
-    AsyncStorage.removeItem(AsyncTokenStore.TOKEN_KEY);
-  }
+  return maybeStorage;
 }
 
-export const tokenStore: TokenStore = new AsyncTokenStore();
+function createTokenStore(storageKey: string): TokenStore {
+  let memoryToken: string | null = null;
+  let unauthorizedHandler: UnauthorizedResetHandler | null = null;
+
+  const store: TokenStore = {
+    getToken(): string | null {
+      const storage = getStorage();
+      if (storage) {
+        const persisted = storage.getItem(storageKey);
+        if (typeof persisted === "string" && persisted.trim() !== "") {
+          memoryToken = persisted;
+          return persisted;
+        }
+      }
+      return memoryToken;
+    },
+    setToken(token: string): void {
+      const normalized = token.trim();
+      memoryToken = normalized !== "" ? normalized : null;
+
+      const storage = getStorage();
+      if (!storage) {
+        return;
+      }
+
+      if (memoryToken === null) {
+        storage.removeItem(storageKey);
+      } else {
+        storage.setItem(storageKey, memoryToken);
+      }
+    },
+    clearToken(): void {
+      memoryToken = null;
+      const storage = getStorage();
+      if (storage) {
+        storage.removeItem(storageKey);
+      }
+    },
+    onUnauthorized(handler: UnauthorizedResetHandler | null): void {
+      unauthorizedHandler = handler;
+    },
+    triggerUnauthorizedReset(): void {
+      store.clearToken();
+      if (unauthorizedHandler) {
+        unauthorizedHandler();
+      }
+    },
+  };
+
+  return store;
+}
+
+export const tokenStore = createTokenStore("@manager:token");
