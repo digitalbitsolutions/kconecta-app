@@ -4,6 +4,7 @@ import base64
 import json
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -198,12 +199,16 @@ class JiraService:
             raise ValueError("status must be one of: open, done, all")
 
         jql = " AND ".join(jql_parts) + " ORDER BY created DESC"
-        payload = {
-            "jql": jql,
-            "maxResults": max(1, min(max_results, 100)),
-            "fields": ["summary", "status", "labels"],
-        }
-        result = self._request("POST", "/rest/api/3/search", payload)
+        max_count = max(1, min(max_results, 100))
+        fields = "summary,status,labels"
+        query = urllib.parse.urlencode(
+            {
+                "jql": jql,
+                "maxResults": max_count,
+                "fields": fields,
+            }
+        )
+        result = self._request("GET", f"/rest/api/3/search/jql?{query}")
         issues = result.get("issues", [])
         if not isinstance(issues, list):
             issues = []
