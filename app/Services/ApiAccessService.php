@@ -29,11 +29,11 @@ class ApiAccessService
             return null;
         }
 
-        if (!str_starts_with($header, "Bearer ")) {
+        if (!preg_match('/^bearer\s+(.+)$/i', $header, $matches)) {
             return null;
         }
 
-        $token = trim(substr($header, 7));
+        $token = trim((string) ($matches[1] ?? ""));
         return $token !== "" ? $token : null;
     }
 
