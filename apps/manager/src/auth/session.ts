@@ -1,23 +1,27 @@
 import { managerEnv } from "../config/env";
+import { tokenStore, type UnauthorizedResetHandler } from "./tokenStore";
 
 export type SessionTokenSource = "env" | "runtime";
 
 type SessionState = {
-  accessToken: string;
   source: SessionTokenSource;
   initializedAt: string;
 };
 
-let currentSession: SessionState | null = managerEnv.mobileApiToken
+const bootstrapToken = managerEnv.mobileApiToken.trim();
+if (bootstrapToken !== "" && tokenStore.getToken() === null) {
+  tokenStore.setToken(bootstrapToken);
+}
+
+let currentSession: SessionState | null = bootstrapToken
   ? {
-      accessToken: managerEnv.mobileApiToken,
       source: "env",
       initializedAt: new Date().toISOString(),
     }
   : null;
 
 export function getAccessToken(): string | null {
-  return currentSession?.accessToken ?? null;
+  return tokenStore.getToken();
 }
 
 export function setRuntimeToken(token: string): void {
@@ -26,15 +30,27 @@ export function setRuntimeToken(token: string): void {
     clearSession();
     return;
   }
+  tokenStore.setToken(normalized);
   currentSession = {
-    accessToken: normalized,
     source: "runtime",
     initializedAt: new Date().toISOString(),
   };
 }
 
 export function clearSession(): void {
+  tokenStore.clearToken();
   currentSession = null;
+}
+
+export function registerUnauthorizedResetHandler(
+  handler: UnauthorizedResetHandler | null,
+): void {
+  tokenStore.onUnauthorized(handler);
+}
+
+export function handleUnauthorizedSession(): void {
+  currentSession = null;
+  tokenStore.triggerUnauthorizedReset();
 }
 
 export function getSessionSnapshot(): {
@@ -42,18 +58,19 @@ export function getSessionSnapshot(): {
   source: SessionTokenSource | "none";
   initializedAt: string | null;
 } {
+  const hasToken = tokenStore.getToken() !== null;
+
   if (!currentSession) {
     return {
-      hasToken: false,
-      source: "none",
+      hasToken,
+      source: hasToken ? "runtime" : "none",
       initializedAt: null,
     };
   }
 
   return {
-    hasToken: true,
+    hasToken,
     source: currentSession.source,
     initializedAt: currentSession.initializedAt,
   };
 }
-
