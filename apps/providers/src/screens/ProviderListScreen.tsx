@@ -1,65 +1,51 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-import ProviderCard, { type ProviderSummary } from "../components/ProviderCard";
+import { getSessionSnapshot } from "../auth/session";
+import { providerEnv } from "../config/env";
+import ProviderCard from "../components/ProviderCard";
 import type { RootStackParamList } from "../navigation";
+import { fetchProviders, type ProviderViewModel } from "../api/providerApi";
 import { borderRadius, colors, fontSizes, spacing } from "../theme/tokens";
 
 type ProviderListNavigation = NativeStackNavigationProp<RootStackParamList, "ProviderList">;
 
-const mockProviders: ProviderSummary[] = [
-  {
-    id: "prov-001",
-    name: "CleanHome Pro",
-    category: "Cleaning",
-    city: "Madrid",
-    rating: 4.8,
-    isAvailableToday: true,
-  },
-  {
-    id: "prov-002",
-    name: "FixIt Now",
-    category: "Repairs",
-    city: "Barcelona",
-    rating: 4.5,
-    isAvailableToday: false,
-  },
-  {
-    id: "prov-003",
-    name: "GreenGarden",
-    category: "Gardening",
-    city: "Valencia",
-    rating: 4.7,
-    isAvailableToday: true,
-  },
-];
-
-const fetchProviders = async (): Promise<ProviderSummary[]> => {
-  // API client placeholder
-  return Promise.resolve(mockProviders);
-};
-
 const ProviderListScreen = () => {
   const navigation = useNavigation<ProviderListNavigation>();
-  const [providers, setProviders] = useState<ProviderSummary[]>([]);
+  const sessionSnapshot = getSessionSnapshot();
+
+  const [providers, setProviders] = useState<ProviderViewModel[]>([]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadProviders = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const items = await fetchProviders();
+      setProviders(items);
+    } catch (fetchError) {
+      const message = fetchError instanceof Error ? fetchError.message : "Unable to load providers.";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetchProviders().then((items) => {
-      setProviders(items);
-      setLoading(false);
-    });
-  }, []);
+    loadProviders();
+  }, [loadProviders]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -74,17 +60,6 @@ const ProviderListScreen = () => {
       );
     });
   }, [providers, search]);
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={colors.brand} />
-          <Text style={styles.loadingText}>Loading providers...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -101,12 +76,42 @@ const ProviderListScreen = () => {
         style={styles.search}
       />
 
-      {filtered.length === 0 ? (
+      {providerEnv.diagnosticsEnabled ? (
+        <View style={styles.diagnosticsCard}>
+          <Text style={styles.diagnosticsTitle}>Environment diagnostics</Text>
+          <Text style={styles.diagnosticsItem}>Stage: {providerEnv.stage}</Text>
+          <Text style={styles.diagnosticsItem}>API: {providerEnv.apiBaseUrl}</Text>
+          <Text style={styles.diagnosticsItem}>
+            Token: {sessionSnapshot.hasToken ? `loaded (${sessionSnapshot.source})` : "missing"}
+          </Text>
+        </View>
+      ) : null}
+
+      {loading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color={colors.brand} />
+          <Text style={styles.loadingText}>Loading providers...</Text>
+        </View>
+      ) : null}
+
+      {!loading && error ? (
+        <View style={styles.errorWrap}>
+          <Text style={styles.errorTitle}>Unable to load providers</Text>
+          <Text style={styles.errorBody}>{error}</Text>
+          <Pressable style={styles.retryButton} onPress={loadProviders}>
+            <Text style={styles.retryText}>Retry</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {!loading && !error && filtered.length === 0 ? (
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyTitle}>No providers found</Text>
           <Text style={styles.emptyBody}>Try another search term or remove filters.</Text>
         </View>
-      ) : (
+      ) : null}
+
+      {!loading && !error && filtered.length > 0 ? (
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
@@ -124,7 +129,7 @@ const ProviderListScreen = () => {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
         />
-      )}
+      ) : null}
     </SafeAreaView>
   );
 };
@@ -159,6 +164,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
+  diagnosticsCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginBottom: spacing.md,
+    padding: spacing.lg,
+  },
+  diagnosticsTitle: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.md,
+    fontWeight: "700",
+    marginBottom: spacing.sm,
+  },
+  diagnosticsItem: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+    lineHeight: 22,
+  },
   list: {
     paddingBottom: spacing.xxl,
   },
@@ -171,6 +195,35 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSizes.md,
     marginTop: spacing.md,
+  },
+  errorWrap: {
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+  },
+  errorTitle: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.md,
+    fontWeight: "700",
+  },
+  errorBody: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+    marginTop: spacing.xs,
+  },
+  retryButton: {
+    alignItems: "center",
+    backgroundColor: colors.brand,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  retryText: {
+    color: colors.surface,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
   },
   emptyWrap: {
     alignItems: "center",
