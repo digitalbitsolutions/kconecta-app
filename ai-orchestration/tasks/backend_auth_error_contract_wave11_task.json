@@ -1,0 +1,29 @@
+{
+  "id": "BE-009",
+  "title": "Normalize auth error contract for mobile UX states",
+  "description": "Add stable auth error codes and payload meta for login/refresh/logout to support deterministic UI state handling in native clients.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Http/Controllers/Api/AuthController.php",
+    "app/Services/AuthSessionService.php",
+    "tests/Feature/Api/AuthSessionApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "Error payload includes stable `error.code` values for auth failures",
+    "Refresh/logout unauthorized cases are contract-tested",
+    "Contract remains backward compatible with existing mobile token guard"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave11",
+    "domain": "auth",
+    "skills": [
+      "backend-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "id": "ARCH-007",
+  "title": "Define Wave 11 mobile UI information architecture",
+  "description": "Produce manager/providers navigation map, screen taxonomy, and session state UX rules for authenticated and unauthorized states.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/module-map.md",
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md"
+  ],
+  "acceptance_criteria": [
+    "Screen map exists for manager and provider apps",
+    "Unauthorized/expired session UX behavior is explicit",
+    "Architecture notes map screens to backend contracts"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave11",
+    "stack": "React Native with TypeScript",
+    "skills": [
+      "architect-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

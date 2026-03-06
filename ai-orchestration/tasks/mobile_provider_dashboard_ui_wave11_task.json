@@ -1,0 +1,29 @@
+{
+  "id": "MOB-009",
+  "title": "Scaffold provider dashboard and availability UX shell",
+  "description": "Build first provider app dashboard shell with status cards, availability entry points, and auth-aware fallback states.",
+  "agent": "mobile",
+  "priority": "medium",
+  "files_scope": [
+    "apps/providers/src/screens",
+    "apps/providers/src/navigation",
+    "apps/providers/src/auth/session.ts"
+  ],
+  "acceptance_criteria": [
+    "Provider dashboard shell renders typed cards and status blocks",
+    "Availability flow entry points are wired in navigation",
+    "Unauthorized state redirects to auth recovery screen"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave11",
+    "stack": "React Native with TypeScript",
+    "skills": [
+      "mobile-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}
