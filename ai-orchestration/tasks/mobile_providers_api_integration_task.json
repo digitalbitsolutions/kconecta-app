@@ -1,0 +1,27 @@
+﻿{
+  "id": "MOB-005",
+  "title": "Integrate providers app with API and env token",
+  "description": "Replace providers app mock data with API client integration for list/detail endpoints and add provider release env + session token bootstrap.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/providers/src/config/env.ts",
+    "apps/providers/src/auth/session.ts",
+    "apps/providers/src/api/client.ts",
+    "apps/providers/src/api/providerApi.ts",
+    "apps/providers/src/screens/ProviderListScreen.tsx",
+    "apps/providers/src/screens/ProviderDetailScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Providers list uses API data",
+    "Provider detail uses API data",
+    "Environment and token diagnostics are available for release testing"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "skills": ["mobile-core"],
+    "stack": "React Native with TypeScript",
+    "rag": {"enabled": true, "top_k": 4},
+    "wave": "wave6"
+  }
+}

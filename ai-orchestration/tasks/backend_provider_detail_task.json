@@ -1,0 +1,24 @@
+﻿{
+  "id": "BE-005",
+  "title": "Add provider detail API endpoint",
+  "description": "Extend ProviderController and ProviderService with /api/providers/{id} detail endpoint, including 404 payload for unknown providers.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "routes/api.php",
+    "app/Http/Controllers/Api/ProviderController.php",
+    "app/Services/ProviderService.php"
+  ],
+  "acceptance_criteria": [
+    "GET /api/providers/{id} returns provider data for existing id",
+    "GET /api/providers/{id} returns 404 payload for unknown id",
+    "Route uses same API access gate behavior"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "skills": ["backend-core"],
+    "domain": "provider",
+    "rag": {"enabled": true, "top_k": 4},
+    "wave": "wave6"
+  }
+}
