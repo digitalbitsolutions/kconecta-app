@@ -1,91 +1,194 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { FlatList, Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import ProviderCard, { type ProviderSummary } from "../components/ProviderCard";
 import type { RootStackParamList } from "../navigation";
+import { borderRadius, colors, fontSizes, spacing } from "../theme/tokens";
 
 type ProviderListNavigation = NativeStackNavigationProp<RootStackParamList, "ProviderList">;
 
-type ProviderSummary = {
-  id: string;
-  name: string;
-  category: string;
-  city: string;
-  rating: number;
-};
-
 const mockProviders: ProviderSummary[] = [
-  { id: "prov-001", name: "CleanHome Pro", category: "Cleaning", city: "Madrid", rating: 4.8 },
-  { id: "prov-002", name: "FixIt Now", category: "Repairs", city: "Barcelona", rating: 4.5 },
-  { id: "prov-003", name: "GreenGarden", category: "Gardening", city: "Valencia", rating: 4.7 },
+  {
+    id: "prov-001",
+    name: "CleanHome Pro",
+    category: "Cleaning",
+    city: "Madrid",
+    rating: 4.8,
+    isAvailableToday: true,
+  },
+  {
+    id: "prov-002",
+    name: "FixIt Now",
+    category: "Repairs",
+    city: "Barcelona",
+    rating: 4.5,
+    isAvailableToday: false,
+  },
+  {
+    id: "prov-003",
+    name: "GreenGarden",
+    category: "Gardening",
+    city: "Valencia",
+    rating: 4.7,
+    isAvailableToday: true,
+  },
 ];
 
 const fetchProviders = async (): Promise<ProviderSummary[]> => {
-  // Placeholder for API client integration.
+  // API client placeholder
   return Promise.resolve(mockProviders);
 };
 
 const ProviderListScreen = () => {
   const navigation = useNavigation<ProviderListNavigation>();
   const [providers, setProviders] = useState<ProviderSummary[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchProviders().then(setProviders);
+    fetchProviders().then((items) => {
+      setProviders(items);
+      setLoading(false);
+    });
   }, []);
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) {
+      return providers;
+    }
+    return providers.filter((item) => {
+      return (
+        item.name.toLowerCase().includes(term) ||
+        item.category.toLowerCase().includes(term) ||
+        item.city.toLowerCase().includes(term)
+      );
+    });
+  }, [providers, search]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color={colors.brand} />
+          <Text style={styles.loadingText}>Loading providers...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <FlatList
-        data={providers}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() =>
-              navigation.navigate("ProviderDetail", {
-                providerId: item.id,
-                providerName: item.name,
-              })
-            }
-            style={styles.card}
-          >
-            <Text style={styles.name}>{item.name}</Text>
-            <Text style={styles.meta}>{item.category}</Text>
-            <Text style={styles.meta}>{item.city}</Text>
-            <Text style={styles.meta}>Rating: {item.rating}</Text>
-          </Pressable>
-        )}
-        ListEmptyComponent={<Text style={styles.empty}>No providers found.</Text>}
+      <View style={styles.header}>
+        <Text style={styles.title}>Providers</Text>
+        <Text style={styles.subtitle}>Find verified professionals for home services.</Text>
+      </View>
+
+      <TextInput
+        value={search}
+        onChangeText={setSearch}
+        placeholder="Search by name, category or city"
+        placeholderTextColor={colors.textMuted}
+        style={styles.search}
       />
+
+      {filtered.length === 0 ? (
+        <View style={styles.emptyWrap}>
+          <Text style={styles.emptyTitle}>No providers found</Text>
+          <Text style={styles.emptyBody}>Try another search term or remove filters.</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <ProviderCard
+              provider={item}
+              onPress={() =>
+                navigation.navigate("ProviderDetail", {
+                  providerId: item.id,
+                  providerName: item.name,
+                })
+              }
+            />
+          )}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: colors.background,
     flex: 1,
-    backgroundColor: "#F7F8FA",
-    padding: 16,
+    padding: spacing.lg,
   },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    marginBottom: 12,
-    padding: 16,
+  header: {
+    marginBottom: spacing.md,
   },
-  name: {
-    color: "#111827",
-    fontSize: 17,
-    fontWeight: "600",
-    marginBottom: 4,
+  title: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.xl,
+    fontWeight: "800",
   },
-  meta: {
-    color: "#4B5563",
-    fontSize: 14,
+  subtitle: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+    marginTop: spacing.xs,
   },
-  empty: {
-    color: "#6B7280",
-    fontSize: 14,
-    marginTop: 24,
+  search: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    color: colors.textPrimary,
+    fontSize: fontSizes.md,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  list: {
+    paddingBottom: spacing.xxl,
+  },
+  loadingWrap: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+  },
+  loadingText: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.md,
+    marginTop: spacing.md,
+  },
+  emptyWrap: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    marginTop: spacing.xl,
+    padding: spacing.xl,
+  },
+  emptyTitle: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.lg,
+    fontWeight: "700",
+  },
+  emptyBody: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.md,
+    marginTop: spacing.sm,
     textAlign: "center",
   },
 });
