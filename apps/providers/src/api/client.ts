@@ -31,11 +31,26 @@ export async function requestJson<T>(path: string, options: ApiRequestOptions = 
     ...(options.headers ?? {}),
   };
 
-  const response = await fetch(`${getApiBaseUrl()}${path}`, {
-    method,
-    headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), providerEnv.requestTimeoutMs);
+
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}${path}`, {
+      method,
+      headers,
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new ApiError(`Request timed out after ${providerEnv.requestTimeoutMs}ms`, 408);
+    }
+    const message = error instanceof Error ? error.message : "Network request failed";
+    throw new ApiError(message, 0);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const raw = await response.text();
   let payload: unknown = {};

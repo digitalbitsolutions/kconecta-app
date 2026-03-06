@@ -1,6 +1,7 @@
 type RuntimeEnv = {
   apiBaseUrl: string;
   mobileApiToken: string;
+  requestTimeoutMs: number;
   stage: "local" | "staging" | "production";
   diagnosticsEnabled: boolean;
 };
@@ -41,12 +42,26 @@ function resolveDiagnostics(stage: RuntimeEnv["stage"]): boolean {
   return stage !== "production";
 }
 
+function resolveTimeoutMs(): number {
+  const raw = readEnv("EXPO_PUBLIC_API_TIMEOUT_MS");
+  if (!raw) {
+    return 12000;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 1000) {
+    return 12000;
+  }
+
+  return parsed;
+}
+
 const stage = resolveStage();
 
 export const managerEnv: RuntimeEnv = {
   apiBaseUrl: readEnv("EXPO_PUBLIC_API_URL") ?? "http://10.0.2.2:8000/api",
   mobileApiToken: readEnv("EXPO_PUBLIC_MOBILE_API_TOKEN") ?? "kconecta-dev-token",
+  requestTimeoutMs: resolveTimeoutMs(),
   stage,
   diagnosticsEnabled: resolveDiagnostics(stage),
 };
-
