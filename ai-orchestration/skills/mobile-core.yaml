@@ -1,0 +1,9 @@
+id: mobile-core
+agent: mobile
+summary: "React Native with TypeScript baseline skill."
+planning_instructions: "Use React Native with TypeScript as default and define clear navigation/state boundaries."
+proposal_instructions: "Keep UI modules typed, composable, and API-client integration ready."
+validation_steps:
+  - "TypeScript typings are explicit on component props and models."
+  - "Navigation graph compiles and routes are coherent."
+  - "Data-fetch boundaries are isolated from presentation layer."

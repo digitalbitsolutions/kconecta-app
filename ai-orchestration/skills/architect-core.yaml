@@ -1,0 +1,9 @@
+id: architect-core
+agent: architect
+summary: "Core architecture decomposition and API-boundary discipline."
+planning_instructions: "Define module boundaries, API contracts, and migration-safe sequencing."
+proposal_instructions: "Prioritize architecture docs and contracts before implementation details."
+validation_steps:
+  - "API boundaries are explicit and non-overlapping."
+  - "Module ownership is documented for each domain."
+  - "Backward compatibility impact is stated."

@@ -116,9 +116,14 @@ class GitService:
         lines = self.status_porcelain(cwd=cwd)
         files: list[str] = []
         for line in lines:
-            if len(line) < 4:
+            stripped = line.strip()
+            if not stripped:
                 continue
-            path = line[3:].strip()
+
+            parts = stripped.split(maxsplit=1)
+            if len(parts) < 2:
+                continue
+            path = parts[1].strip()
             if " -> " in path:
                 path = path.split(" -> ", maxsplit=1)[1].strip()
             if path:

@@ -31,3 +31,9 @@ AGENT_BRANCHES = {
 
 LOG_FILE = Path("ai-orchestration/logs/audit.jsonl")
 APPROVAL_STORE_FILE = Path("ai-orchestration/state/approvals.json")
+SKILLS_DIR = Path("ai-orchestration/skills")
+MCP_CONFIG_FILE = Path("ai-orchestration/mcp/servers.yaml")
+RAG_CONFIG_FILE = Path("ai-orchestration/rag/config.yaml")
+
+DEFAULT_RAG_TOP_K = 4
+DEFAULT_RAG_MAX_SNIPPET_CHARS = 480

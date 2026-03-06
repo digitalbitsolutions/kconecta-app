@@ -1,0 +1,25 @@
+include_extensions:
+  - .md
+  - .txt
+  - .json
+  - .yaml
+  - .yml
+  - .py
+  - .php
+  - .js
+  - .jsx
+  - .ts
+  - .tsx
+
+exclude_dirs:
+  - .git
+  - node_modules
+  - vendor
+  - public
+  - storage
+  - .ai-worktrees
+  - ai-orchestration/logs
+  - ai-orchestration/state
+
+max_file_bytes: 240000
+max_snippet_chars: 480

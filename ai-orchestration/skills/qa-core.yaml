@@ -1,0 +1,9 @@
+id: qa-core
+agent: qa
+summary: "Deterministic test coverage and security-aware validation."
+planning_instructions: "Map acceptance criteria to test cases and identify regression risks early."
+proposal_instructions: "Prefer deterministic tests with explicit assertions and minimal flaky dependencies."
+validation_steps:
+  - "Unit and integration tests cover critical paths."
+  - "Security-sensitive flows are validated."
+  - "Failure messages are actionable."

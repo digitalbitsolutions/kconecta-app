@@ -15,6 +15,20 @@
   ],
   "commit_type": "feat",
   "metadata": {
-    "platform": "github-actions"
+    "platform": "github-actions",
+    "skills": [
+      "devops-core"
+    ],
+    "mcp_requests": [
+      {
+        "server": "docker",
+        "action": "list_containers",
+        "params": {}
+      }
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
   }
 }

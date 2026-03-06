@@ -73,6 +73,70 @@ class TaskSpec:
 
 
 @dataclass
+class SkillDefinition:
+    id: str
+    agent: str
+    summary: str = ""
+    planning_instructions: str = ""
+    proposal_instructions: str = ""
+    validation_steps: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "agent": self.agent,
+            "summary": self.summary,
+            "planning_instructions": self.planning_instructions,
+            "proposal_instructions": self.proposal_instructions,
+            "validation_steps": self.validation_steps,
+        }
+
+
+@dataclass
+class RagSnippet:
+    path: str
+    score: float
+    excerpt: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "path": self.path,
+            "score": self.score,
+            "excerpt": self.excerpt,
+        }
+
+
+@dataclass
+class McpInvocationResult:
+    server: str
+    action: str
+    params: dict[str, Any] = field(default_factory=dict)
+    result: Any = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "server": self.server,
+            "action": self.action,
+            "params": self.params,
+            "result": self.result,
+        }
+
+
+@dataclass
+class AgentExecutionContext:
+    skills: list[SkillDefinition] = field(default_factory=list)
+    rag_snippets: list[RagSnippet] = field(default_factory=list)
+    mcp_results: list[McpInvocationResult] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "skills": [item.to_dict() for item in self.skills],
+            "rag_snippets": [item.to_dict() for item in self.rag_snippets],
+            "mcp_results": [item.to_dict() for item in self.mcp_results],
+        }
+
+
+@dataclass
 class AgentOutput:
     plan_summary: str
     proposed_changes: str

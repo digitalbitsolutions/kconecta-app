@@ -15,6 +15,20 @@
   ],
   "commit_type": "test",
   "metadata": {
-    "suite": "api-smoke"
+    "suite": "api-smoke",
+    "skills": [
+      "qa-core"
+    ],
+    "mcp_requests": [
+      {
+        "server": "git",
+        "action": "status",
+        "params": {}
+      }
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 3
+    }
   }
 }

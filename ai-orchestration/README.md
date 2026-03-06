@@ -6,6 +6,9 @@ Local, reproducible AI orchestration for semi-autonomous development using:
 - `Aider` (automatic file editing)
 - `git` branches/worktrees for agent isolation
 - `gh` CLI for draft PR workflow
+- local `MCP` adapters (tool servers)
+- local `RAG` retrieval over repository context
+- reusable `Skills` per agent
 
 This scaffold is designed to run entirely on a developer machine.
 
@@ -14,6 +17,9 @@ This scaffold is designed to run entirely on a developer machine.
 ```text
 orchestrator.py
   -> preflight checks (git + ollama + models + tools)
+  -> skill loading (agent defaults + task-specific skills)
+  -> optional MCP calls for runtime/tool context
+  -> local RAG context retrieval
   -> branch/worktree bootstrap
   -> task assignment to agent
   -> local LLM planning/proposal
@@ -39,6 +45,12 @@ ai-orchestration/
   orchestrator.py
   README.md
   requirements.txt
+  mcp/
+    servers.yaml
+  rag/
+    config.yaml
+  skills/
+    *.yaml
   tasks/
     sample_*.json
   ai_orchestration/
@@ -144,6 +156,54 @@ Optional bypass checks:
 py ai-orchestration/orchestrator.py merge-pr --pr 123 --skip-checks
 ```
 
+### 7) List local skills
+
+```powershell
+py ai-orchestration/orchestrator.py skills-list
+```
+
+Filter by agent:
+
+```powershell
+py ai-orchestration/orchestrator.py skills-list --agent mobile
+```
+
+### 8) Local RAG search
+
+```powershell
+py ai-orchestration/orchestrator.py rag-search --query "React Native TypeScript navigation" --top-k 4
+```
+
+Optional scope:
+
+```powershell
+py ai-orchestration/orchestrator.py rag-search --query "API boundary" --scope ai-orchestration/README.md ai-orchestration/skills
+```
+
+### 9) Local MCP tools
+
+List MCP servers/actions:
+
+```powershell
+py ai-orchestration/orchestrator.py mcp-list
+```
+
+Call MCP action:
+
+```powershell
+py ai-orchestration/orchestrator.py mcp-call --server filesystem --action read_text --params '{"path":"ai-orchestration/README.md","max_chars":1200}'
+```
+
+If your shell escapes JSON poorly, use `--params-file`:
+
+```powershell
+@'
+{"path":"ai-orchestration/README.md","max_chars":1200}
+'@ | Out-File -Encoding utf8 ai-orchestration/mcp/tmp-params.json
+
+py ai-orchestration/orchestrator.py mcp-call --server filesystem --action read_text --params-file ai-orchestration/mcp/tmp-params.json
+```
+
 ## Task contract
 
 Task file supports JSON or YAML with fields:
@@ -157,6 +217,19 @@ Task file supports JSON or YAML with fields:
 - `acceptance_criteria` (optional)
 - `commit_type` (`feat|fix|refactor|test|docs`)
 - `metadata` (optional object)
+
+`metadata` v1 extensions:
+
+- `skills`: array of skill IDs
+- `rag`:
+  - `enabled` (bool)
+  - `query` (string, optional override)
+  - `top_k` (int)
+  - `scope` (array of paths)
+- `mcp_requests`: array of MCP calls:
+  - `server`
+  - `action`
+  - `params` (object)
 
 ## Agent output contract
 
@@ -178,6 +251,12 @@ Each agent produces:
   - `test:`
   - `docs:`
 - Merge requires explicit human approval via `approve-merge`.
+
+## MCP / RAG / Skills v1
+
+- **MCP v1**: read-only local tool adapters (`git`, `filesystem`, `ollama`, `docker`) configured in `ai-orchestration/mcp/servers.yaml`.
+- **RAG v1**: local lexical retrieval with configurable scope/extensions in `ai-orchestration/rag/config.yaml`.
+- **Skills v1**: reusable agent instructions/checklists in `ai-orchestration/skills/*.yaml` (auto-loads `<agent>-core`).
 
 ## Database guidance for this CRM
 

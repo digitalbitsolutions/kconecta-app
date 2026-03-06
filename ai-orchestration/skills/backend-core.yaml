@@ -1,0 +1,9 @@
+id: backend-core
+agent: backend
+summary: "Laravel API and schema evolution with safe defaults."
+planning_instructions: "Respect Laravel conventions and keep API/database changes backward compatible."
+proposal_instructions: "Implement controller-service separation and explicit request/response contracts."
+validation_steps:
+  - "Routes and controllers are wired correctly."
+  - "Schema changes include safe migration strategy."
+  - "Error handling and status codes are explicit."

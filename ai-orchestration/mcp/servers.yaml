@@ -1,0 +1,28 @@
+servers:
+  git:
+    enabled: true
+    description: "Read-only git introspection."
+    actions:
+      status: {}
+      branch: {}
+      log: {}
+
+  filesystem:
+    enabled: true
+    description: "Read-only file access inside repository root."
+    actions:
+      read_text:
+        max_chars: 6000
+
+  ollama:
+    enabled: true
+    description: "Local Ollama runtime and model inspection."
+    actions:
+      health: {}
+      list_models: {}
+
+  docker:
+    enabled: true
+    description: "Read-only local Docker container listing."
+    actions:
+      list_containers: {}

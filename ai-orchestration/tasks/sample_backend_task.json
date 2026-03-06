@@ -16,6 +16,22 @@
   ],
   "commit_type": "feat",
   "metadata": {
-    "domain": "services"
+    "domain": "services",
+    "skills": [
+      "backend-core"
+    ],
+    "mcp_requests": [
+      {
+        "server": "git",
+        "action": "log",
+        "params": {
+          "max_count": 5
+        }
+      }
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
   }
 }

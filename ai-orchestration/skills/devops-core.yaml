@@ -1,0 +1,9 @@
+id: devops-core
+agent: devops
+summary: "CI/CD and environment reproducibility."
+planning_instructions: "Prioritize reproducible pipelines, safe deployment gates, and observable runtime behavior."
+proposal_instructions: "Keep CI jobs explicit, fail-fast where possible, and document operational assumptions."
+validation_steps:
+  - "CI pipeline steps are deterministic."
+  - "Environment variables and secrets are handled safely."
+  - "Rollback or recovery path is documented."

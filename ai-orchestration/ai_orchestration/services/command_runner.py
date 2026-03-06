@@ -39,6 +39,8 @@ class CommandRunner:
             command,
             cwd=str(cwd) if cwd else None,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             capture_output=True,
             timeout=timeout,
             env=self._build_env(env),

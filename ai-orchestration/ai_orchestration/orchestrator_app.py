@@ -12,19 +12,26 @@ from .constants import (
     AGENT_BRANCHES,
     APPROVAL_STORE_FILE,
     DEFAULT_BASE_BRANCH,
+    DEFAULT_RAG_TOP_K,
     DEFAULT_WORKTREE_DIRNAME,
     LOG_FILE,
+    MCP_CONFIG_FILE,
+    RAG_CONFIG_FILE,
     REQUIRED_OLLAMA_MODELS,
     SEMANTIC_COMMIT_PREFIXES,
+    SKILLS_DIR,
 )
-from .models import TaskSpec
+from .models import AgentExecutionContext, McpInvocationResult, RagSnippet, TaskSpec
 from .services.aider_service import AiderService
 from .services.approval_store import ApprovalStore
 from .services.audit_logger import AuditLogger
 from .services.command_runner import CommandRunner
 from .services.git_service import GitService
+from .services.mcp_service import LocalMcpService
 from .services.ollama_client import OllamaClient
 from .services.pr_service import PullRequestService
+from .services.rag_service import RagService
+from .services.skill_service import SkillService
 from .services.task_service import TaskService
 
 
@@ -40,6 +47,15 @@ class Orchestrator:
         self.approval_store = ApprovalStore(self.repo_root / APPROVAL_STORE_FILE)
         self.aider = AiderService(runner=self.runner)
         self.pr_service = PullRequestService(self.git, runner=self.runner)
+        self.skill_service = SkillService(self.repo_root / SKILLS_DIR)
+        self.rag = RagService(self.repo_root, self.repo_root / RAG_CONFIG_FILE)
+        self.mcp = LocalMcpService(
+            repo_root=self.repo_root,
+            config_file=self.repo_root / MCP_CONFIG_FILE,
+            git=self.git,
+            ollama=self.ollama,
+            runner=self.runner,
+        )
 
     def preflight(self, fix_models: bool = False) -> dict[str, Any]:
         report: dict[str, Any] = {
@@ -71,6 +87,11 @@ class Orchestrator:
         report["checks"]["python_launcher"] = self.runner.run(
             ["py", "--version"], check=False
         ).stdout
+        report["checks"]["mcp_servers"] = self.mcp.list_servers()
+        report["checks"]["skills_available"] = [
+            skill.to_dict() for skill in self.skill_service.list_skills()
+        ]
+        report["checks"]["rag_config_file"] = str(self.repo_root / RAG_CONFIG_FILE)
 
         if fix_models and missing_models:
             pulled: list[str] = []
@@ -130,14 +151,16 @@ class Orchestrator:
             base_branch=base,
         )
 
+        context = self._build_agent_context(task)
         agent = create_agent(normalized_agent, self.ollama)
-        output = agent.execute(task)
+        output = agent.execute(task, context=context)
 
         if dry_run:
             payload = {
                 "mode": "dry-run",
                 "agent": normalized_agent,
                 "task": task.to_dict(),
+                "execution_context": context.to_dict(),
                 "agent_output": output.to_dict(),
                 "worktree": str(worktree),
                 "branch": branch,
@@ -159,7 +182,7 @@ class Orchestrator:
             model="deepseek-coder:6.7b",
         )
         changed_files = self.git.changed_files(cwd=worktree)
-        self._validate_changed_files_within_scope(changed_files, file_scope)
+        self._validate_changed_files_within_scope(changed_files, file_scope, worktree=worktree)
         commit_message = self._normalize_commit_message(output.commit_message, task)
         committed_files = self.git.commit(
             cwd=worktree,
@@ -177,6 +200,7 @@ class Orchestrator:
             "mode": "apply",
             "agent": normalized_agent,
             "task_id": task.id,
+            "execution_context": context.to_dict(),
             "branch": branch,
             "worktree": str(worktree),
             "changed_files": changed_files,
@@ -236,11 +260,129 @@ class Orchestrator:
         self.audit.log("merge_pr", payload)
         return payload
 
+    def list_skills(self, agent: str | None = None) -> dict[str, Any]:
+        normalized_agent = agent.strip().lower() if agent else None
+        skills = self.skill_service.list_skills(agent=normalized_agent)
+        payload = {
+            "agent_filter": normalized_agent,
+            "skills": [item.to_dict() for item in skills],
+        }
+        self.audit.log("skills_list", payload)
+        return payload
+
+    def rag_search(
+        self,
+        query: str,
+        *,
+        top_k: int = DEFAULT_RAG_TOP_K,
+        scope: list[str] | None = None,
+    ) -> dict[str, Any]:
+        snippets = self.rag.search(query=query, top_k=top_k, scope=scope or [])
+        payload = {
+            "query": query,
+            "top_k": top_k,
+            "scope": scope or [],
+            "results": [item.to_dict() for item in snippets],
+        }
+        self.audit.log("rag_search", payload)
+        return payload
+
+    def mcp_list(self) -> dict[str, Any]:
+        payload = {"servers": self.mcp.list_servers()}
+        self.audit.log("mcp_list", payload)
+        return payload
+
+    def mcp_call(self, server: str, action: str, params: dict[str, Any]) -> dict[str, Any]:
+        result = self.mcp.call(server=server, action=action, params=params)
+        payload = {
+            "server": server,
+            "action": action,
+            "params": params,
+            "result": result,
+        }
+        self.audit.log("mcp_call", payload)
+        return payload
+
     def _validate_task_agent(self, task: TaskSpec, agent_name: str) -> None:
         if task.agent != agent_name:
             raise ValueError(
                 f"Task agent mismatch. Task expects '{task.agent}', command received '{agent_name}'."
             )
+
+    def _build_agent_context(self, task: TaskSpec) -> AgentExecutionContext:
+        skills = self.skill_service.resolve_for_task(task)
+        rag_snippets = self._resolve_rag_context(task)
+        mcp_results = self._resolve_mcp_context(task)
+        return AgentExecutionContext(
+            skills=skills,
+            rag_snippets=rag_snippets,
+            mcp_results=mcp_results,
+        )
+
+    def _resolve_rag_context(self, task: TaskSpec) -> list[RagSnippet]:
+        rag_meta = task.metadata.get("rag", {})
+        if rag_meta is None:
+            rag_meta = {}
+        if rag_meta and not isinstance(rag_meta, dict):
+            raise ValueError("Task metadata 'rag' must be an object.")
+
+        enabled = bool(rag_meta.get("enabled", True))
+        if not enabled:
+            return []
+
+        query = str(
+            rag_meta.get("query")
+            or f"{task.title}\n{task.description}\n{' '.join(task.acceptance_criteria)}"
+        ).strip()
+        if not query:
+            return []
+
+        top_k = int(rag_meta.get("top_k", DEFAULT_RAG_TOP_K))
+        top_k = max(1, min(top_k, 8))
+
+        scope = rag_meta.get("scope")
+        if scope is None:
+            scope = task.files_scope
+        if scope is not None and not isinstance(scope, list):
+            raise ValueError("Task metadata 'rag.scope' must be an array of paths.")
+
+        scoped_results = self.rag.search(query=query, top_k=top_k, scope=scope)
+        if scoped_results:
+            return scoped_results
+
+        if scope:
+            return self.rag.search(query=query, top_k=top_k, scope=[])
+        return scoped_results
+
+    def _resolve_mcp_context(self, task: TaskSpec) -> list[McpInvocationResult]:
+        requests = task.metadata.get("mcp_requests", [])
+        if requests in (None, False):
+            return []
+        if requests and not isinstance(requests, list):
+            raise ValueError("Task metadata 'mcp_requests' must be an array.")
+
+        outputs: list[McpInvocationResult] = []
+        for index, raw in enumerate(requests):
+            if not isinstance(raw, dict):
+                raise ValueError(f"MCP request at index {index} must be an object.")
+            server = str(raw.get("server", "")).strip().lower()
+            action = str(raw.get("action", "")).strip().lower()
+            params = raw.get("params") or {}
+            if not isinstance(params, dict):
+                raise ValueError(f"MCP request params at index {index} must be an object.")
+            if not server or not action:
+                raise ValueError(f"MCP request at index {index} requires 'server' and 'action'.")
+
+            result = self.mcp.call(server=server, action=action, params=params)
+            outputs.append(
+                McpInvocationResult(
+                    server=server,
+                    action=action,
+                    params=params,
+                    result=result,
+                )
+            )
+        return outputs
 
     def _build_aider_prompt(self, task: TaskSpec, output: Any) -> str:
         validation_text = "\n".join(f"- {step}" for step in output.validation_steps) or "- none"
@@ -274,14 +416,28 @@ class Orchestrator:
         self,
         changed_files: list[str],
         file_scope: list[str],
+        *,
+        worktree: Path,
     ) -> None:
         if not changed_files:
             return
 
         allowed = {path.replace("\\", "/").strip() for path in file_scope}
-        out_of_scope = [
-            path for path in changed_files if path.replace("\\", "/").strip() not in allowed
-        ]
+        out_of_scope: list[str] = []
+        for path in changed_files:
+            normalized = path.replace("\\", "/").strip()
+            if normalized in allowed:
+                continue
+
+            absolute = worktree / normalized
+            is_directory = normalized.endswith("/") or absolute.is_dir()
+            if is_directory:
+                prefix = normalized if normalized.endswith("/") else normalized + "/"
+                if any(candidate.startswith(prefix) for candidate in allowed):
+                    continue
+
+            out_of_scope.append(path)
+
         if out_of_scope:
             raise RuntimeError(
                 "Aider changed files outside allowed scope: " + ", ".join(out_of_scope)
@@ -397,6 +553,43 @@ def build_parser() -> argparse.ArgumentParser:
     merge_parser.add_argument("--pr", required=True)
     merge_parser.add_argument("--skip-checks", action="store_true")
 
+    skills_parser = subparsers.add_parser(
+        "skills-list",
+        help="List available local skills.",
+    )
+    skills_parser.add_argument("--agent", required=False)
+
+    rag_parser = subparsers.add_parser(
+        "rag-search",
+        help="Search local repository context using RAG scoring.",
+    )
+    rag_parser.add_argument("--query", required=True)
+    rag_parser.add_argument("--top-k", type=int, default=DEFAULT_RAG_TOP_K)
+    rag_parser.add_argument("--scope", nargs="*", default=[])
+
+    mcp_list_parser = subparsers.add_parser(
+        "mcp-list",
+        help="List available local MCP servers and actions.",
+    )
+    mcp_list_parser.set_defaults(_placeholder=True)
+
+    mcp_call_parser = subparsers.add_parser(
+        "mcp-call",
+        help="Call a local MCP action.",
+    )
+    mcp_call_parser.add_argument("--server", required=True)
+    mcp_call_parser.add_argument("--action", required=True)
+    mcp_call_parser.add_argument(
+        "--params",
+        default="{}",
+        help="JSON object for action params (default: {}).",
+    )
+    mcp_call_parser.add_argument(
+        "--params-file",
+        required=False,
+        help="Path to JSON file with MCP params (alternative to --params).",
+    )
+
     return parser
 
 
@@ -425,6 +618,23 @@ def main(argv: list[str] | None = None) -> int:
             result = orchestrator.approve_merge(pr_id=args.pr)
         elif args.command == "merge-pr":
             result = orchestrator.merge_pr(pr_id=args.pr, skip_checks=args.skip_checks)
+        elif args.command == "skills-list":
+            result = orchestrator.list_skills(agent=args.agent)
+        elif args.command == "rag-search":
+            result = orchestrator.rag_search(
+                query=args.query,
+                top_k=args.top_k,
+                scope=args.scope,
+            )
+        elif args.command == "mcp-list":
+            result = orchestrator.mcp_list()
+        elif args.command == "mcp-call":
+            params = _parse_json_params(args.params, params_file=args.params_file)
+            result = orchestrator.mcp_call(
+                server=args.server,
+                action=args.action,
+                params=params,
+            )
         else:
             parser.error(f"Unsupported command: {args.command}")
             return 2
@@ -434,3 +644,14 @@ def main(argv: list[str] | None = None) -> int:
 
     print(json.dumps(result, indent=2, ensure_ascii=True))
     return 0
+
+
+def _parse_json_params(raw: str, *, params_file: str | None = None) -> dict[str, Any]:
+    if params_file:
+        text = Path(params_file).read_text(encoding="utf-8-sig")
+    else:
+        text = (raw or "").strip() or "{}"
+    parsed = json.loads(text)
+    if not isinstance(parsed, dict):
+        raise ValueError("--params must be a JSON object.")
+    return parsed

@@ -16,6 +16,20 @@
   ],
   "commit_type": "feat",
   "metadata": {
-    "stack": "React Native with TypeScript"
+    "stack": "React Native with TypeScript",
+    "skills": [
+      "mobile-core"
+    ],
+    "mcp_requests": [
+      {
+        "server": "ollama",
+        "action": "list_models",
+        "params": {}
+      }
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 5
+    }
   }
 }

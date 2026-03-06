@@ -15,6 +15,20 @@
   ],
   "commit_type": "docs",
   "metadata": {
-    "owner": "architecture-team"
+    "owner": "architecture-team",
+    "skills": [
+      "architect-core"
+    ],
+    "mcp_requests": [
+      {
+        "server": "git",
+        "action": "status",
+        "params": {}
+      }
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
   }
 }
