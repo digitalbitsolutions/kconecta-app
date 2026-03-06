@@ -50,6 +50,18 @@ class AuthGuardTest extends TestCase
         $response->assertUnauthorized();
     }
 
+    public function test_expired_bearer_token_is_rejected_by_auth_refresh_endpoint(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer expired-token"])
+            ->postJson("/api/auth/refresh");
+
+        $response->assertUnauthorized();
+
+        $code = (string) $response->json("error.code", "");
+        $this->assertContains($code, ["TOKEN_INVALID", "TOKEN_EXPIRED"]);
+    }
+
     public function test_authenticated_user_is_not_blocked_by_auth_guard(): void
     {
         $user = User::factory()->create();

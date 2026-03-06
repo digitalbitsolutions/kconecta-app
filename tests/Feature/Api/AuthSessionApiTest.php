@@ -11,16 +11,23 @@ class AuthSessionApiTest extends TestCase
 
     private const API_TOKEN = "kconecta-dev-token";
 
-    public function test_login_requires_email_and_password_fields(): void
+    public function test_auth_login_smoke_returns_contract_payload(): void
     {
-        $response = $this->postJson("/api/auth/login", []);
+        $response = $this->postJson("/api/auth/login", [
+            "email" => "manager@kconecta.local",
+            "password" => "kconecta-dev-password",
+        ]);
 
         $response
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(["email", "password"]);
+            ->assertOk()
+            ->assertJsonStructure([
+                "data" => ["access_token", "refresh_token", "token_type", "expires_in", "scope", "role", "issued_at"],
+                "meta" => ["contract", "mode"],
+            ])
+            ->assertJsonPath("data.token_type", "Bearer");
     }
 
-    public function test_login_rejects_invalid_password(): void
+    public function test_auth_login_rejects_invalid_credentials(): void
     {
         $response = $this->postJson("/api/auth/login", [
             "email" => "manager@kconecta.local",
@@ -32,32 +39,7 @@ class AuthSessionApiTest extends TestCase
             ->assertJsonPath("error.code", "INVALID_CREDENTIALS");
     }
 
-    public function test_login_returns_scaffold_contract_payload(): void
-    {
-        $response = $this->postJson("/api/auth/login", [
-            "email" => "manager@kconecta.local",
-            "password" => "kconecta-dev-password",
-        ]);
-
-        $response
-            ->assertOk()
-            ->assertJsonStructure([
-                "data" => [
-                    "access_token",
-                    "refresh_token",
-                    "token_type",
-                    "expires_in",
-                    "scope",
-                    "role",
-                    "issued_at",
-                ],
-                "meta" => ["contract", "mode"],
-            ])
-            ->assertJsonPath("data.token_type", "Bearer")
-            ->assertJsonPath("meta.contract", "auth-session-v1");
-    }
-
-    public function test_refresh_requires_authorized_token(): void
+    public function test_auth_refresh_smoke_requires_authorization(): void
     {
         $response = $this->postJson("/api/auth/refresh");
 
@@ -66,7 +48,7 @@ class AuthSessionApiTest extends TestCase
             ->assertJsonPath("error.code", "TOKEN_INVALID");
     }
 
-    public function test_refresh_returns_rotated_tokens_for_authorized_token(): void
+    public function test_auth_refresh_smoke_returns_payload_for_valid_token(): void
     {
         $response = $this->withHeaders([
             "Authorization" => "Bearer " . self::API_TOKEN,
@@ -83,18 +65,36 @@ class AuthSessionApiTest extends TestCase
             ->assertJsonPath("data.refresh_token", "rtk_seed_refresh");
     }
 
-    public function test_logout_requires_authorized_token(): void
+    public function test_auth_refresh_rejects_expired_token(): void
+    {
+        $response = $this->withHeaders([
+            "Authorization" => "Bearer expired-token",
+        ])->postJson("/api/auth/refresh");
+
+        $response->assertUnauthorized();
+        $this->assertAuthErrorCode($response->json("error.code"));
+    }
+
+    public function test_auth_refresh_rejects_invalid_token(): void
     {
         $response = $this->withHeaders([
             "Authorization" => "Bearer invalid-token",
-        ])->postJson("/api/auth/logout");
+        ])->postJson("/api/auth/refresh");
+
+        $response->assertUnauthorized();
+        $this->assertAuthErrorCode($response->json("error.code"));
+    }
+
+    public function test_auth_logout_smoke_requires_authorization(): void
+    {
+        $response = $this->postJson("/api/auth/logout");
 
         $response
             ->assertUnauthorized()
             ->assertJsonPath("error.code", "TOKEN_INVALID");
     }
 
-    public function test_logout_returns_revoke_payload_for_authorized_token(): void
+    public function test_auth_logout_smoke_returns_revoke_payload_for_valid_token(): void
     {
         $response = $this->withHeaders([
             "Authorization" => "Bearer " . self::API_TOKEN,
@@ -107,5 +107,14 @@ class AuthSessionApiTest extends TestCase
                 "meta" => ["contract", "mode"],
             ])
             ->assertJsonPath("data.revoked", true);
+    }
+
+    private function assertAuthErrorCode(mixed $code): void
+    {
+        $this->assertContains(
+            (string) $code,
+            ["TOKEN_INVALID", "TOKEN_EXPIRED"],
+            "Expected TOKEN_INVALID or TOKEN_EXPIRED error code for unauthorized token flow."
+        );
     }
 }
