@@ -1,0 +1,21 @@
+﻿{
+  "id": "BE-006",
+  "title": "Harden bearer token header parsing",
+  "description": "Fix API access gate to accept case-insensitive bearer scheme and avoid false unauthorized responses due to header casing.",
+  "agent": "backend",
+  "priority": "medium",
+  "files_scope": [
+    "app/Services/ApiAccessService.php"
+  ],
+  "acceptance_criteria": [
+    "Authorization header parser accepts Bearer and bearer",
+    "Whitespace-only token values remain unauthorized"
+  ],
+  "commit_type": "fix",
+  "metadata": {
+    "skills": ["backend-core"],
+    "domain": "auth",
+    "rag": {"enabled": true, "top_k": 3},
+    "wave": "wave8"
+  }
+}
