@@ -1,0 +1,23 @@
+﻿{
+  "id": "QA-005",
+  "title": "Add provider detail and token access tests",
+  "description": "Extend API feature tests for provider detail success/not-found behavior and bearer token access for provider detail endpoint.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "tests/Feature/Api/ProviderApiTest.php",
+    "tests/Feature/Api/AuthGuardTest.php"
+  ],
+  "acceptance_criteria": [
+    "Authenticated request gets provider detail 200",
+    "Unknown provider detail returns 404",
+    "Bearer token request can access provider detail"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "skills": ["qa-core"],
+    "suite": "api-provider-smoke",
+    "rag": {"enabled": true, "top_k": 3},
+    "wave": "wave6"
+  }
+}
