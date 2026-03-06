@@ -1,54 +1,61 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { FlatList, SafeAreaView, StyleSheet, Text, TextInput, View } from "react-native";
-import PropertyListItem, { type PropertySummary } from "../components/PropertyListItem";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { fetchProperties, type PropertyViewModel } from "../api/propertyApi";
+import PropertyListItem from "../components/PropertyListItem";
 import type { ManagerStackParamList } from "../navigation";
 import { borderRadius, colors, fontSizes, spacing } from "../theme/tokens";
 
 type PropertyListNavigation = NativeStackNavigationProp<ManagerStackParamList, "PropertyList">;
 
-const mockProperties: PropertySummary[] = [
-  {
-    id: "prop-101",
-    title: "Modern Loft Center",
-    city: "Madrid",
-    status: "available",
-    price: "EUR 235,000",
-  },
-  {
-    id: "prop-102",
-    title: "Family Home North",
-    city: "Barcelona",
-    status: "reserved",
-    price: "EUR 310,000",
-  },
-  {
-    id: "prop-103",
-    title: "City Apartment East",
-    city: "Valencia",
-    status: "maintenance",
-    price: "EUR 198,000",
-  },
-];
-
 const PropertyListScreen = () => {
   const navigation = useNavigation<PropertyListNavigation>();
   const [search, setSearch] = useState("");
+  const [properties, setProperties] = useState<PropertyViewModel[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadProperties = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await fetchProperties();
+      setProperties(rows);
+    } catch (fetchError) {
+      const message = fetchError instanceof Error ? fetchError.message : "Unable to load properties.";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProperties();
+  }, [loadProperties]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) {
-      return mockProperties;
+      return properties;
     }
-    return mockProperties.filter((property) => {
+    return properties.filter((property) => {
       return (
         property.title.toLowerCase().includes(term) ||
         property.city.toLowerCase().includes(term) ||
         property.status.toLowerCase().includes(term)
       );
     });
-  }, [search]);
+  }, [properties, search]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -63,12 +70,31 @@ const PropertyListScreen = () => {
         style={styles.search}
       />
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator color={colors.brand} />
+          <Text style={styles.loadingText}>Loading portfolio...</Text>
+        </View>
+      ) : null}
+
+      {!loading && error ? (
+        <View style={styles.errorWrap}>
+          <Text style={styles.errorTitle}>Unable to load properties</Text>
+          <Text style={styles.errorBody}>{error}</Text>
+          <Pressable style={styles.retryButton} onPress={loadProperties}>
+            <Text style={styles.retryText}>Retry</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {!loading && !error && filtered.length === 0 ? (
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyTitle}>No properties found</Text>
           <Text style={styles.emptyBody}>Try another keyword or clear the search.</Text>
         </View>
-      ) : (
+      ) : null}
+
+      {!loading && !error && filtered.length > 0 ? (
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
@@ -86,7 +112,7 @@ const PropertyListScreen = () => {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
         />
-      )}
+      ) : null}
     </SafeAreaView>
   );
 };
@@ -121,6 +147,44 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingBottom: spacing.xxl,
+  },
+  loadingWrap: {
+    alignItems: "center",
+    paddingVertical: spacing.xl,
+  },
+  loadingText: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+    marginTop: spacing.sm,
+  },
+  errorWrap: {
+    borderColor: colors.border,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+  },
+  errorTitle: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.md,
+    fontWeight: "700",
+  },
+  errorBody: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+    marginTop: spacing.xs,
+  },
+  retryButton: {
+    alignItems: "center",
+    backgroundColor: colors.brand,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  retryText: {
+    color: colors.surface,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
   },
   emptyWrap: {
     alignItems: "center",
