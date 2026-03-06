@@ -1,4 +1,7 @@
-﻿export type ApiRequestOptions = {
+﻿import { getAccessToken } from "../auth/session";
+import { managerEnv } from "../config/env";
+
+export type ApiRequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   headers?: Record<string, string>;
@@ -14,21 +17,21 @@ export class ApiError extends Error {
   }
 }
 
-// Use Android emulator loopback by default; override via EXPO_PUBLIC_API_URL when needed.
-const baseUrl = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
-  ?.EXPO_PUBLIC_API_URL;
-
-const API_BASE_URL = baseUrl?.trim() ? baseUrl.trim() : "http://10.0.2.2:8000/api";
+export function getApiBaseUrl(): string {
+  return managerEnv.apiBaseUrl;
+}
 
 export async function requestJson<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const method = options.method ?? "GET";
+  const token = getAccessToken();
   const headers: Record<string, string> = {
     Accept: "application/json",
     ...(options.body !== undefined ? { "Content-Type": "application/json" } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers ?? {}),
   };
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
     method,
     headers,
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
