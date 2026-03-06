@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
+DEFAULT_GOOGLE_AG_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+DEFAULT_WINDSURF_BASE_URL = "https://api.windsurf.com/v1"
 DEFAULT_BASE_BRANCH = "main"
 DEFAULT_WORKTREE_DIRNAME = ".ai-worktrees"
 DEFAULT_MOBILE_STACK = "React Native with TypeScript"
@@ -18,6 +20,13 @@ MODEL_ROUTING = {
     "planning": "llama3.1:8b",
     "lightweight": "mistral",
 }
+
+EXTERNAL_MODEL_ROUTING = {
+    "google_ag": "gemini-2.5-pro",
+    "windsurf": "swe-1",
+}
+
+SUPPORTED_LLM_PROVIDERS = ("auto", "ollama", "google_ag", "windsurf")
 
 SEMANTIC_COMMIT_PREFIXES = ("feat", "fix", "refactor", "test", "docs")
 

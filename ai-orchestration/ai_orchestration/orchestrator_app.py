@@ -27,22 +27,33 @@ from .services.approval_store import ApprovalStore
 from .services.audit_logger import AuditLogger
 from .services.command_runner import CommandRunner
 from .services.git_service import GitService
+from .services.google_ag_client import GoogleAgClient
 from .services.jira_service import JiraService
+from .services.llm_router import LlmRouter
 from .services.mcp_service import LocalMcpService
 from .services.ollama_client import OllamaClient
 from .services.pr_service import PullRequestService
 from .services.rag_service import RagService
 from .services.skill_service import SkillService
 from .services.task_service import TaskService
+from .services.windsurf_client import WindsurfClient
 
 
 class Orchestrator:
     def __init__(self, repo_root: Path) -> None:
         self.repo_root = repo_root
         self.worktree_root = self.repo_root / DEFAULT_WORKTREE_DIRNAME
+        self._load_env_file(self.repo_root / "ai-orchestration" / ".env.llm")
         self.runner = CommandRunner()
         self.git = GitService(self.repo_root, runner=self.runner)
         self.ollama = OllamaClient(runner=self.runner)
+        self.google_ag = GoogleAgClient()
+        self.windsurf = WindsurfClient()
+        self.llm_router = LlmRouter(
+            ollama=self.ollama,
+            google_ag=self.google_ag,
+            windsurf=self.windsurf,
+        )
         self.task_service = TaskService()
         self.audit = AuditLogger(self.repo_root / LOG_FILE)
         self.approval_store = ApprovalStore(self.repo_root / APPROVAL_STORE_FILE)
@@ -95,6 +106,7 @@ class Orchestrator:
         ]
         report["checks"]["rag_config_file"] = str(self.repo_root / RAG_CONFIG_FILE)
         report["checks"]["jira"] = self.jira.configuration_status()
+        report["checks"]["llm_routing"] = self.llm_router.preflight_status()
 
         if fix_models and missing_models:
             pulled: list[str] = []
@@ -155,7 +167,7 @@ class Orchestrator:
         )
 
         context = self._build_agent_context(task)
-        agent = create_agent(normalized_agent, self.ollama)
+        agent = create_agent(normalized_agent, self.llm_router)
         output = agent.execute(task, context=context)
 
         if dry_run:
@@ -499,6 +511,22 @@ class Orchestrator:
             return " ".join(command)
         except Exception as exc:
             return f"(not available) {exc}"
+
+    def _load_env_file(self, env_path: Path) -> None:
+        try:
+            if not env_path.exists():
+                return
+            for raw_line in env_path.read_text(encoding="utf-8-sig").splitlines():
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", maxsplit=1)
+                key = key.strip()
+                value = value.strip().strip("\"'")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+        except OSError:
+            return
 
     def _validate_changed_files_within_scope(
         self,

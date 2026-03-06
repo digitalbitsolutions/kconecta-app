@@ -5,5 +5,6 @@ ai-orchestration/logs/transcripts/
 ai-orchestration/state/approvals.json
 ai-orchestration/state/*.lock
 ai-orchestration/.env.jira
+ai-orchestration/.env.llm
 __pycache__/
 *.pyc

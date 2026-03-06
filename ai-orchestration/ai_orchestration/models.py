@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from .constants import SEMANTIC_COMMIT_PREFIXES
+from .constants import SEMANTIC_COMMIT_PREFIXES, SUPPORTED_LLM_PROVIDERS
 
 
 @dataclass
@@ -43,6 +43,13 @@ class TaskSpec:
         metadata = payload.get("metadata") or {}
         if not isinstance(metadata, dict):
             raise ValueError("metadata must be an object.")
+
+        llm_provider = str(metadata.get("llm_provider", "")).strip().lower()
+        if llm_provider and llm_provider not in SUPPORTED_LLM_PROVIDERS:
+            raise ValueError(
+                "metadata.llm_provider must be one of: "
+                + ", ".join(SUPPORTED_LLM_PROVIDERS)
+            )
 
         return cls(
             id=str(payload["id"]).strip(),
@@ -140,15 +147,19 @@ class AgentExecutionContext:
 class AgentOutput:
     plan_summary: str
     proposed_changes: str
+    review_notes: str = ""
     target_files: list[str] = field(default_factory=list)
     validation_steps: list[str] = field(default_factory=list)
     commit_message: str = ""
+    model_trace: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "plan_summary": self.plan_summary,
             "proposed_changes": self.proposed_changes,
+            "review_notes": self.review_notes,
             "target_files": self.target_files,
             "validation_steps": self.validation_steps,
             "commit_message": self.commit_message,
+            "model_trace": self.model_trace,
         }
