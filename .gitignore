@@ -1,0 +1,7 @@
+.aider*
+.ai-worktrees/
+ai-orchestration/logs/*.jsonl
+ai-orchestration/logs/transcripts/
+ai-orchestration/state/approvals.json
+__pycache__/
+*.pyc

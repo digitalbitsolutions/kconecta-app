@@ -1,0 +1,20 @@
+{
+  "id": "OPS-001",
+  "title": "Add CI workflow for lint and tests",
+  "description": "Create GitHub Actions workflow to run lint and test jobs for backend and mobile modules.",
+  "agent": "devops",
+  "priority": "medium",
+  "files_scope": [
+    ".github/workflows/ci.yml",
+    "docker/ci/docker-compose.ci.yml"
+  ],
+  "acceptance_criteria": [
+    "Workflow triggers on pull_request and push",
+    "Separate jobs for backend and mobile",
+    "Fail-fast and artifacts are configured"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "platform": "github-actions"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "QA-001",
+  "title": "Add API smoke tests for provider endpoints",
+  "description": "Create smoke tests for provider listing endpoint and auth guard behavior.",
+  "agent": "qa",
+  "priority": "low",
+  "files_scope": [
+    "tests/Feature/Api/ProviderApiTest.php",
+    "tests/Feature/Api/AuthGuardTest.php"
+  ],
+  "acceptance_criteria": [
+    "Happy path and unauthorized scenarios are covered",
+    "Assertions are deterministic",
+    "Fail messages are explicit"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "suite": "api-smoke"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "MOB-001",
+  "title": "Scaffold providers app module in React Native TypeScript",
+  "description": "Create mobile module skeleton for provider list and provider detail using React Native with TypeScript.",
+  "agent": "mobile",
+  "priority": "medium",
+  "files_scope": [
+    "apps/providers/src/screens/ProviderListScreen.tsx",
+    "apps/providers/src/screens/ProviderDetailScreen.tsx",
+    "apps/providers/src/navigation/index.tsx"
+  ],
+  "acceptance_criteria": [
+    "TypeScript types are explicit",
+    "Navigation wiring compiles",
+    "API client placeholders are isolated"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "stack": "React Native with TypeScript"
+  }
+}

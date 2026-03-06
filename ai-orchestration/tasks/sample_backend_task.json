@@ -1,0 +1,21 @@
+{
+  "id": "BE-001",
+  "title": "Create providers API endpoint skeleton",
+  "description": "Add Laravel API endpoint skeleton for service providers listing with role and status filters.",
+  "agent": "backend",
+  "priority": "medium",
+  "files_scope": [
+    "routes/api.php",
+    "app/Http/Controllers/Api/ProviderController.php",
+    "app/Services/ProviderService.php"
+  ],
+  "acceptance_criteria": [
+    "Endpoint is registered in routes",
+    "Controller delegates logic to service layer",
+    "Response shape is documented in code comments"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "domain": "services"
+  }
+}

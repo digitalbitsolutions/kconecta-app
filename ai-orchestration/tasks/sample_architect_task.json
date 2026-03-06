@@ -1,0 +1,20 @@
+{
+  "id": "ARCH-001",
+  "title": "Define API boundary for CRM modularization",
+  "description": "Produce architecture notes and endpoint boundary decisions for property, service, and admin domains.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/api-boundary.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Boundary decisions are explicit",
+    "Domain module responsibilities are listed",
+    "Backward compatibility notes are included"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "owner": "architecture-team"
+  }
+}
