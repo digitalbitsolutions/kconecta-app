@@ -1,0 +1,32 @@
+﻿{
+  "id": "MOB-UIUX-001",
+  "title": "Implement UI UX foundation for providers module",
+  "description": "Improve providers list and detail UX with reusable design tokens, card component, visual hierarchy, loading and empty states, and clearer navigation affordances for React Native TypeScript.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/providers/src/theme/tokens.ts",
+    "apps/providers/src/components/ProviderCard.tsx",
+    "apps/providers/src/screens/ProviderListScreen.tsx",
+    "apps/providers/src/screens/ProviderDetailScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Design tokens are centralized in a dedicated theme file",
+    "Provider list uses a reusable typed card component",
+    "List screen shows loading empty and content states clearly",
+    "Detail screen improves readability and information grouping"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "skills": ["mobile-core"],
+    "stack": "React Native with TypeScript",
+    "rag": {
+      "enabled": true,
+      "top_k": 4,
+      "scope": [
+        "apps/providers/src/screens",
+        "apps/providers/src/navigation/index.tsx"
+      ]
+    }
+  }
+}

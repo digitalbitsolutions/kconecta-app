@@ -345,7 +345,7 @@ class JiraService:
             if not env_file.exists():
                 return {}
             values: dict[str, str] = {}
-            for raw_line in env_file.read_text(encoding="utf-8").splitlines():
+            for raw_line in env_file.read_text(encoding="utf-8-sig").splitlines():
                 line = raw_line.strip()
                 if not line or line.startswith("#") or "=" not in line:
                     continue
