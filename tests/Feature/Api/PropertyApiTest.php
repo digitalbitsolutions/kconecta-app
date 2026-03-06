@@ -10,6 +10,8 @@ class PropertyApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const API_TOKEN = "kconecta-dev-token";
+
     public function test_authenticated_user_can_fetch_properties(): void
     {
         $user = User::factory()->create();
@@ -65,5 +67,35 @@ class PropertyApiTest extends TestCase
             ->assertNotFound()
             ->assertJsonPath("message", "Property not found")
             ->assertJsonPath("property_id", 999999);
+    }
+
+    public function test_mobile_client_with_bearer_token_can_fetch_properties(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties");
+
+        $response
+            ->assertOk()
+            ->assertJsonStructure([
+                "data" => [
+                    "*" => ["id", "title", "city", "status", "manager_id", "price"],
+                ],
+                "meta" => [
+                    "count",
+                    "filters" => ["status", "city", "manager_id"],
+                ],
+            ]);
+    }
+
+    public function test_mobile_client_with_bearer_token_can_fetch_property_detail(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/101");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("data.id", 101);
     }
 }
