@@ -1,26 +1,32 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
-import ProviderListScreen from '../screens/ProviderListScreen';
-import ProviderDetailScreen from '../screens/ProviderDetailScreen';
+import React from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import ProviderListScreen from "../screens/ProviderListScreen";
+import ProviderDetailScreen from "../screens/ProviderDetailScreen";
 
 export type RootStackParamList = {
   ProviderList: undefined;
-  ProviderDetail: { providerId: string };
+  ProviderDetail: { providerId: string; providerName: string };
 };
 
-const Stack = createStackNavigator<RootStackParamList>();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const RootStack = () => {
-  return (
-    <Stack.Navigator>
-      <Stack.Screen name="ProviderList" component={ProviderListScreen} />
-      <Stack.Screen name="ProviderDetail" component={ProviderDetailScreen} />
-    </Stack.Navigator>
-  );
-};
+const RootStack = () => (
+  <Stack.Navigator initialRouteName="ProviderList">
+    <Stack.Screen
+      name="ProviderList"
+      component={ProviderListScreen}
+      options={{ title: "Providers" }}
+    />
+    <Stack.Screen
+      name="ProviderDetail"
+      component={ProviderDetailScreen}
+      options={{ title: "Provider Details" }}
+    />
+  </Stack.Navigator>
+);
 
-export default function App() {
+export default function AppNavigator() {
   return (
     <NavigationContainer>
       <RootStack />
