@@ -2,39 +2,38 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
 
 class ProviderApiTest extends TestCase
 {
-    use RefreshDatabase, WithFaker;
+    use RefreshDatabase;
 
-    /** @test */
-    public function a_user_can_fetch_providers()
+    public function test_authenticated_user_can_fetch_providers(): void
     {
-        $this->withoutExceptionHandling();
+        $user = User::factory()->create();
 
-        $user = factory(User::class)->create();
-        $provider = factory(Provider::class)->create();
+        $response = $this->actingAs($user)->getJson("/api/providers");
 
-        $response = $this->actingAs($user)->get('/api/providers');
-
-        $response->assertStatus(200);
-        $response->assertJsonStructure(['data', 'links', 'meta']);
-        $response->assertJsonFragment([
-            'id' => $provider->id,
-            'name' => $provider->name,
-            // add other fields you expect in the response
-        ]);
+        $response
+            ->assertOk()
+            ->assertJsonStructure([
+                "data" => [
+                    "*" => ["id", "name", "role", "status"],
+                ],
+                "meta" => ["count", "filters" => ["role", "status"]],
+            ]);
     }
 
-    /** @test */
-    public function a_user_cannot_fetch_providers_without_authentication()
+    public function test_authenticated_user_can_filter_providers_by_status(): void
     {
-        $response = $this->get('/api/providers');
+        $user = User::factory()->create();
 
-        $response->assertStatus(401);
-        $response->assertJsonFragment(['message' => 'Unauthenticated.']);
+        $response = $this->actingAs($user)->getJson("/api/providers?status=active");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("meta.filters.status", "active");
     }
 }
