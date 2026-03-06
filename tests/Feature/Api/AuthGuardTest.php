@@ -16,6 +16,12 @@ class AuthGuardTest extends TestCase
         $response->assertUnauthorized();
     }
 
+    public function test_guest_cannot_access_property_endpoint(): void
+    {
+        $response = $this->getJson("/api/properties");
+        $response->assertUnauthorized();
+    }
+
     public function test_authenticated_user_is_not_blocked_by_auth_guard(): void
     {
         $user = User::factory()->create();
@@ -25,6 +31,18 @@ class AuthGuardTest extends TestCase
             401,
             $response->status(),
             "Authenticated user should not receive 401 from provider endpoint."
+        );
+    }
+
+    public function test_authenticated_user_is_not_blocked_on_property_endpoint(): void
+    {
+        $user = User::factory()->create();
+        $response = $this->actingAs($user)->getJson("/api/properties");
+
+        $this->assertNotEquals(
+            401,
+            $response->status(),
+            "Authenticated user should not receive 401 from property endpoint."
         );
     }
 }
