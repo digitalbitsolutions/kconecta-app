@@ -1,0 +1,27 @@
+{
+  "id": "QA-010",
+  "title": "Define Wave 11 UI/auth regression checklist",
+  "description": "Extend QA strategy with manager/providers auth UI smoke flows and deterministic checks for session expiration recovery.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/AuthSessionApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "QA checklist includes UI/auth session smoke matrix",
+    "Token-expired recovery assertions remain deterministic",
+    "Regression criteria map directly to Wave 11 tickets"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave11",
+    "skills": [
+      "qa-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

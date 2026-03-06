@@ -1,0 +1,29 @@
+{
+  "id": "MOB-008",
+  "title": "Scaffold manager auth/session UI flow",
+  "description": "Implement manager app auth shell screens and unauthorized/session-expired UX transitions with typed navigation contracts.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/navigation",
+    "apps/manager/src/screens/auth",
+    "apps/manager/src/auth/session.ts"
+  ],
+  "acceptance_criteria": [
+    "Manager app has login/session-expired/unauthorized states scaffolded",
+    "Navigation transitions are typed and deterministic",
+    "Session reset hook is wired to UI fallback route"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave11",
+    "stack": "React Native with TypeScript",
+    "skills": [
+      "mobile-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

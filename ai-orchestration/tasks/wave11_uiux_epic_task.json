@@ -1,0 +1,24 @@
+{
+  "id": "EPIC-W11",
+  "title": "Wave 11 - Native UI/UX and Session Experience",
+  "description": "Deliver the first production-shaped UI/UX layer for manager/providers native apps, aligned with auth/session contracts from Wave 10.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/ai-orchestration-roadmap.md",
+    "docs/operations/orchestration-log-2026-03-06.md"
+  ],
+  "acceptance_criteria": [
+    "Wave 11 tickets are planned and sequenced by agent",
+    "Auth/session UX states are reflected in mobile backlog",
+    "QA coverage criteria include UI/auth regression focus"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave11",
+    "theme": "uiux-auth",
+    "skills": [
+      "devops-core"
+    ]
+  }
+}
