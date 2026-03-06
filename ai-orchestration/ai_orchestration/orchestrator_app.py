@@ -27,6 +27,7 @@ from .services.approval_store import ApprovalStore
 from .services.audit_logger import AuditLogger
 from .services.command_runner import CommandRunner
 from .services.git_service import GitService
+from .services.jira_service import JiraService
 from .services.mcp_service import LocalMcpService
 from .services.ollama_client import OllamaClient
 from .services.pr_service import PullRequestService
@@ -49,6 +50,7 @@ class Orchestrator:
         self.pr_service = PullRequestService(self.git, runner=self.runner)
         self.skill_service = SkillService(self.repo_root / SKILLS_DIR)
         self.rag = RagService(self.repo_root, self.repo_root / RAG_CONFIG_FILE)
+        self.jira = JiraService()
         self.mcp = LocalMcpService(
             repo_root=self.repo_root,
             config_file=self.repo_root / MCP_CONFIG_FILE,
@@ -92,6 +94,7 @@ class Orchestrator:
             skill.to_dict() for skill in self.skill_service.list_skills()
         ]
         report["checks"]["rag_config_file"] = str(self.repo_root / RAG_CONFIG_FILE)
+        report["checks"]["jira"] = self.jira.configuration_status()
 
         if fix_models and missing_models:
             pulled: list[str] = []
@@ -301,6 +304,91 @@ class Orchestrator:
             "result": result,
         }
         self.audit.log("mcp_call", payload)
+        return payload
+
+    def jira_preflight(self) -> dict[str, Any]:
+        payload = self.jira.preflight()
+        self.audit.log("jira_preflight", payload)
+        return payload
+
+    def jira_create_from_task(
+        self,
+        *,
+        task_file: Path,
+        issue_type: str = "Task",
+        labels: list[str] | None = None,
+    ) -> dict[str, Any]:
+        task = self.task_service.load(task_file)
+        issue = self.jira.create_issue_from_task(
+            task,
+            issue_type=issue_type,
+            labels=labels or [],
+        )
+        payload = {
+            "task_file": str(task_file),
+            "task_id": task.id,
+            "agent": task.agent,
+            "issue_type": issue_type,
+            "issue": issue,
+        }
+        self.audit.log("jira_create_from_task", payload)
+        return payload
+
+    def jira_comment(self, issue: str, text: str) -> dict[str, Any]:
+        result = self.jira.add_comment(issue, text)
+        payload = {
+            "issue": issue,
+            "text": text,
+            "result": result,
+        }
+        self.audit.log("jira_comment", payload)
+        return payload
+
+    def jira_link_pr(self, issue: str, pr_id: str) -> dict[str, Any]:
+        pr_data = self.pr_service.view(pr_id)
+        comment = (
+            f"Linked PR #{pr_id}\n"
+            f"Title: {pr_data.get('title', '(no title)')}\n"
+            f"URL: {pr_data.get('url', '(no url)')}\n"
+            f"Head: {pr_data.get('headRefName', '(unknown)')}\n"
+            f"Base: {pr_data.get('baseRefName', '(unknown)')}"
+        )
+        result = self.jira.add_comment(issue, comment)
+        payload = {
+            "issue": issue,
+            "pr_id": str(pr_id),
+            "pr": pr_data,
+            "result": result,
+        }
+        self.audit.log("jira_link_pr", payload)
+        return payload
+
+    def jira_transition(self, issue: str, to_status: str) -> dict[str, Any]:
+        result = self.jira.transition_issue(issue, to_status)
+        payload = {
+            "issue": issue,
+            "to": to_status,
+            "result": result,
+        }
+        self.audit.log("jira_transition", payload)
+        return payload
+
+    def jira_list(
+        self,
+        *,
+        agent: str | None = None,
+        status: str = "open",
+        max_results: int = 20,
+    ) -> dict[str, Any]:
+        payload = self.jira.list_issues(
+            agent=(agent.strip().lower() if agent else None),
+            status=status,
+            max_results=max_results,
+        )
+        payload["agent_filter"] = agent
+        payload["status_filter"] = status
+        payload["max_results"] = max_results
+        self.audit.log("jira_list", payload)
         return payload
 
     def _validate_task_agent(self, task: TaskSpec, agent_name: str) -> None:
@@ -590,6 +678,49 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to JSON file with MCP params (alternative to --params).",
     )
 
+    jira_preflight_parser = subparsers.add_parser(
+        "jira-preflight",
+        help="Validate Jira credentials and project access.",
+    )
+    jira_preflight_parser.set_defaults(_placeholder=True)
+
+    jira_create_parser = subparsers.add_parser(
+        "jira-create-from-task",
+        help="Create a Jira issue from a task JSON/YAML file.",
+    )
+    jira_create_parser.add_argument("--task-file", required=True)
+    jira_create_parser.add_argument("--issue-type", default="Task")
+    jira_create_parser.add_argument("--labels", nargs="*", default=[])
+
+    jira_comment_parser = subparsers.add_parser(
+        "jira-comment",
+        help="Add a Jira comment to an issue.",
+    )
+    jira_comment_parser.add_argument("--issue", required=True)
+    jira_comment_parser.add_argument("--text", required=True)
+
+    jira_link_pr_parser = subparsers.add_parser(
+        "jira-link-pr",
+        help="Add PR reference comment to a Jira issue.",
+    )
+    jira_link_pr_parser.add_argument("--issue", required=True)
+    jira_link_pr_parser.add_argument("--pr", required=True)
+
+    jira_transition_parser = subparsers.add_parser(
+        "jira-transition",
+        help="Transition a Jira issue by transition ID or name.",
+    )
+    jira_transition_parser.add_argument("--issue", required=True)
+    jira_transition_parser.add_argument("--to", required=True)
+
+    jira_list_parser = subparsers.add_parser(
+        "jira-list",
+        help="List Jira issues for project and optional agent/status filters.",
+    )
+    jira_list_parser.add_argument("--agent", required=False)
+    jira_list_parser.add_argument("--status", default="open")
+    jira_list_parser.add_argument("--max-results", type=int, default=20)
+
     return parser
 
 
@@ -634,6 +765,35 @@ def main(argv: list[str] | None = None) -> int:
                 server=args.server,
                 action=args.action,
                 params=params,
+            )
+        elif args.command == "jira-preflight":
+            result = orchestrator.jira_preflight()
+        elif args.command == "jira-create-from-task":
+            result = orchestrator.jira_create_from_task(
+                task_file=Path(args.task_file),
+                issue_type=args.issue_type,
+                labels=args.labels,
+            )
+        elif args.command == "jira-comment":
+            result = orchestrator.jira_comment(
+                issue=args.issue,
+                text=args.text,
+            )
+        elif args.command == "jira-link-pr":
+            result = orchestrator.jira_link_pr(
+                issue=args.issue,
+                pr_id=args.pr,
+            )
+        elif args.command == "jira-transition":
+            result = orchestrator.jira_transition(
+                issue=args.issue,
+                to_status=args.to,
+            )
+        elif args.command == "jira-list":
+            result = orchestrator.jira_list(
+                agent=args.agent,
+                status=args.status,
+                max_results=args.max_results,
             )
         else:
             parser.error(f"Unsupported command: {args.command}")

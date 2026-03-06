@@ -3,5 +3,7 @@
 ai-orchestration/logs/*.jsonl
 ai-orchestration/logs/transcripts/
 ai-orchestration/state/approvals.json
+ai-orchestration/state/*.lock
+ai-orchestration/.env.jira
 __pycache__/
 *.pyc

@@ -73,11 +73,19 @@ ai-orchestration/
   - `mistral`
 - `aider-chat` installed (`aider` in PATH or `py -m aider.main`)
 - Optional but recommended: GitHub CLI (`gh`) authenticated
+- Optional for tracking: Jira Cloud project + API token
 
 Install optional dependencies:
 
 ```powershell
 py -m pip install -r ai-orchestration/requirements.txt
+```
+
+Jira environment template:
+
+```powershell
+Copy-Item ai-orchestration/jira.env.example ai-orchestration/.env.jira
+# Fill values in ai-orchestration/.env.jira and export env vars in your shell
 ```
 
 ## Commands
@@ -204,6 +212,45 @@ If your shell escapes JSON poorly, use `--params-file`:
 py ai-orchestration/orchestrator.py mcp-call --server filesystem --action read_text --params-file ai-orchestration/mcp/tmp-params.json
 ```
 
+### 10) Jira integration (optional)
+
+Validate Jira configuration and project access:
+
+```powershell
+py ai-orchestration/orchestrator.py jira-preflight
+```
+
+Create Jira issue from a task file:
+
+```powershell
+py ai-orchestration/orchestrator.py jira-create-from-task --task-file ai-orchestration/tasks/sample_mobile_task.json --issue-type Story --labels mobile v1
+```
+
+List Jira issues (project-wide or filtered by agent):
+
+```powershell
+py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
+py ai-orchestration/orchestrator.py jira-list --agent mobile --status open --max-results 20
+```
+
+Link PR to Jira issue:
+
+```powershell
+py ai-orchestration/orchestrator.py jira-link-pr --issue KCON-12 --pr 3
+```
+
+Add manual comment:
+
+```powershell
+py ai-orchestration/orchestrator.py jira-comment --issue KCON-12 --text "Validation complete in local QA environment."
+```
+
+Transition issue:
+
+```powershell
+py ai-orchestration/orchestrator.py jira-transition --issue KCON-12 --to "In Review"
+```
+
 ## Task contract
 
 Task file supports JSON or YAML with fields:
@@ -257,6 +304,7 @@ Each agent produces:
 - **MCP v1**: read-only local tool adapters (`git`, `filesystem`, `ollama`, `docker`) configured in `ai-orchestration/mcp/servers.yaml`.
 - **RAG v1**: local lexical retrieval with configurable scope/extensions in `ai-orchestration/rag/config.yaml`.
 - **Skills v1**: reusable agent instructions/checklists in `ai-orchestration/skills/*.yaml` (auto-loads `<agent>-core`).
+- **Jira v1**: optional tracking bridge for issue creation/comments/transitions using Jira REST API and local CLI commands.
 
 ## Database guidance for this CRM
 
