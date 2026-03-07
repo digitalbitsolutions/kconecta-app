@@ -4,8 +4,9 @@ Local, reproducible AI orchestration for semi-autonomous development using:
 
 - `Ollama` (local fallback/default)
 - `Google Antigravity/AG` (optional, when configured)
-- `Windsurf` with `swe-1` for short review tasks (optional, when configured)
-- `Aider` (automatic file editing)
+- `OpenClaw` (primary coding executor for file modifications)
+- `Aider` (fallback executor when OpenClaw is unavailable or fails)
+- `Windsurf` (deprecated; compatibility parsing only)
 - `git` branches/worktrees for agent isolation
 - `gh` CLI for draft PR workflow
 - local `MCP` adapters (tool servers)
@@ -19,14 +20,15 @@ This scaffold is designed to run entirely on a developer machine.
 ```text
 orchestrator.py
   -> preflight checks (git + ollama + models + tools)
+  -> executor selection (openclaw -> aider fallback)
   -> skill loading (agent defaults + task-specific skills)
   -> optional MCP calls for runtime/tool context
   -> local RAG context retrieval
-  -> LLM routing by phase (planning -> Google AG, proposal -> Ollama, review -> Windsurf, fallback -> Ollama)
+  -> LLM routing by phase (planning -> Google AG, proposal -> Ollama, review -> Ollama)
   -> branch/worktree bootstrap
   -> task assignment to agent
   -> planning/proposal/review execution
-  -> aider applies edits in agent worktree
+  -> executor applies edits in agent worktree
   -> semantic commit on agent branch
   -> draft PR creation
   -> human approval gate
@@ -74,12 +76,12 @@ ai-orchestration/
   - `deepseek-coder:6.7b`
   - `llama3.1:8b`
   - `mistral`
-- `aider-chat` installed (`aider` in PATH or `py -m aider.main`)
+- `OpenClaw` installed (`openclaw` in PATH) or `aider-chat` fallback (`aider` or `py -m aider.main`)
 - Optional but recommended: GitHub CLI (`gh`) authenticated
 - Optional for tracking: Jira Cloud project + API token
 - Optional external LLM credentials:
   - `GOOGLE_AG_API_KEY`
-  - `WINDSURF_API_KEY`
+  - `WINDSURF_*` only if you need legacy compatibility parsing (deprecated)
 
 Install optional dependencies:
 
@@ -101,6 +103,14 @@ Copy-Item ai-orchestration/llm.providers.env.example ai-orchestration/.env.llm
 # Fill credentials; orchestrator auto-loads this file
 ```
 
+Executor environment variables:
+
+- `AI_EXECUTOR=auto|openclaw|aider|opencode` (default: `auto`)
+- `opencode` is accepted as a compatibility alias of `openclaw`
+- `AI_MAX_DIFF_FILES` (default: `25`)
+- `AI_MAX_DIFF_LINES` (default: `1200`)
+- `AI_ALLOW_LARGE_DIFF=true|false` (default: `false`)
+
 ## Commands
 
 Run from repository root (`D:\still\kconecta-app`):
@@ -113,6 +123,13 @@ py ai-orchestration/orchestrator.py preflight
 
 `preflight` now exposes `checks.llm_routing.providers.*.error` for provider diagnostics
 (for example: AG quota limits, endpoint DNS/connectivity issues).
+It also reports executor diagnostics:
+- `opencode_available`
+- `openclaw_available`
+- `aider_available`
+- `selected_executor`
+- `ollama_available`
+- `google_ag_available`
 
 Auto-pull missing required models:
 
@@ -150,7 +167,7 @@ Dry-run:
 py ai-orchestration/orchestrator.py run-task --agent architect --task-file ai-orchestration/tasks/sample_architect_task.json --dry-run
 ```
 
-Apply mode (uses Aider + commit):
+Apply mode (uses executor + commit):
 
 ```powershell
 py ai-orchestration/orchestrator.py run-task --agent mobile --task-file ai-orchestration/tasks/sample_mobile_task.json
@@ -160,7 +177,7 @@ External routing examples:
 
 ```powershell
 # Default policy:
-# planning -> Google AG, proposal -> Ollama, review -> Windsurf
+# planning -> Google AG, proposal -> Ollama, review -> Ollama
 py ai-orchestration/orchestrator.py run-task --agent mobile --task-file ai-orchestration/tasks/sample_windsurf_small_task.json --dry-run
 
 # Keep default policy and pin planning model to Google AG
@@ -295,7 +312,7 @@ Task file supports JSON or YAML with fields:
 `metadata` v1 extensions:
 
 - `skills`: array of skill IDs
-- `llm_provider`: `auto|ollama|google_ag|windsurf`
+- `llm_provider`: `auto|ollama|google_ag|windsurf` (`windsurf` is deprecated and maps to local review)
 - `llm_model`: optional global model override (recommended with explicit `llm_provider`)
 - `planning_model`: optional planning-only model override
 - `proposal_model`: optional proposal-only model override
@@ -352,8 +369,21 @@ The orchestration scaffold itself does not modify database data.
 
 ## Troubleshooting
 
+- `OpenClaw not found`:
+  - Install OpenClaw CLI and ensure `openclaw` is in PATH.
+  - Or set `AI_EXECUTOR=aider` to force fallback executor.
+- `OpenClaw detected but unsupported`:
+  - This orchestrator requires `openclaw run ...` support.
+  - If `openclaw run --help` fails, you likely installed a different OpenClaw CLI variant.
+  - Keep fallback executor (`aider`) until the coding-agent OpenClaw distribution is installed.
 - `Aider not found`:
-  - Use `py -m aider.main` fallback (already supported).
+  - Install `aider-chat` or use `py -m aider.main` fallback path.
+- `Large uncontrolled diff blocked`:
+  - Reduce file scope or split the task.
+  - Only if intentional, set `AI_ALLOW_LARGE_DIFF=true`.
+- `Windsurf settings still present`:
+  - Windsurf is deprecated in active routing; `review` now runs on Ollama.
+  - Old task metadata (`review_model: swe-1`) remains accepted for compatibility.
 - `main branch missing`:
   - Create initial commit and set/rename branch to `main`.
 - `origin not configured`:
