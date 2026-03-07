@@ -8,12 +8,17 @@ use Throwable;
 
 class ProviderService
 {
+    public const AVAILABILITY_CONTRACT = "provider-availability-v1";
+
     private const DEFAULT_PROVIDER_TABLE = "providers";
     private const FALLBACK_PROVIDER_TABLE = "service_providers";
+    private const AVAILABILITY_TABLE = "provider_availability";
     private const DATA_SOURCE_AUTO = "auto";
     private const DATA_SOURCE_DATABASE = "database";
     private const DATA_SOURCE_SEED = "seed";
     private const MAX_DB_ROWS = 500;
+    private const DEFAULT_AVAILABILITY_TIMEZONE = "Europe/Madrid";
+    private const WEEK_DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
     /**
      * Returns provider list payload using DB-first retrieval with safe fallback.
@@ -67,6 +72,61 @@ class ProviderService
         }
 
         return null;
+    }
+
+    public function getAvailability(int $providerId): ?array
+    {
+        $provider = $this->findProviderById($providerId);
+        if ($provider === null) {
+            return null;
+        }
+
+        $snapshot = $this->loadAvailabilitySnapshot($providerId);
+
+        return [
+            "data" => [
+                "provider_id" => $providerId,
+                "timezone" => $snapshot["timezone"],
+                "slots" => $snapshot["slots"],
+            ],
+            "meta" => [
+                "contract" => self::AVAILABILITY_CONTRACT,
+                "source" => $snapshot["source"],
+            ],
+        ];
+    }
+
+    public function updateAvailability(int $providerId, array $slots, ?string $timezone = null): ?array
+    {
+        $provider = $this->findProviderById($providerId);
+        if ($provider === null) {
+            return null;
+        }
+
+        $normalizedSlots = $this->normalizeAvailabilitySlots($slots);
+        if ($normalizedSlots === []) {
+            $normalizedSlots = $this->defaultAvailabilitySlots();
+        }
+
+        $resolvedTimezone = $this->normalizeTimezone($timezone);
+        $source = $this->persistAvailabilitySnapshot(
+            $providerId,
+            $resolvedTimezone,
+            $normalizedSlots
+        );
+
+        return [
+            "data" => [
+                "provider_id" => $providerId,
+                "timezone" => $resolvedTimezone,
+                "slots" => $normalizedSlots,
+                "updated_at" => now()->toIso8601String(),
+            ],
+            "meta" => [
+                "contract" => self::AVAILABILITY_CONTRACT,
+                "source" => $source,
+            ],
+        ];
     }
 
     /**
@@ -123,6 +183,234 @@ class ProviderService
         }
     }
 
+    private function loadAvailabilitySnapshot(int $providerId): array
+    {
+        $fromDedicatedTable = $this->loadAvailabilityFromDedicatedTable($providerId);
+        if ($fromDedicatedTable !== null) {
+            return $fromDedicatedTable;
+        }
+
+        $fromProviderTable = $this->loadAvailabilityFromProviderTable($providerId);
+        if ($fromProviderTable !== null) {
+            return $fromProviderTable;
+        }
+
+        $dataset = $this->loadRows();
+        return [
+            "timezone" => self::DEFAULT_AVAILABILITY_TIMEZONE,
+            "slots" => $this->defaultAvailabilitySlots(),
+            "source" => $dataset["source"],
+        ];
+    }
+
+    private function loadAvailabilityFromDedicatedTable(int $providerId): ?array
+    {
+        try {
+            if (!Schema::hasTable(self::AVAILABILITY_TABLE)) {
+                return null;
+            }
+
+            $idColumn = $this->resolveExistingColumn(self::AVAILABILITY_TABLE, ["provider_id", "id"]);
+            $slotsColumn = $this->resolveExistingColumn(
+                self::AVAILABILITY_TABLE,
+                ["slots_json", "slots", "availability_slots", "availability_json"]
+            );
+            if ($idColumn === null || $slotsColumn === null) {
+                return null;
+            }
+
+            $timezoneColumn = $this->resolveExistingColumn(
+                self::AVAILABILITY_TABLE,
+                ["timezone", "availability_timezone", "tz"]
+            );
+
+            $rowObject = DB::table(self::AVAILABILITY_TABLE)
+                ->where($idColumn, $providerId)
+                ->first();
+            if ($rowObject === null) {
+                return null;
+            }
+
+            $row = (array) $rowObject;
+            $slots = $this->parseSlotsFromRow($row[$slotsColumn] ?? null);
+            if ($slots === []) {
+                $slots = $this->defaultAvailabilitySlots();
+            }
+
+            $timezone = $timezoneColumn !== null
+                ? $this->normalizeTimezone($this->asString($row[$timezoneColumn] ?? null))
+                : self::DEFAULT_AVAILABILITY_TIMEZONE;
+
+            return [
+                "timezone" => $timezone,
+                "slots" => $slots,
+                "source" => "database",
+            ];
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private function loadAvailabilityFromProviderTable(int $providerId): ?array
+    {
+        try {
+            $table = $this->resolveDatabaseTable();
+            if (!Schema::hasTable($table)) {
+                return null;
+            }
+
+            $idColumn = $this->resolveExistingColumn($table, ["id", "provider_id", "providerId"]);
+            if ($idColumn === null) {
+                return null;
+            }
+
+            $slotsColumn = $this->resolveExistingColumn(
+                $table,
+                ["availability_slots", "availability_json", "slots_json", "slots"]
+            );
+            $timezoneColumn = $this->resolveExistingColumn(
+                $table,
+                ["availability_timezone", "timezone", "tz"]
+            );
+
+            $rowObject = DB::table($table)
+                ->where($idColumn, $providerId)
+                ->first();
+            if ($rowObject === null) {
+                return null;
+            }
+
+            $row = (array) $rowObject;
+            $slots = $slotsColumn !== null
+                ? $this->parseSlotsFromRow($row[$slotsColumn] ?? null)
+                : [];
+            if ($slots === []) {
+                $slots = $this->defaultAvailabilitySlots();
+            }
+
+            $timezone = $timezoneColumn !== null
+                ? $this->normalizeTimezone($this->asString($row[$timezoneColumn] ?? null))
+                : self::DEFAULT_AVAILABILITY_TIMEZONE;
+
+            return [
+                "timezone" => $timezone,
+                "slots" => $slots,
+                "source" => "database",
+            ];
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private function persistAvailabilitySnapshot(
+        int $providerId,
+        string $timezone,
+        array $slots
+    ): string {
+        if ($this->persistAvailabilityToDedicatedTable($providerId, $timezone, $slots)) {
+            return "database";
+        }
+        if ($this->persistAvailabilityToProviderTable($providerId, $timezone, $slots)) {
+            return "database";
+        }
+
+        return "in_memory";
+    }
+
+    private function persistAvailabilityToDedicatedTable(
+        int $providerId,
+        string $timezone,
+        array $slots
+    ): bool {
+        try {
+            if (!Schema::hasTable(self::AVAILABILITY_TABLE)) {
+                return false;
+            }
+
+            $idColumn = $this->resolveExistingColumn(self::AVAILABILITY_TABLE, ["provider_id", "id"]);
+            $slotsColumn = $this->resolveExistingColumn(
+                self::AVAILABILITY_TABLE,
+                ["slots_json", "slots", "availability_slots", "availability_json"]
+            );
+            if ($idColumn === null || $slotsColumn === null) {
+                return false;
+            }
+
+            $timezoneColumn = $this->resolveExistingColumn(
+                self::AVAILABILITY_TABLE,
+                ["timezone", "availability_timezone", "tz"]
+            );
+
+            $payload = [
+                $slotsColumn => json_encode($slots, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ];
+            if ($timezoneColumn !== null) {
+                $payload[$timezoneColumn] = $timezone;
+            }
+            if (Schema::hasColumn(self::AVAILABILITY_TABLE, "updated_at")) {
+                $payload["updated_at"] = now();
+            }
+            if (Schema::hasColumn(self::AVAILABILITY_TABLE, "created_at")) {
+                $payload["created_at"] = now();
+            }
+
+            DB::table(self::AVAILABILITY_TABLE)->updateOrInsert(
+                [$idColumn => $providerId],
+                $payload
+            );
+
+            return true;
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    private function persistAvailabilityToProviderTable(
+        int $providerId,
+        string $timezone,
+        array $slots
+    ): bool {
+        try {
+            $table = $this->resolveDatabaseTable();
+            if (!Schema::hasTable($table)) {
+                return false;
+            }
+
+            $idColumn = $this->resolveExistingColumn($table, ["id", "provider_id", "providerId"]);
+            $slotsColumn = $this->resolveExistingColumn(
+                $table,
+                ["availability_slots", "availability_json", "slots_json", "slots"]
+            );
+            if ($idColumn === null || $slotsColumn === null) {
+                return false;
+            }
+
+            $query = DB::table($table)->where($idColumn, $providerId);
+            if (!$query->exists()) {
+                return false;
+            }
+
+            $payload = [
+                $slotsColumn => json_encode($slots, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ];
+            $timezoneColumn = $this->resolveExistingColumn(
+                $table,
+                ["availability_timezone", "timezone", "tz"]
+            );
+            if ($timezoneColumn !== null) {
+                $payload[$timezoneColumn] = $timezone;
+            }
+            if (Schema::hasColumn($table, "updated_at")) {
+                $payload["updated_at"] = now();
+            }
+
+            $query->update($payload);
+            return true;
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
     private function resolveDatabaseTable(): string
     {
         $configured = trim((string) env("KC_PROVIDER_TABLE", self::DEFAULT_PROVIDER_TABLE));
@@ -148,6 +436,105 @@ class ProviderService
         }
 
         return self::DATA_SOURCE_AUTO;
+    }
+
+    private function resolveExistingColumn(string $table, array $candidates): ?string
+    {
+        foreach ($candidates as $candidate) {
+            if (Schema::hasColumn($table, $candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function parseSlotsFromRow(mixed $value): array
+    {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (!is_array($decoded)) {
+                return [];
+            }
+            $value = $decoded;
+        }
+
+        return $this->normalizeAvailabilitySlots($value);
+    }
+
+    private function normalizeAvailabilitySlots(mixed $slots): array
+    {
+        if (!is_array($slots)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($slots as $slot) {
+            if (!is_array($slot)) {
+                continue;
+            }
+
+            $day = strtolower(trim((string) ($slot["day"] ?? "")));
+            $start = trim((string) ($slot["start"] ?? ""));
+            $end = trim((string) ($slot["end"] ?? ""));
+            $enabledRaw = $slot["enabled"] ?? true;
+
+            if (!in_array($day, self::WEEK_DAYS, true)) {
+                continue;
+            }
+            if (!preg_match('/^\d{2}:\d{2}$/', $start) || !preg_match('/^\d{2}:\d{2}$/', $end)) {
+                continue;
+            }
+            if (strcmp($start, $end) >= 0) {
+                continue;
+            }
+
+            $enabled = filter_var($enabledRaw, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+            $normalized[] = [
+                "day" => $day,
+                "start" => $start,
+                "end" => $end,
+                "enabled" => $enabled ?? true,
+            ];
+        }
+
+        if ($normalized === []) {
+            return [];
+        }
+
+        $order = array_flip(self::WEEK_DAYS);
+        usort(
+            $normalized,
+            static function (array $left, array $right) use ($order): int {
+                $leftOrder = $order[$left["day"]] ?? PHP_INT_MAX;
+                $rightOrder = $order[$right["day"]] ?? PHP_INT_MAX;
+                if ($leftOrder !== $rightOrder) {
+                    return $leftOrder <=> $rightOrder;
+                }
+
+                return strcmp((string) $left["start"], (string) $right["start"]);
+            }
+        );
+
+        return array_values($normalized);
+    }
+
+    private function normalizeTimezone(?string $timezone): string
+    {
+        $candidate = trim((string) $timezone);
+        return $candidate !== "" ? $candidate : self::DEFAULT_AVAILABILITY_TIMEZONE;
+    }
+
+    private function defaultAvailabilitySlots(): array
+    {
+        return [
+            ["day" => "mon", "start" => "08:00", "end" => "12:00", "enabled" => true],
+            ["day" => "tue", "start" => "08:00", "end" => "12:00", "enabled" => true],
+            ["day" => "wed", "start" => "08:00", "end" => "12:00", "enabled" => true],
+            ["day" => "thu", "start" => "08:00", "end" => "12:00", "enabled" => true],
+            ["day" => "fri", "start" => "08:00", "end" => "12:00", "enabled" => true],
+            ["day" => "sat", "start" => "09:00", "end" => "13:00", "enabled" => true],
+        ];
     }
 
     private function mapDatabaseRow(array $row): ?array

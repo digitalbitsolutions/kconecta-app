@@ -13,5 +13,7 @@ Route::prefix("auth")->group(function (): void {
 
 Route::get("/providers", [ProviderController::class, "index"]);
 Route::get("/providers/{id}", [ProviderController::class, "show"]);
+Route::get("/providers/{id}/availability", [ProviderController::class, "availability"]);
+Route::patch("/providers/{id}/availability", [ProviderController::class, "updateAvailability"]);
 Route::get("/properties", [PropertyController::class, "index"]);
 Route::get("/properties/{id}", [PropertyController::class, "show"]);
