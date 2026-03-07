@@ -38,6 +38,18 @@ const ProviderDashboardScreen = () => {
         <Pressable style={styles.secondaryAction} onPress={() => navigation.navigate("ProviderList")}>
           <Text style={styles.secondaryActionText}>Open Providers</Text>
         </Pressable>
+        <Pressable
+          style={styles.secondaryAction}
+          onPress={() =>
+            navigation.navigate("ProviderRoleMismatch", {
+              expectedRole: "provider",
+              actualRole: "manager",
+              context: "provider_dashboard_guard",
+            })
+          }
+        >
+          <Text style={styles.secondaryActionText}>Simulate Role Mismatch</Text>
+        </Pressable>
       </View>
 
       <Pressable

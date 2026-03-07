@@ -30,6 +30,17 @@ const ManagerDashboardScreen = () => {
         <Pressable style={styles.primaryAction} onPress={() => navigation.navigate("PropertyList")}>
           <Text style={styles.primaryActionText}>Open Property Portfolio</Text>
         </Pressable>
+        <Pressable
+          style={styles.secondaryAction}
+          onPress={() =>
+            navigation.navigate("ManagerToProviderHandoff", {
+              providerId: "1",
+              propertyId: "101",
+            })
+          }
+        >
+          <Text style={styles.secondaryActionText}>Open Provider Handoff State</Text>
+        </Pressable>
 
         {managerEnv.diagnosticsEnabled ? (
           <View style={styles.diagnosticsCard}>
@@ -89,6 +100,19 @@ const styles = StyleSheet.create({
     color: colors.surface,
     fontSize: fontSizes.md,
     fontWeight: "700",
+  },
+  secondaryAction: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  secondaryActionText: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.sm,
+    fontWeight: "600",
   },
   diagnosticsCard: {
     backgroundColor: colors.surface,

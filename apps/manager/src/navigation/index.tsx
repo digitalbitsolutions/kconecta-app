@@ -3,8 +3,10 @@ import { NavigationContainer, createNavigationContainerRef } from "@react-naviga
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { getSessionSnapshot, registerUnauthorizedResetHandler } from "../auth/session";
 import ManagerDashboardScreen from "../screens/ManagerDashboardScreen";
+import ManagerToProviderHandoffScreen from "../screens/ManagerToProviderHandoffScreen";
 import PropertyDetailScreen from "../screens/PropertyDetailScreen";
 import PropertyListScreen from "../screens/PropertyListScreen";
+import RoleMismatchScreen from "../screens/RoleMismatchScreen";
 import LoginScreen from "../screens/auth/LoginScreen";
 import SessionExpiredScreen from "../screens/auth/SessionExpiredScreen";
 import UnauthorizedScreen from "../screens/auth/UnauthorizedScreen";
@@ -12,6 +14,15 @@ import UnauthorizedScreen from "../screens/auth/UnauthorizedScreen";
 export type ManagerStackParamList = {
   Login: undefined;
   ManagerDashboard: undefined;
+  ManagerToProviderHandoff: {
+    providerId?: string;
+    propertyId?: string;
+  };
+  RoleMismatch: {
+    expectedRole: "manager" | "provider" | "admin";
+    actualRole: string;
+    context: string;
+  };
   PropertyList: undefined;
   PropertyDetail: { propertyId: string; propertyTitle: string };
   Unauthorized: undefined;
@@ -58,6 +69,16 @@ const ManagerStack = () => {
         name="ManagerDashboard"
         component={ManagerDashboardScreen}
         options={{ title: "Dashboard" }}
+      />
+      <Stack.Screen
+        name="ManagerToProviderHandoff"
+        component={ManagerToProviderHandoffScreen}
+        options={{ title: "Provider Handoff" }}
+      />
+      <Stack.Screen
+        name="RoleMismatch"
+        component={RoleMismatchScreen}
+        options={{ title: "Role Mismatch", headerBackVisible: false }}
       />
       <Stack.Screen
         name="PropertyList"

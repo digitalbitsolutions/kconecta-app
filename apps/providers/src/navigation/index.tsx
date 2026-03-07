@@ -6,6 +6,7 @@ import AvailabilityShellScreen from "../screens/AvailabilityShellScreen";
 import ProviderDashboardScreen from "../screens/ProviderDashboardScreen";
 import ProviderDetailScreen from "../screens/ProviderDetailScreen";
 import ProviderListScreen from "../screens/ProviderListScreen";
+import RoleMismatchScreen from "../screens/RoleMismatchScreen";
 import ProviderUnauthorizedScreen from "../screens/ProviderUnauthorizedScreen";
 
 export type RootStackParamList = {
@@ -13,6 +14,11 @@ export type RootStackParamList = {
   ProviderList: undefined;
   ProviderDetail: { providerId: string; providerName: string };
   AvailabilityShell: undefined;
+  ProviderRoleMismatch: {
+    expectedRole: "provider" | "manager" | "admin";
+    actualRole: string;
+    context: string;
+  };
   ProviderUnauthorized: undefined;
 };
 
@@ -61,6 +67,11 @@ const RootStack = () => {
         name="ProviderUnauthorized"
         component={ProviderUnauthorizedScreen}
         options={{ title: "Access Blocked", headerBackVisible: false }}
+      />
+      <Stack.Screen
+        name="ProviderRoleMismatch"
+        component={RoleMismatchScreen}
+        options={{ title: "Role Mismatch", headerBackVisible: false }}
       />
     </Stack.Navigator>
   );
