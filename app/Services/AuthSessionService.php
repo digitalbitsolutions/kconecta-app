@@ -4,6 +4,12 @@ namespace App\Services;
 
 class AuthSessionService
 {
+    public const CONTRACT = "auth-session-v1";
+    public const MODE = "scaffold";
+    public const ERROR_INVALID_CREDENTIALS = "INVALID_CREDENTIALS";
+    public const ERROR_TOKEN_INVALID = "TOKEN_INVALID";
+    public const ERROR_TOKEN_EXPIRED = "TOKEN_EXPIRED";
+
     private const DEFAULT_LOGIN_PASSWORD = "kconecta-dev-password";
 
     public function canLogin(string $password): bool
@@ -11,6 +17,28 @@ class AuthSessionService
         $expected = trim((string) env("KC_MOBILE_LOGIN_PASSWORD", self::DEFAULT_LOGIN_PASSWORD));
         $target = $expected !== "" ? $expected : self::DEFAULT_LOGIN_PASSWORD;
         return hash_equals($target, trim($password));
+    }
+
+    public function buildErrorPayload(
+        string $code,
+        string $message,
+        string $flow,
+        string $reason,
+        bool $retryable
+    ): array {
+        return [
+            "error" => [
+                "code" => $code,
+                "message" => $message,
+            ],
+            "meta" => [
+                "contract" => self::CONTRACT,
+                "mode" => self::MODE,
+                "flow" => $flow,
+                "reason" => $reason,
+                "retryable" => $retryable,
+            ],
+        ];
     }
 
     public function buildLoginPayload(string $email): array
@@ -28,8 +56,8 @@ class AuthSessionService
                 "issued_at" => now()->toIso8601String(),
             ],
             "meta" => [
-                "contract" => "auth-session-v1",
-                "mode" => "scaffold",
+                "contract" => self::CONTRACT,
+                "mode" => self::MODE,
             ],
         ];
     }
@@ -50,8 +78,8 @@ class AuthSessionService
                 "issued_at" => now()->toIso8601String(),
             ],
             "meta" => [
-                "contract" => "auth-session-v1",
-                "mode" => "scaffold",
+                "contract" => self::CONTRACT,
+                "mode" => self::MODE,
             ],
         ];
     }
@@ -64,8 +92,8 @@ class AuthSessionService
                 "revoked_at" => now()->toIso8601String(),
             ],
             "meta" => [
-                "contract" => "auth-session-v1",
-                "mode" => "scaffold",
+                "contract" => self::CONTRACT,
+                "mode" => self::MODE,
             ],
         ];
     }
