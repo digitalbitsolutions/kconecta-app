@@ -131,3 +131,39 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend role boundary hardening (`BE-010`).
 3. Manager/provider handoff UI states (`MOB-009`).
 4. Wave 12 regression matrix (`QA-011`).
+
+## Wave 13 Provider Availability Editor
+
+### Provider Availability States
+
+- `availability_view`
+  - Show current weekly slots.
+  - Source: `GET /api/providers/{id}/availability`.
+- `availability_edit`
+  - User updates day ranges, start/end time, and active flag.
+  - Local form validation runs before submission.
+- `availability_saving`
+  - Disable duplicate submit.
+  - Persist via `PATCH /api/providers/{id}/availability`.
+- `availability_saved`
+  - Confirm save success and refresh visible schedule.
+- `availability_error`
+  - Keep unsaved draft and show retry action.
+- `availability_forbidden`
+  - Surface deterministic `403 ROLE_SCOPE_FORBIDDEN`.
+  - Keep session alive and route back to provider dashboard context.
+
+### Wave 13 Availability Role Boundaries
+
+- `provider` and `admin`:
+  - Read and mutate availability for provider workspace.
+- `manager`:
+  - Read-only access to provider availability.
+  - Any mutation attempt must return `403 ROLE_SCOPE_FORBIDDEN`.
+
+### Wave 13 Delivery Sequencing
+
+1. Availability contract and UX map (`ARCH-009`).
+2. Availability API + role guards (`BE-011`).
+3. Provider availability editor screen integration (`MOB-010`).
+4. Availability regression matrix (`QA-012`).

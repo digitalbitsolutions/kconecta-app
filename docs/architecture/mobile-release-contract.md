@@ -130,6 +130,46 @@ Define the minimum environment and auth contract required for native app release
   - Never silently degrade forbidden actions.
   - Route to deterministic fallback (`Unauthorized` or `SessionExpired`) with reason code.
 
+## Wave 13 Provider Availability Contract
+
+### Read Contract
+
+- Endpoint: `GET /api/providers/{id}/availability`
+- Authorized roles:
+  - `provider`
+  - `manager`
+  - `admin`
+- Response shape:
+  - `data.provider_id`
+  - `data.timezone`
+  - `data.slots[]` with:
+    - `day` (`mon`..`sun`)
+    - `start` (`HH:mm`)
+    - `end` (`HH:mm`)
+    - `enabled` (`true|false`)
+  - `meta.contract` (`provider-availability-v1`)
+  - `meta.source` (`database` | `in_memory`)
+
+### Update Contract
+
+- Endpoint: `PATCH /api/providers/{id}/availability`
+- Authorized roles:
+  - `provider`
+  - `admin`
+- Forbidden roles:
+  - `manager` -> `403 ROLE_SCOPE_FORBIDDEN`
+- Request payload:
+  - `timezone`
+  - `slots[]` with `day`, `start`, `end`, `enabled`
+- Success response:
+  - `data.provider_id`
+  - `data.updated_at`
+  - `data.slots[]`
+  - `meta.contract` (`provider-availability-v1`)
+- Error response:
+  - Uses existing auth/session deterministic error envelope.
+  - Must include `error.code`, `meta.contract`, `meta.reason`, `meta.retryable`.
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):

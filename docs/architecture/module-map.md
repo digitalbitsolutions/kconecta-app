@@ -22,9 +22,11 @@
 - Responsibilities:
   - Provider catalog and filtering.
   - Availability and service coverage by city/category.
+  - Weekly availability slot orchestration for provider workflows.
   - Provider quality indicators (rating, active status).
 - Main contracts:
   - `/api/providers*`
+  - `/api/providers/{id}/availability` (read and mutate with role guard)
 
 ### Admin Module
 
@@ -78,6 +80,7 @@
   - Normalize forbidden responses to deterministic error codes for mobile clients.
 - Main contracts:
   - Manager accessing provider scope: `GET /api/providers/{id}` (read-only allowed).
+  - Manager accessing provider availability mutation: `PATCH /api/providers/{id}/availability` -> `403 ROLE_SCOPE_FORBIDDEN`.
   - Provider accessing manager scope: `GET /api/properties/{id}` (assignment-bound only).
   - Forbidden mutation guard: `403 ROLE_SCOPE_FORBIDDEN`.
 
