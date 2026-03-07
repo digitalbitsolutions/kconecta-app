@@ -51,7 +51,7 @@ const RootStack = () => {
       <Stack.Screen
         name="AvailabilityShell"
         component={AvailabilityShellScreen}
-        options={{ title: "Availability" }}
+        options={{ title: "Availability Editor" }}
       />
       <Stack.Screen
         name="ProviderList"
