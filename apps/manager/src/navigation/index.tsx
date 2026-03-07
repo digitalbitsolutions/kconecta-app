@@ -4,18 +4,32 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import ManagerDashboardScreen from "../screens/ManagerDashboardScreen";
 import PropertyDetailScreen from "../screens/PropertyDetailScreen";
 import PropertyListScreen from "../screens/PropertyListScreen";
+import LoginScreen from "../screens/LoginScreen";
+import UnauthorizedScreen from "../screens/UnauthorizedScreen";
 
 export type ManagerStackParamList = {
+  Login: undefined;
   ManagerDashboard: undefined;
   PropertyList: undefined;
   PropertyDetail: { propertyId: string; propertyTitle: string };
+  Unauthorized: undefined;
 };
 
 const Stack = createNativeStackNavigator<ManagerStackParamList>();
 
 const ManagerStack = () => {
   return (
-    <Stack.Navigator initialRouteName="ManagerDashboard">
+    <Stack.Navigator initialRouteName="Login">
+      <Stack.Screen
+        name="Login"
+        component={LoginScreen}
+        options={{ title: "Login" }}
+      />
+      <Stack.Screen
+        name="Unauthorized"
+        component={UnauthorizedScreen}
+        options={{ title: "Unauthorized" }}
+      />
       <Stack.Screen
         name="ManagerDashboard"
         component={ManagerDashboardScreen}

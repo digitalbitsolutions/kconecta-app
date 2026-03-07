@@ -43,7 +43,7 @@ export function clearSession(): void {
 }
 
 export function registerUnauthorizedResetHandler(
-  handler: UnauthorizedResetHandler | null,
+  handler: UnauthorizedResetHandler | null
 ): void {
   tokenStore.onUnauthorized(handler);
 }
