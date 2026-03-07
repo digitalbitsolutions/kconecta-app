@@ -21,13 +21,22 @@ class AuthSessionApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonStructure([
-                "data" => ["access_token", "refresh_token", "token_type", "expires_in", "scope", "role", "issued_at"],
+                "data" => [
+                    "access_token",
+                    "refresh_token",
+                    "token_type",
+                    "expires_in",
+                    "scope",
+                    "role",
+                    "issued_at",
+                ],
                 "meta" => ["contract", "mode"],
             ])
-            ->assertJsonPath("data.token_type", "Bearer");
+            ->assertJsonPath("data.token_type", "Bearer")
+            ->assertJsonPath("meta.contract", "auth-session-v1");
     }
 
-    public function test_auth_login_rejects_invalid_credentials(): void
+    public function test_auth_login_rejects_invalid_credentials_with_contract_meta(): void
     {
         $response = $this->postJson("/api/auth/login", [
             "email" => "manager@kconecta.local",
@@ -36,16 +45,26 @@ class AuthSessionApiTest extends TestCase
 
         $response
             ->assertUnauthorized()
-            ->assertJsonPath("error.code", "INVALID_CREDENTIALS");
+            ->assertJsonPath("error.code", "INVALID_CREDENTIALS")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.mode", "scaffold")
+            ->assertJsonPath("meta.flow", "login")
+            ->assertJsonPath("meta.reason", "invalid_credentials")
+            ->assertJsonPath("meta.retryable", true);
     }
 
-    public function test_auth_refresh_smoke_requires_authorization(): void
+    public function test_auth_refresh_smoke_requires_authorization_with_contract_meta(): void
     {
         $response = $this->postJson("/api/auth/refresh");
 
         $response
             ->assertUnauthorized()
-            ->assertJsonPath("error.code", "TOKEN_INVALID");
+            ->assertJsonPath("error.code", "TOKEN_INVALID")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.mode", "scaffold")
+            ->assertJsonPath("meta.flow", "refresh")
+            ->assertJsonPath("meta.reason", "token_invalid")
+            ->assertJsonPath("meta.retryable", false);
     }
 
     public function test_auth_refresh_smoke_returns_payload_for_valid_token(): void
@@ -85,13 +104,18 @@ class AuthSessionApiTest extends TestCase
         $this->assertAuthErrorCode($response->json("error.code"));
     }
 
-    public function test_auth_logout_smoke_requires_authorization(): void
+    public function test_auth_logout_smoke_requires_authorization_with_contract_meta(): void
     {
         $response = $this->postJson("/api/auth/logout");
 
         $response
             ->assertUnauthorized()
-            ->assertJsonPath("error.code", "TOKEN_INVALID");
+            ->assertJsonPath("error.code", "TOKEN_INVALID")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.mode", "scaffold")
+            ->assertJsonPath("meta.flow", "logout")
+            ->assertJsonPath("meta.reason", "token_invalid")
+            ->assertJsonPath("meta.retryable", false);
     }
 
     public function test_auth_logout_smoke_returns_revoke_payload_for_valid_token(): void

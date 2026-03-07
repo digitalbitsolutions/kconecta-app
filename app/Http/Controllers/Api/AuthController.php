@@ -26,12 +26,13 @@ class AuthController extends Controller
 
         if (!$this->authSessionService->canLogin((string) $payload["password"])) {
             return response()->json(
-                [
-                    "error" => [
-                        "code" => "INVALID_CREDENTIALS",
-                        "message" => "Invalid credentials",
-                    ],
-                ],
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_INVALID_CREDENTIALS,
+                    "Invalid credentials",
+                    "login",
+                    "invalid_credentials",
+                    true
+                ),
                 401
             );
         }
@@ -46,12 +47,13 @@ class AuthController extends Controller
     {
         if (!$this->apiAccessService->isAuthorized($request)) {
             return response()->json(
-                [
-                    "error" => [
-                        "code" => "TOKEN_INVALID",
-                        "message" => "Unauthorized",
-                    ],
-                ],
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_TOKEN_INVALID,
+                    "Unauthorized",
+                    "refresh",
+                    "token_invalid",
+                    false
+                ),
                 401
             );
         }
@@ -68,12 +70,13 @@ class AuthController extends Controller
     {
         if (!$this->apiAccessService->isAuthorized($request)) {
             return response()->json(
-                [
-                    "error" => [
-                        "code" => "TOKEN_INVALID",
-                        "message" => "Unauthorized",
-                    ],
-                ],
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_TOKEN_INVALID,
+                    "Unauthorized",
+                    "logout",
+                    "token_invalid",
+                    false
+                ),
                 401
             );
         }
