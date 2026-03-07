@@ -43,10 +43,10 @@ Define the first production-shaped mobile information architecture for manager a
 | Provider | AuthStack | Entry/Auth | `POST /api/auth/login` |
 | Provider | ProviderDashboard | Dashboard | `GET /api/providers/{id}` |
 | Provider | AvailabilityEditor | Form | `PATCH /api/providers/{id}/availability` |
-| Provider | AssignedRequests | List | provider assignment endpoint (next wave) |
-| Provider | ProfileSettings | Settings | profile endpoint (next wave) |
+| Provider | AssignedRequests | List | provider assignment endpoint |
+| Provider | ProfileSettings | Settings | profile endpoint |
 
-## Session UX Rules
+## Session State UX Rules
 
 - `unauthenticated`
   - Route to `AuthStack`.

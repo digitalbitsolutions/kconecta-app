@@ -51,7 +51,7 @@ Define the minimum environment and auth contract required for native app release
 
 ### Login Contract
 
-- Endpoint: `POST /api/v1/auth/login`
+- Endpoint: `POST /api/auth/login`
 - Expected response shape:
   - `access_token`
   - `refresh_token`
@@ -63,7 +63,7 @@ Define the minimum environment and auth contract required for native app release
 
 ### Refresh Contract
 
-- Endpoint: `POST /api/v1/auth/refresh`
+- Endpoint: `POST /api/auth/refresh`
 - Trigger: first `401` with code `TOKEN_EXPIRED`.
 - Behavior:
   - Rotate access token.
@@ -73,7 +73,7 @@ Define the minimum environment and auth contract required for native app release
 
 ### Logout Contract
 
-- Endpoint: `POST /api/v1/auth/logout`
+- Endpoint: `POST /api/auth/logout`
 - Backend responsibilities:
   - Revoke current token chain.
   - Return idempotent success on repeated logout.
@@ -119,7 +119,7 @@ Define the minimum environment and auth contract required for native app release
 - Mobile clients depend only on public API contracts, never direct DB access.
 - Module internals can evolve as long as `v1` response contracts remain backward compatible.
 - Migration order:
-  1. Release additive `/api/v1/auth/*` endpoints.
+  1. Release additive `/api/auth/*` endpoints.
   2. Keep static token acceptance enabled during rollout.
   3. Flip clients to login/refresh flow.
   4. Retire static token from mobile once all clients are migrated.

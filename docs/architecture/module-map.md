@@ -15,7 +15,7 @@
   - Ownership and manager assignment.
   - Property metrics feeding manager dashboards.
 - Main contracts:
-  - `/api/v1/properties*`
+  - `/api/properties*`
 
 ### Provider Module
 
@@ -24,7 +24,7 @@
   - Availability and service coverage by city/category.
   - Provider quality indicators (rating, active status).
 - Main contracts:
-  - `/api/v1/providers*`
+  - `/api/providers*`
 
 ### Admin Module
 
@@ -33,7 +33,7 @@
   - Cross-domain observability and audit access.
   - Operational overrides and incident support.
 - Main contracts:
-  - `/api/v1/admin*`
+  - `/api/admin*`
 
 ### Auth Session Module
 
@@ -42,9 +42,9 @@
   - Token issuance/revocation and role-scope validation.
   - Session compatibility between CRM web and native apps.
 - Main contracts:
-  - `/api/v1/auth/login`
-  - `/api/v1/auth/refresh`
-  - `/api/v1/auth/logout`
+  - `/api/auth/login`
+  - `/api/auth/refresh`
+  - `/api/auth/logout`
 
 ## Cross-Cutting Modules
 
