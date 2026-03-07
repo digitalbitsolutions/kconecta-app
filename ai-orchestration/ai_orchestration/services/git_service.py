@@ -133,6 +133,39 @@ class GitService:
                 files.append(path)
         return files
 
+    def diff_stats(self, cwd: Path | None = None) -> dict[str, int]:
+        result = self.run(["diff", "--numstat"], cwd=cwd, check=False)
+        output = result.stdout.strip()
+        if not output:
+            return {
+                "changed_files": 0,
+                "added_lines": 0,
+                "deleted_lines": 0,
+                "total_changed_lines": 0,
+            }
+
+        changed_files = 0
+        added_lines = 0
+        deleted_lines = 0
+        for line in output.splitlines():
+            parts = line.split("\t")
+            if len(parts) < 3:
+                continue
+            changed_files += 1
+            add_raw = parts[0].strip()
+            del_raw = parts[1].strip()
+            if add_raw.isdigit():
+                added_lines += int(add_raw)
+            if del_raw.isdigit():
+                deleted_lines += int(del_raw)
+
+        return {
+            "changed_files": changed_files,
+            "added_lines": added_lines,
+            "deleted_lines": deleted_lines,
+            "total_changed_lines": added_lines + deleted_lines,
+        }
+
     def validate_semantic_commit(self, message: str) -> None:
         normalized = message.strip()
         if not normalized:

@@ -86,7 +86,7 @@ class LlmRouter:
     def _policy_text(self) -> str:
         return (
             "planning -> Google AG; proposal/codegen -> Ollama DeepSeek; "
-            "review -> Windsurf/Claude for short review tasks; "
+            "review -> Ollama lightweight (Windsurf deprecated); "
             "fallback to Ollama."
         )
 
@@ -105,10 +105,13 @@ class LlmRouter:
 
         if explicit_provider != "auto":
             provider = self._normalize_provider(explicit_provider)
-            if provider == "windsurf" and self.windsurf.is_configured():
-                return provider, chosen_model or self.windsurf.default_model
-            if provider == "google_ag" and self.google_ag.is_configured():
-                return provider, chosen_model or self.google_ag.default_model
+            if provider == "windsurf":
+                # Backward compatibility: map deprecated windsurf provider to local review.
+                return "ollama", default_model
+            if provider == "google_ag":
+                if self.google_ag.is_configured():
+                    return provider, chosen_model or self.google_ag.default_model
+                return "ollama", default_model
             if provider == "ollama":
                 return provider, chosen_model or default_model
 
@@ -116,12 +119,10 @@ class LlmRouter:
         if normalized_phase == "planning":
             if self.google_ag.is_configured():
                 return "google_ag", chosen_model or self.google_ag.default_model
-            return "ollama", phase_model or default_model
+            return "ollama", default_model
 
         if normalized_phase == "review":
-            if self.windsurf.is_configured():
-                return "windsurf", chosen_model or self.windsurf.default_model
-            return "ollama", phase_model or default_model
+            return "ollama", default_model
 
         # Default implementation/code generation phase: keep local-first.
         return "ollama", phase_model or default_model

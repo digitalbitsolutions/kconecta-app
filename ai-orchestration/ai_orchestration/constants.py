@@ -4,10 +4,11 @@ from pathlib import Path
 
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 DEFAULT_GOOGLE_AG_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-DEFAULT_WINDSURF_BASE_URL = "https://api.windsurf.com/v1"
+DEFAULT_WINDSURF_BASE_URL = "https://api.anthropic.com/v1"
 DEFAULT_BASE_BRANCH = "main"
 DEFAULT_WORKTREE_DIRNAME = ".ai-worktrees"
 DEFAULT_MOBILE_STACK = "React Native with TypeScript"
+DEFAULT_EXECUTOR = "auto"
 
 REQUIRED_OLLAMA_MODELS = (
     "deepseek-coder:6.7b",
@@ -27,8 +28,11 @@ EXTERNAL_MODEL_ROUTING = {
 }
 
 SUPPORTED_LLM_PROVIDERS = ("auto", "ollama", "google_ag", "windsurf")
+SUPPORTED_EXECUTORS = ("auto", "openclaw", "aider", "opencode")
 
 SEMANTIC_COMMIT_PREFIXES = ("feat", "fix", "refactor", "test", "docs")
+DEFAULT_MAX_CHANGED_FILES = 25
+DEFAULT_MAX_CHANGED_LINES = 1200
 
 AGENT_BRANCHES = {
     "architect": "agent/architect",

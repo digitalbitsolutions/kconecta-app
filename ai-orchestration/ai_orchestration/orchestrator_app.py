@@ -12,6 +12,8 @@ from .constants import (
     AGENT_BRANCHES,
     APPROVAL_STORE_FILE,
     DEFAULT_BASE_BRANCH,
+    DEFAULT_MAX_CHANGED_FILES,
+    DEFAULT_MAX_CHANGED_LINES,
     DEFAULT_RAG_TOP_K,
     DEFAULT_WORKTREE_DIRNAME,
     LOG_FILE,
@@ -26,11 +28,13 @@ from .services.aider_service import AiderService
 from .services.approval_store import ApprovalStore
 from .services.audit_logger import AuditLogger
 from .services.command_runner import CommandRunner
+from .services.executor_service import ExecutorService
 from .services.git_service import GitService
 from .services.google_ag_client import GoogleAgClient
 from .services.jira_service import JiraService
 from .services.llm_router import LlmRouter
 from .services.mcp_service import LocalMcpService
+from .services.openclaw_service import OpenClawService
 from .services.ollama_client import OllamaClient
 from .services.pr_service import PullRequestService
 from .services.rag_service import RagService
@@ -58,6 +62,8 @@ class Orchestrator:
         self.audit = AuditLogger(self.repo_root / LOG_FILE)
         self.approval_store = ApprovalStore(self.repo_root / APPROVAL_STORE_FILE)
         self.aider = AiderService(runner=self.runner)
+        self.openclaw = OpenClawService(runner=self.runner)
+        self.executors = ExecutorService(aider=self.aider, openclaw=self.openclaw)
         self.pr_service = PullRequestService(self.git, runner=self.runner)
         self.skill_service = SkillService(self.repo_root / SKILLS_DIR)
         self.rag = RagService(self.repo_root, self.repo_root / RAG_CONFIG_FILE)
@@ -86,6 +92,7 @@ class Orchestrator:
         report["checks"]["dirty_files"] = self.git.changed_files()
 
         report["checks"]["ollama_health"] = self.ollama.health_check()
+        report["checks"]["ollama_available"] = report["checks"]["ollama_health"]
         installed_models = self.ollama.list_models() if report["checks"]["ollama_health"] else set()
         report["checks"]["installed_models"] = sorted(installed_models)
         missing_models = sorted(
@@ -96,6 +103,9 @@ class Orchestrator:
         report["checks"]["missing_models"] = missing_models
 
         report["checks"]["aider_command"] = self._resolve_aider_command()
+        report["checks"]["openclaw_command"] = self._resolve_openclaw_command()
+        # Backward-compatible diagnostics key.
+        report["checks"]["opencode_command"] = report["checks"]["openclaw_command"]
         report["checks"]["gh_available"] = self.pr_service.check_gh_available()
         report["checks"]["python_launcher"] = self.runner.run(
             ["py", "--version"], check=False
@@ -107,6 +117,9 @@ class Orchestrator:
         report["checks"]["rag_config_file"] = str(self.repo_root / RAG_CONFIG_FILE)
         report["checks"]["jira"] = self.jira.configuration_status()
         report["checks"]["llm_routing"] = self.llm_router.preflight_status()
+        google_status = report["checks"]["llm_routing"]["providers"].get("google_ag", {})
+        report["checks"]["google_ag_available"] = bool(google_status.get("healthy", False))
+        report["checks"].update(self.executors.availability())
 
         if fix_models and missing_models:
             pulled: list[str] = []
@@ -171,12 +184,15 @@ class Orchestrator:
         output = agent.execute(task, context=context)
 
         if dry_run:
+            executor_status = self.executors.availability()
             payload = {
                 "mode": "dry-run",
                 "agent": normalized_agent,
                 "task": task.to_dict(),
                 "execution_context": context.to_dict(),
                 "agent_output": output.to_dict(),
+                "executor": executor_status.get("selected_executor"),
+                "executor_availability": executor_status,
                 "worktree": str(worktree),
                 "branch": branch,
             }
@@ -189,8 +205,8 @@ class Orchestrator:
                 "Task has no file scope. For non dry-run execution provide files_scope in task file."
             )
 
-        prompt = self._build_aider_prompt(task, output)
-        aider_result = self.aider.apply_patch(
+        prompt = self._build_execution_prompt(task, output)
+        execution_result = self.executors.apply_patch(
             worktree=worktree,
             prompt=prompt,
             files=file_scope,
@@ -198,6 +214,7 @@ class Orchestrator:
         )
         changed_files = self.git.changed_files(cwd=worktree)
         self._validate_changed_files_within_scope(changed_files, file_scope, worktree=worktree)
+        diff_stats = self._validate_diff_limits(worktree=worktree, changed_files=changed_files)
         commit_message = self._normalize_commit_message(output.commit_message, task)
         committed_files = self.git.commit(
             cwd=worktree,
@@ -208,7 +225,8 @@ class Orchestrator:
         transcript_file = self._save_transcript(
             task_id=task.id,
             agent_name=normalized_agent,
-            transcript=aider_result.stdout + ("\n" + aider_result.stderr if aider_result.stderr else ""),
+            transcript=execution_result.stdout
+            + ("\n" + execution_result.stderr if execution_result.stderr else ""),
         )
 
         payload = {
@@ -219,10 +237,20 @@ class Orchestrator:
             "branch": branch,
             "worktree": str(worktree),
             "changed_files": changed_files,
+            "diff_stats": diff_stats,
             "committed_files": committed_files,
             "commit_message": commit_message,
-            "aider_command": aider_result.command,
-            "aider_transcript_file": str(transcript_file),
+            "executor": execution_result.selected_executor,
+            "executor_command": execution_result.command,
+            "executor_fallback_from": execution_result.fallback_from,
+            "executor_fallback_reason": execution_result.fallback_reason,
+            "executor_transcript_file": str(transcript_file),
+            "aider_command": execution_result.command
+            if execution_result.selected_executor == "aider"
+            else None,
+            "aider_transcript_file": str(transcript_file)
+            if execution_result.selected_executor == "aider"
+            else None,
         }
         self.audit.log("run_task_apply", payload)
         return payload
@@ -484,7 +512,7 @@ class Orchestrator:
             )
         return outputs
 
-    def _build_aider_prompt(self, task: TaskSpec, output: Any) -> str:
+    def _build_execution_prompt(self, task: TaskSpec, output: Any) -> str:
         validation_text = "\n".join(f"- {step}" for step in output.validation_steps) or "- none"
         file_scope_text = "\n".join(f"- {path}" for path in (output.target_files or task.files_scope))
         return (
@@ -494,7 +522,8 @@ class Orchestrator:
             f"Required changes:\n{output.proposed_changes}\n\n"
             f"Allowed file scope:\n{file_scope_text}\n\n"
             f"Validation steps:\n{validation_text}\n"
-            "Preserve existing behavior outside scope."
+            "Preserve existing behavior outside scope. "
+            "Only modify files inside Allowed file scope."
         )
 
     def _save_transcript(self, task_id: str, agent_name: str, transcript: str) -> Path:
@@ -511,6 +540,17 @@ class Orchestrator:
             return " ".join(command)
         except Exception as exc:
             return f"(not available) {exc}"
+
+    def _resolve_openclaw_command(self) -> str:
+        try:
+            command = self.openclaw.resolve_command()
+            return " ".join(command)
+        except Exception as exc:
+            return f"(not available) {exc}"
+
+    def _resolve_opencode_command(self) -> str:
+        # Backward-compatible alias.
+        return self._resolve_openclaw_command()
 
     def _load_env_file(self, env_path: Path) -> None:
         try:
@@ -556,8 +596,42 @@ class Orchestrator:
 
         if out_of_scope:
             raise RuntimeError(
-                "Aider changed files outside allowed scope: " + ", ".join(out_of_scope)
+                "Executor changed files outside allowed scope: " + ", ".join(out_of_scope)
             )
+
+    def _validate_diff_limits(
+        self,
+        *,
+        worktree: Path,
+        changed_files: list[str],
+    ) -> dict[str, int]:
+        stats = self.git.diff_stats(cwd=worktree)
+        max_files = self._env_int("AI_MAX_DIFF_FILES", DEFAULT_MAX_CHANGED_FILES)
+        max_lines = self._env_int("AI_MAX_DIFF_LINES", DEFAULT_MAX_CHANGED_LINES)
+        allow_large = (
+            os.environ.get("AI_ALLOW_LARGE_DIFF", "").strip().lower() in {"1", "true", "yes", "on"}
+        )
+
+        files_over = len(changed_files) > max_files
+        lines_over = stats["total_changed_lines"] > max_lines
+        if (files_over or lines_over) and not allow_large:
+            raise RuntimeError(
+                "Large uncontrolled diff detected. "
+                f"changed_files={len(changed_files)} (limit {max_files}), "
+                f"total_changed_lines={stats['total_changed_lines']} (limit {max_lines}). "
+                "Set AI_ALLOW_LARGE_DIFF=true only if intentional."
+            )
+        return stats
+
+    def _env_int(self, key: str, default: int) -> int:
+        raw = os.environ.get(key, "").strip()
+        if not raw:
+            return default
+        try:
+            value = int(raw)
+        except ValueError:
+            return default
+        return max(1, value)
 
     def _normalize_commit_message(self, candidate: str, task: TaskSpec) -> str:
         fallback = f"{task.commit_type}: {task.title}"
