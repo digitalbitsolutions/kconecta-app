@@ -96,6 +96,40 @@ Define the minimum environment and auth contract required for native app release
 - Static token mode remains valid for bootstrap/read endpoints only.
 - Final target is refreshable role-scoped session tokens.
 
+## Wave 12 Cross-App Auth Boundary Contract
+
+### Deep Link Payload Contract
+
+- Required payload fields:
+  - `origin_app`: `manager-app` | `provider-app`
+  - `target_screen`: route id in destination app
+  - `handoff_token`: short-lived opaque token
+  - Domain ids as needed (`providerId`, `propertyId`)
+- Rejection behavior:
+  - Missing required fields -> local reject and route `Unauthorized`.
+  - Invalid/expired `handoff_token` -> backend `401 TOKEN_INVALID`.
+  - Role mismatch -> backend `403 ROLE_SCOPE_FORBIDDEN`.
+
+### Handoff Validation Flow
+
+1. Source app builds deep-link payload from current context.
+2. Destination app validates payload schema.
+3. Destination app calls `POST /api/auth/handoff/validate`.
+4. On success, app exchanges context via `POST /api/auth/handoff/exchange`.
+5. Session state becomes `authenticated` with destination role-bound scope.
+
+### Unauthorized and Scope Mismatch Rules
+
+- Manager-to-provider handoff:
+  - Read-only provider context is allowed.
+  - Provider mutation actions require provider role scope.
+- Provider-to-manager handoff:
+  - Assignment-bound property detail is allowed.
+  - Manager property mutation requires manager role scope.
+- Client handling:
+  - Never silently degrade forbidden actions.
+  - Route to deterministic fallback (`Unauthorized` or `SessionExpired`) with reason code.
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
@@ -120,6 +154,7 @@ Define the minimum environment and auth contract required for native app release
 - Module internals can evolve as long as `v1` response contracts remain backward compatible.
 - Migration order:
   1. Release additive `/api/auth/*` endpoints.
-  2. Keep static token acceptance enabled during rollout.
-  3. Flip clients to login/refresh flow.
-  4. Retire static token from mobile once all clients are migrated.
+  2. Release additive `/api/auth/handoff/*` endpoints with role guards.
+  3. Keep static token acceptance enabled during rollout.
+  4. Flip clients to login/refresh plus handoff validation flow.
+  5. Retire static token from mobile once all clients are migrated.
