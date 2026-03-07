@@ -40,6 +40,28 @@ Validate end-to-end functional behavior of native app API contracts before relea
 5. `/api/auth/logout` returns `401` when bearer token is missing/invalid.
 6. `/api/auth/logout` returns revoked payload for valid bearer token.
 
+## Wave 11 UI/Auth Smoke Matrix
+
+1. Manager auth shell (`DEV-52`)
+  - `Login` route is reachable and can bootstrap runtime token.
+  - `Unauthorized` route can reset session and return to `Login`.
+  - `SessionExpired` route offers deterministic re-authentication path.
+2. Provider auth-aware shell (`DEV-53`)
+  - `ProviderDashboard` route is default when session token exists.
+  - `ProviderUnauthorized` route is triggered on unauthorized reset hook.
+  - `AvailabilityShell` route is reachable from dashboard.
+3. Backend auth contract (`DEV-51`)
+  - Unauthorized auth routes expose stable payload shape:
+    - `error.code`
+    - `meta.contract`, `meta.mode`, `meta.flow`, `meta.reason`, `meta.retryable`
+
+## Wave 11 Ticket Mapping
+
+1. `DEV-51` -> API contract assertions in `tests/Feature/Api/AuthSessionApiTest.php`.
+2. `DEV-52` -> Manager auth navigation smoke paths in QA checklist.
+3. `DEV-53` -> Provider dashboard/availability/auth fallback smoke paths in QA checklist.
+4. `DEV-54` -> QA coordination item ensuring the matrix above remains regression-safe.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -51,6 +73,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 5. Record Jira evidence (PR link + test result summary).
 6. Confirm `meta.source` contract in provider/property list responses.
 7. Run auth flow regression suite.
+8. Verify Wave 11 UI/Auth smoke matrix against current branch before merge.
 
 ## Entry Criteria
 

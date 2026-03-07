@@ -90,7 +90,12 @@ class AuthSessionApiTest extends TestCase
             "Authorization" => "Bearer expired-token",
         ])->postJson("/api/auth/refresh");
 
-        $response->assertUnauthorized();
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.mode", "scaffold")
+            ->assertJsonPath("meta.flow", "refresh")
+            ->assertJsonPath("meta.retryable", false);
         $this->assertAuthErrorCode($response->json("error.code"));
     }
 
@@ -100,7 +105,13 @@ class AuthSessionApiTest extends TestCase
             "Authorization" => "Bearer invalid-token",
         ])->postJson("/api/auth/refresh");
 
-        $response->assertUnauthorized();
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.mode", "scaffold")
+            ->assertJsonPath("meta.flow", "refresh")
+            ->assertJsonPath("meta.reason", "token_invalid")
+            ->assertJsonPath("meta.retryable", false);
         $this->assertAuthErrorCode($response->json("error.code"));
     }
 
