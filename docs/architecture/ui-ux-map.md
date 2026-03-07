@@ -75,11 +75,47 @@ Define the first production-shaped mobile information architecture for manager a
   - Keep user authenticated.
   - Show "insufficient permissions" state on current screen.
 
+## Wave 12 Cross-App Handoffs
+
+| Source app | Source screen | Trigger | Target app | Target screen | Required payload |
+| --- | --- | --- | --- | --- | --- |
+| manager-app | ProviderLookup | Open provider workspace | provider-app | ProviderDashboard | `providerId`, `handoffToken`, `origin=manager` |
+| manager-app | PropertyDetail | Assign provider | provider-app | AssignedRequests | `propertyId`, `providerId`, `handoffToken` |
+| provider-app | AssignedRequests | Open property context | manager-app | PropertyDetail | `propertyId`, `handoffToken`, `origin=provider` |
+| provider-app | ProviderDashboard | Escalate to manager workflow | manager-app | ManagerHome | `providerId`, `handoffToken` |
+
+### Handoff State Rules
+
+- `handoff_pending`
+  - Validate deep-link payload schema before navigation.
+  - Reject navigation if required ids are missing.
+- `handoff_authorized`
+  - Validate `handoffToken` server-side before rendering target screen.
+  - Hydrate target screen only after role and scope checks.
+- `handoff_rejected`
+  - Route to `Unauthorized` and preserve source context for retry.
+  - Log rejection with reason code (`ROLE_MISMATCH`, `INVALID_CONTEXT`, `TOKEN_INVALID`).
+
+### Role Boundary Outcomes
+
+- Manager opening provider-only edit surfaces:
+  - Allowed: read dashboards, assignment context.
+  - Blocked: direct provider availability mutation.
+- Provider opening manager-only property mutation surfaces:
+  - Allowed: read assignment-bound property detail.
+  - Blocked: manager-level property CRUD actions.
+
 ## Contract Mapping
 
 - Auth routes: `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout`.
 - Manager data routes: `/api/properties*`, `/api/providers*`.
 - Provider data routes: `/api/providers/{id}*`.
+- Handoff validation routes:
+  - `POST /api/auth/handoff/validate`
+  - `POST /api/auth/handoff/exchange`
+- Role boundary enforcement routes:
+  - `GET /api/providers/{id}` with manager scope guard.
+  - `GET /api/properties/{id}` with provider assignment guard.
 
 ## Delivery Sequencing (Wave 11)
 
@@ -88,3 +124,10 @@ Define the first production-shaped mobile information architecture for manager a
 3. Provider dashboard shell (`MOB-009`).
 4. Auth error contract normalization (`BE-009`).
 5. QA regression alignment (`QA-010`).
+
+## Wave 12 Delivery Sequencing
+
+1. Cross-app navigation and handoff contract (`ARCH-008`).
+2. Backend role boundary hardening (`BE-010`).
+3. Manager/provider handoff UI states (`MOB-009`).
+4. Wave 12 regression matrix (`QA-011`).

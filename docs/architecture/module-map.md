@@ -59,6 +59,35 @@
 - `provider-app` -> Provider Module + Auth Session Module.
 - `admin-surface` -> Admin Module + Auth Session Module.
 
+## Wave 12 Cross-App Boundaries
+
+### Handoff Contract Module
+
+- Responsibilities:
+  - Validate cross-app navigation payloads (`providerId`, `propertyId`, `handoffToken`).
+  - Exchange short-lived handoff token for role-scoped access context.
+  - Emit audit events for accepted/rejected handoffs.
+- Main contracts:
+  - `POST /api/auth/handoff/validate`
+  - `POST /api/auth/handoff/exchange`
+
+### Role Boundary Guard Layer
+
+- Responsibilities:
+  - Enforce manager/provider read-write boundaries at endpoint level.
+  - Normalize forbidden responses to deterministic error codes for mobile clients.
+- Main contracts:
+  - Manager accessing provider scope: `GET /api/providers/{id}` (read-only allowed).
+  - Provider accessing manager scope: `GET /api/properties/{id}` (assignment-bound only).
+  - Forbidden mutation guard: `403 ROLE_SCOPE_FORBIDDEN`.
+
+### Ownership Notes
+
+- Auth Session Module owns token and handoff lifecycle rules.
+- Property Module owns manager-side domain authorization checks.
+- Provider Module owns provider-side domain authorization checks.
+- Admin Module is not part of mobile cross-app handoff flows.
+
 ## Compatibility Rules
 
 - Existing CRM contracts remain valid while native apps are onboarded.
