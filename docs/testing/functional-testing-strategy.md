@@ -62,6 +62,27 @@ Validate end-to-end functional behavior of native app API contracts before relea
 3. `DEV-53` -> Provider dashboard/availability/auth fallback smoke paths in QA checklist.
 4. `DEV-54` -> QA coordination item ensuring the matrix above remains regression-safe.
 
+## Wave 12 Role Boundary and Handoff Matrix
+
+1. Role boundary hardening (`DEV-59`, `DEV-60`)
+  - Provider role + mobile token -> `/api/providers` stays reachable.
+  - Provider role + mobile token -> `/api/properties` must return `403` + `ROLE_SCOPE_FORBIDDEN` when role guard is enabled.
+  - Manager role + mobile token -> `/api/properties` stays reachable.
+  - Manager role + mobile token -> `/api/providers` must return `403` + `ROLE_SCOPE_FORBIDDEN` when role guard is enabled.
+2. Unauthorized + session-expired flows
+  - Missing/invalid token on protected API routes returns `401`.
+  - Expired token on `/api/auth/refresh` and `/api/auth/logout` returns `401` with stable auth-session contract metadata.
+3. Cross-app handoff validation
+  - `/api/auth/login` returns deterministic `data.role` and `data.scope`.
+  - Role/scope payload is the contract source for manager/provider shell routing in native apps.
+
+## Wave 12 Ticket Mapping
+
+1. `DEV-58` -> Cross-app navigation and handoff contract documented in architecture artifacts.
+2. `DEV-59` -> Backend role-boundary enforcement with deterministic `403` payload.
+3. `DEV-60` -> Native manager/provider handoff UI states and mismatch handling.
+4. `DEV-61` -> Regression matrix + API tests in `tests/Feature/Api/Wave12RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -74,6 +95,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 6. Confirm `meta.source` contract in provider/property list responses.
 7. Run auth flow regression suite.
 8. Verify Wave 11 UI/Auth smoke matrix against current branch before merge.
+9. Run Wave 12 role-boundary regression suite and record whether role guard is active for branch-under-test.
 
 ## Entry Criteria
 
