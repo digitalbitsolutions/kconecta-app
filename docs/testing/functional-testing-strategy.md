@@ -83,6 +83,27 @@ Validate end-to-end functional behavior of native app API contracts before relea
 3. `DEV-60` -> Native manager/provider handoff UI states and mismatch handling.
 4. `DEV-61` -> Regression matrix + API tests in `tests/Feature/Api/Wave12RegressionMatrixTest.php`.
 
+## Wave 13 Provider Availability Matrix
+
+1. Availability read flow (`DEV-65`, `DEV-66`)
+  - Provider app reads `/api/providers/{id}/availability` with provider role context.
+  - Response must expose `meta.contract=provider-availability-v1`.
+  - Payload includes `timezone` and normalized `slots[]`.
+2. Availability update flow (`DEV-65`, `DEV-66`)
+  - Provider role can patch `/api/providers/{id}/availability`.
+  - Manager role must receive `403 ROLE_SCOPE_FORBIDDEN`.
+  - Invalid slot payload must return deterministic `422 VALIDATION_FAILED`.
+3. Session and security validation (`DEV-67`)
+  - Missing/invalid bearer token on availability routes must return `401`.
+  - Unknown provider ids must return `404` with provider context payload.
+
+## Wave 13 Ticket Mapping
+
+1. `DEV-64` -> Architecture contract/state map for availability editor.
+2. `DEV-65` -> Backend availability endpoints and role guard.
+3. `DEV-66` -> Provider app availability editor + API integration.
+4. `DEV-67` -> Regression matrix + API checks in `tests/Feature/Api/Wave13RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -96,6 +117,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 7. Run auth flow regression suite.
 8. Verify Wave 11 UI/Auth smoke matrix against current branch before merge.
 9. Run Wave 12 role-boundary regression suite and record whether role guard is active for branch-under-test.
+10. Run Wave 13 availability regression suite and record endpoint readiness (`404` pre-merge vs contract-asserted post-merge).
 
 ## Entry Criteria
 
