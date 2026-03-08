@@ -161,6 +161,20 @@ Define the first production-shaped mobile information architecture for manager a
   - Read-only access to provider availability.
   - Any mutation attempt must return `403 ROLE_SCOPE_FORBIDDEN`.
 
+### Wave 14 Identity-Driven Availability UX
+
+- Provider availability editor bootstrap:
+  - Resolve `providerId` from session store claims, not from hardcoded constants.
+  - If session has no provider identity, route to `SessionExpired`.
+- Provider ownership mismatch:
+  - `403 PROVIDER_IDENTITY_MISMATCH` must render deterministic ownership error state.
+  - Editor controls stay disabled until session is re-established for the correct provider identity.
+- Provider role mismatch:
+  - `403 ROLE_SCOPE_FORBIDDEN` keeps session active and shows read-only fallback.
+- Manager app behavior:
+  - Manager sees provider availability as read-only context.
+  - Manager never receives editable availability controls in native flow.
+
 ### Wave 13 Delivery Sequencing
 
 1. Availability contract and UX map (`ARCH-009`).

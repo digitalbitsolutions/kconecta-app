@@ -23,6 +23,7 @@
   - Provider catalog and filtering.
   - Availability and service coverage by city/category.
   - Weekly availability slot orchestration for provider workflows.
+  - Identity-bound availability writes for provider self-scope.
   - Provider quality indicators (rating, active status).
 - Main contracts:
   - `/api/providers*`
@@ -78,11 +79,25 @@
 - Responsibilities:
   - Enforce manager/provider read-write boundaries at endpoint level.
   - Normalize forbidden responses to deterministic error codes for mobile clients.
+  - Validate provider ownership for provider-role availability writes.
 - Main contracts:
   - Manager accessing provider scope: `GET /api/providers/{id}` (read-only allowed).
   - Manager accessing provider availability mutation: `PATCH /api/providers/{id}/availability` -> `403 ROLE_SCOPE_FORBIDDEN`.
   - Provider accessing manager scope: `GET /api/properties/{id}` (assignment-bound only).
+  - Provider accessing another provider availability mutation: `PATCH /api/providers/{id}/availability` -> `403 PROVIDER_IDENTITY_MISMATCH`.
   - Forbidden mutation guard: `403 ROLE_SCOPE_FORBIDDEN`.
+
+## Wave 14 Provider Identity Boundary
+
+### Provider Identity Resolver
+
+- Responsibilities:
+  - Resolve authenticated provider identity from session/token claims.
+  - Bind provider-role write actions to resolved identity instead of client-provided ids.
+- Contract notes:
+  - `provider` role can mutate only `provider_id == session.provider_id`.
+  - `admin` can operate across provider identities with explicit audit trail.
+  - API shape remains additive/backward-compatible with Wave 13 contracts.
 
 ### Ownership Notes
 

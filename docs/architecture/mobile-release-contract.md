@@ -170,6 +170,43 @@ Define the minimum environment and auth contract required for native app release
   - Uses existing auth/session deterministic error envelope.
   - Must include `error.code`, `meta.contract`, `meta.reason`, `meta.retryable`.
 
+## Wave 14 Provider Identity and Ownership Contract
+
+### Session Identity Source
+
+- `provider-app` resolves identity from authenticated session claims (`role`, `provider_id`).
+- Availability requests must never rely on hardcoded provider ids in UI state.
+- For provider role, backend treats path `{id}` as a requested target and validates it against session `provider_id`.
+
+### Availability Ownership Rules
+
+- `provider`:
+  - Can read/update only its own availability.
+  - Identity mismatch must return `403` with deterministic error code `PROVIDER_IDENTITY_MISMATCH`.
+- `manager`:
+  - Read-only visibility for provider availability context.
+  - Any update attempt must return `403 ROLE_SCOPE_FORBIDDEN`.
+- `admin`:
+  - Can read/update availability for any provider id.
+
+### Mobile UX Contract for Identity Errors
+
+- `401 TOKEN_EXPIRED` / `TOKEN_INVALID`:
+  - Use existing session recovery flow.
+- `403 PROVIDER_IDENTITY_MISMATCH`:
+  - Show ownership mismatch state.
+  - Disable edit controls and provide CTA back to provider dashboard.
+- `403 ROLE_SCOPE_FORBIDDEN`:
+  - Keep user authenticated.
+  - Show read-only state with deterministic explanation.
+
+### Backward Compatibility
+
+- Wave 14 keeps Wave 13 endpoint shapes unchanged:
+  - `GET /api/providers/{id}/availability`
+  - `PATCH /api/providers/{id}/availability`
+- Contract hardening is implemented through ownership validation and error semantics, not endpoint redesign.
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
