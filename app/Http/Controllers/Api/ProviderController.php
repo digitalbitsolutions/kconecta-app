@@ -201,6 +201,7 @@ class ProviderController extends Controller
         $validator = Validator::make(
             $request->all(),
             [
+                "revision" => ["required", "integer", "min:1"],
                 "timezone" => ["nullable", "string", "max:64"],
                 "slots" => ["required", "array", "min:1"],
                 "slots.*.day" => ["required", "string", "in:" . implode(",", self::WEEK_DAYS)],
@@ -254,6 +255,38 @@ class ProviderController extends Controller
         }
 
         $validated = $validator->validated();
+        $currentAvailability = $this->providerService->getAvailability($id);
+        if ($currentAvailability === null) {
+            return response()->json(
+                [
+                    "message" => "Provider not found",
+                    "provider_id" => $id,
+                ],
+                404
+            );
+        }
+
+        $expectedRevision = (int) ($validated["revision"] ?? 0);
+        $currentRevision = (int) data_get($currentAvailability, "data.revision", 0);
+        if ($expectedRevision !== $currentRevision) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => "AVAILABILITY_REVISION_CONFLICT",
+                        "message" => "Availability revision conflict",
+                    ],
+                    "meta" => [
+                        "contract" => ProviderService::AVAILABILITY_CONTRACT,
+                        "flow" => "providers_availability_update",
+                        "reason" => "revision_conflict",
+                        "retryable" => true,
+                    ],
+                    "data" => data_get($currentAvailability, "data", []),
+                ],
+                409
+            );
+        }
+
         $payload = $this->providerService->updateAvailability(
             $id,
             (array) ($validated["slots"] ?? []),

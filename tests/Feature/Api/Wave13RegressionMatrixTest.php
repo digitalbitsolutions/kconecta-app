@@ -86,11 +86,13 @@ class Wave13RegressionMatrixTest extends TestCase
 
     public function test_wave13_invalid_availability_payload_returns_validation_contract_when_enabled(): void
     {
+        $revision = $this->fetchCurrentRevision(1, "provider", 1);
         $response = $this
             ->withHeaders($this->headers("provider", 1))
             ->patchJson(
                 "/api/providers/1/availability",
                 [
+                    "revision" => $revision,
                     "timezone" => "Europe/Madrid",
                     "slots" => [
                         [
@@ -181,9 +183,10 @@ class Wave13RegressionMatrixTest extends TestCase
 
     public function test_wave14_admin_override_can_update_cross_provider_availability_when_endpoint_is_available(): void
     {
+        $payload = $this->validPayload($this->fetchCurrentRevision(2, "admin"));
         $response = $this
             ->withHeaders($this->headers("admin"))
-            ->patchJson("/api/providers/2/availability", $this->validPayload());
+            ->patchJson("/api/providers/2/availability", $payload);
 
         if ($response->status() === 404) {
             $this->markTestIncomplete(
@@ -212,9 +215,10 @@ class Wave13RegressionMatrixTest extends TestCase
         return $headers;
     }
 
-    private function validPayload(): array
+    private function validPayload(int $revision = 1): array
     {
         return [
+            "revision" => $revision,
             "timezone" => "Europe/Madrid",
             "slots" => [
                 [
@@ -225,5 +229,19 @@ class Wave13RegressionMatrixTest extends TestCase
                 ],
             ],
         ];
+    }
+
+    private function fetchCurrentRevision(int $providerId, string $role, ?int $sessionProviderId = null): int
+    {
+        $response = $this
+            ->withHeaders($this->headers($role, $sessionProviderId))
+            ->getJson("/api/providers/{$providerId}/availability");
+
+        if ($response->status() === 404) {
+            return 1;
+        }
+
+        $response->assertOk();
+        return (int) $response->json("data.revision");
     }
 }
