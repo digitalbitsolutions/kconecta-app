@@ -19,6 +19,7 @@ class ProviderService
     private const MAX_DB_ROWS = 500;
     private const DEFAULT_AVAILABILITY_TIMEZONE = "Europe/Madrid";
     private const WEEK_DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+    private static array $availabilityRevisions = [];
 
     /**
      * Returns provider list payload using DB-first retrieval with safe fallback.
@@ -88,6 +89,7 @@ class ProviderService
                 "provider_id" => $providerId,
                 "timezone" => $snapshot["timezone"],
                 "slots" => $snapshot["slots"],
+                "revision" => $snapshot["revision"],
             ],
             "meta" => [
                 "contract" => self::AVAILABILITY_CONTRACT,
@@ -103,6 +105,7 @@ class ProviderService
             return null;
         }
 
+        $currentSnapshot = $this->loadAvailabilitySnapshot($providerId);
         $normalizedSlots = $this->normalizeAvailabilitySlots($slots);
         if ($normalizedSlots === []) {
             $normalizedSlots = $this->defaultAvailabilitySlots();
@@ -114,6 +117,8 @@ class ProviderService
             $resolvedTimezone,
             $normalizedSlots
         );
+        $nextRevision = ((int) ($currentSnapshot["revision"] ?? 0)) + 1;
+        self::$availabilityRevisions[$providerId] = max(1, $nextRevision);
 
         return [
             "data" => [
@@ -121,6 +126,7 @@ class ProviderService
                 "timezone" => $resolvedTimezone,
                 "slots" => $normalizedSlots,
                 "updated_at" => now()->toIso8601String(),
+                "revision" => self::$availabilityRevisions[$providerId],
             ],
             "meta" => [
                 "contract" => self::AVAILABILITY_CONTRACT,
@@ -200,6 +206,11 @@ class ProviderService
             "timezone" => self::DEFAULT_AVAILABILITY_TIMEZONE,
             "slots" => $this->defaultAvailabilitySlots(),
             "source" => $dataset["source"],
+            "revision" => $this->resolveAvailabilityRevision(
+                $providerId,
+                self::DEFAULT_AVAILABILITY_TIMEZONE,
+                $this->defaultAvailabilitySlots()
+            ),
         ];
     }
 
@@ -245,6 +256,7 @@ class ProviderService
                 "timezone" => $timezone,
                 "slots" => $slots,
                 "source" => "database",
+                "revision" => $this->resolveAvailabilityRevision($providerId, $timezone, $slots),
             ];
         } catch (Throwable) {
             return null;
@@ -296,6 +308,7 @@ class ProviderService
                 "timezone" => $timezone,
                 "slots" => $slots,
                 "source" => "database",
+                "revision" => $this->resolveAvailabilityRevision($providerId, $timezone, $slots),
             ];
         } catch (Throwable) {
             return null;
@@ -523,6 +536,27 @@ class ProviderService
     {
         $candidate = trim((string) $timezone);
         return $candidate !== "" ? $candidate : self::DEFAULT_AVAILABILITY_TIMEZONE;
+    }
+
+    private function resolveAvailabilityRevision(int $providerId, string $timezone, array $slots): int
+    {
+        if (isset(self::$availabilityRevisions[$providerId])) {
+            return self::$availabilityRevisions[$providerId];
+        }
+
+        $fingerprint = json_encode(
+            [
+                "provider_id" => $providerId,
+                "timezone" => $timezone,
+                "slots" => $slots,
+            ],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+        $seed = (int) sprintf("%u", crc32((string) $fingerprint));
+        $resolved = max(1, $seed % 1000000);
+        self::$availabilityRevisions[$providerId] = $resolved;
+
+        return $resolved;
     }
 
     private function defaultAvailabilitySlots(): array
