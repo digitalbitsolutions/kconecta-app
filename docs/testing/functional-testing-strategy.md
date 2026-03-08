@@ -104,6 +104,26 @@ Validate end-to-end functional behavior of native app API contracts before relea
 3. `DEV-66` -> Provider app availability editor + API integration.
 4. `DEV-67` -> Regression matrix + API checks in `tests/Feature/Api/Wave13RegressionMatrixTest.php`.
 
+## Wave 14 Provider Identity Matrix
+
+1. Provider self-scope enforcement (`DEV-72`, `DEV-73`)
+  - Provider role read/update requires resolved provider identity in session context.
+  - Provider editing another provider availability must return `403 PROVIDER_IDENTITY_MISMATCH`.
+  - Provider requests without identity header/claim must return `403 PROVIDER_IDENTITY_MISMATCH`.
+2. Admin override path (`DEV-72`)
+  - Admin role can update cross-provider availability with stable `provider-availability-v1` contract.
+3. Mobile UX recovery states (`DEV-73`)
+  - `401 TOKEN_INVALID/TOKEN_EXPIRED` -> session recovery path.
+  - `403 PROVIDER_IDENTITY_MISMATCH` -> ownership mismatch read-only state + dashboard CTA.
+  - `403 ROLE_SCOPE_FORBIDDEN` -> authenticated read-only fallback.
+
+## Wave 14 Ticket Mapping
+
+1. `DEV-70` -> Provider identity ownership contract and UX state map.
+2. `DEV-72` -> Backend identity resolver and availability ownership guard.
+3. `DEV-73` -> Provider app identity-driven availability editor flow.
+4. `DEV-71` -> Regression matrix updates in `tests/Feature/Api/ProviderAvailabilityApiTest.php` and `tests/Feature/Api/Wave13RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -118,6 +138,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 8. Verify Wave 11 UI/Auth smoke matrix against current branch before merge.
 9. Run Wave 12 role-boundary regression suite and record whether role guard is active for branch-under-test.
 10. Run Wave 13 availability regression suite and record endpoint readiness (`404` pre-merge vs contract-asserted post-merge).
+11. Run Wave 14 provider identity regression suite and record ownership guard behavior (`PROVIDER_IDENTITY_MISMATCH` + admin override path).
 
 ## Entry Criteria
 
