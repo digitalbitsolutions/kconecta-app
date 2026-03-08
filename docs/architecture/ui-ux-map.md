@@ -175,9 +175,33 @@ Define the first production-shaped mobile information architecture for manager a
   - Manager sees provider availability as read-only context.
   - Manager never receives editable availability controls in native flow.
 
+### Wave 15 Availability Conflict UX
+
+- Provider editor save flow:
+  - Each save request includes latest `revision` read from server.
+  - UI enters `availability_saving` and blocks duplicate writes.
+- Stale revision conflict (`409 AVAILABILITY_REVISION_CONFLICT`):
+  - Enter deterministic `availability_conflict` state.
+  - Explain that schedule changed remotely and local draft is stale.
+  - Disable save controls until reload is completed.
+  - Provide CTA: `Reload Availability` and secondary CTA: `Discard Local Draft`.
+- Conflict recovery:
+  - After reload, UI restores editable mode with updated revision token.
+  - Retry path remains in same screen context (no forced logout/navigation).
+- Identity + conflict combined handling:
+  - If `403 PROVIDER_IDENTITY_MISMATCH`, keep Wave 14 ownership lock behavior.
+  - Conflict state never overrides auth/session error precedence (`401` first).
+
 ### Wave 13 Delivery Sequencing
 
 1. Availability contract and UX map (`ARCH-009`).
 2. Availability API + role guards (`BE-011`).
 3. Provider availability editor screen integration (`MOB-010`).
 4. Availability regression matrix (`QA-012`).
+
+## Wave 15 Delivery Sequencing
+
+1. Availability revision/conflict contract (`ARCH-011`).
+2. Backend optimistic concurrency guard for availability updates (`BE-013`).
+3. Provider editor conflict UX + reload/retry path (`MOB-012`).
+4. Regression coverage for revision conflicts and Wave 14 baseline (`QA-014`).

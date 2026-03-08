@@ -207,6 +207,48 @@ Define the minimum environment and auth contract required for native app release
   - `PATCH /api/providers/{id}/availability`
 - Contract hardening is implemented through ownership validation and error semantics, not endpoint redesign.
 
+## Wave 15 Availability Concurrency Contract
+
+### Read Contract Extension
+
+- `GET /api/providers/{id}/availability` remains backward compatible.
+- Response adds additive field:
+  - `data.revision` (monotonic integer-like token for optimistic concurrency).
+- Existing fields remain unchanged (`provider_id`, `timezone`, `slots[]`, `meta.contract`, `meta.source`).
+
+### Update Contract Extension
+
+- `PATCH /api/providers/{id}/availability` keeps Wave 13/14 endpoint and role rules.
+- Request payload adds required field for mutation safety:
+  - `revision` (last revision observed by client).
+- Success response adds:
+  - `data.revision` (new revision after persisted update).
+
+### Conflict/Error Contract
+
+- If client submits stale `revision`, backend returns:
+  - `409 Conflict`
+  - `error.code = AVAILABILITY_REVISION_CONFLICT`
+  - `meta.contract = provider-availability-v1`
+  - `meta.reason = revision_conflict`
+  - `meta.retryable = true`
+  - Additive context payload with server snapshot/revision for client reload.
+
+### Mobile UX Contract for Conflicts
+
+- On `409 AVAILABILITY_REVISION_CONFLICT`:
+  - Keep user authenticated.
+  - Show stale-data state with deterministic copy.
+  - Disable save until latest server state is reloaded.
+  - Provide CTA: `Reload Availability`, then allow `Retry Save`.
+
+### Backward Compatibility
+
+- Wave 15 remains additive:
+  - No endpoint renames.
+  - No breaking response shape removals.
+  - Older clients can still read availability; update behavior without `revision` must return deterministic validation error.
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
