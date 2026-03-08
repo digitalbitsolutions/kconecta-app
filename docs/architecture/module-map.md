@@ -106,6 +106,26 @@
 - Provider Module owns provider-side domain authorization checks.
 - Admin Module is not part of mobile cross-app handoff flows.
 
+## Wave 15 Availability Concurrency Boundary
+
+### Availability Revision Guard Layer
+
+- Responsibilities:
+  - Enforce optimistic concurrency for provider availability mutations.
+  - Compare client `revision` token against latest persisted revision.
+  - Reject stale writes with deterministic `409 AVAILABILITY_REVISION_CONFLICT`.
+- Main contracts:
+  - `GET /api/providers/{id}/availability` -> includes additive `data.revision`.
+  - `PATCH /api/providers/{id}/availability` -> requires `revision` from client.
+  - Conflict payload includes stable `error.code`, `meta.reason`, and reload context.
+
+### Ownership with Concurrency Notes
+
+- Wave 14 ownership guard still executes before mutation:
+  - Provider identity mismatch remains `403 PROVIDER_IDENTITY_MISMATCH`.
+- Only authorized + ownership-valid requests reach revision conflict checks.
+- Admin override remains allowed across provider ids but still respects revision checks.
+
 ## Compatibility Rules
 
 - Existing CRM contracts remain valid while native apps are onboarded.
