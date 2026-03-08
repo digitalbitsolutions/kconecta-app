@@ -25,7 +25,7 @@ class ProviderAvailabilityApiTest extends TestCase
     public function test_provider_role_can_read_provider_availability(): void
     {
         $response = $this
-            ->withHeaders($this->headers("provider"))
+            ->withHeaders($this->headers("provider", 1))
             ->getJson("/api/providers/1/availability");
 
         $response
@@ -54,6 +54,20 @@ class ProviderAvailabilityApiTest extends TestCase
         $response->assertOk();
     }
 
+    public function test_provider_role_is_forbidden_from_reading_other_provider_availability(): void
+    {
+        $response = $this
+            ->withHeaders($this->headers("provider", 1))
+            ->getJson("/api/providers/2/availability");
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "PROVIDER_IDENTITY_MISMATCH")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.reason", "provider_identity_mismatch")
+            ->assertJsonPath("meta.flow", "providers_availability_show");
+    }
+
     public function test_guest_cannot_update_provider_availability(): void
     {
         $response = $this->patchJson("/api/providers/1/availability", $this->validPayload());
@@ -68,7 +82,7 @@ class ProviderAvailabilityApiTest extends TestCase
     public function test_provider_role_can_update_provider_availability(): void
     {
         $response = $this
-            ->withHeaders($this->headers("provider"))
+            ->withHeaders($this->headers("provider", 1))
             ->patchJson("/api/providers/1/availability", $this->validPayload());
 
         $response
@@ -101,6 +115,44 @@ class ProviderAvailabilityApiTest extends TestCase
             ->assertJsonPath("meta.contract", "auth-session-v1")
             ->assertJsonPath("meta.reason", "role_scope_forbidden")
             ->assertJsonPath("meta.flow", "providers_availability_update");
+    }
+
+    public function test_provider_role_is_forbidden_from_updating_other_provider_availability(): void
+    {
+        $response = $this
+            ->withHeaders($this->headers("provider", 1))
+            ->patchJson("/api/providers/2/availability", $this->validPayload());
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "PROVIDER_IDENTITY_MISMATCH")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.reason", "provider_identity_mismatch")
+            ->assertJsonPath("meta.flow", "providers_availability_update");
+    }
+
+    public function test_provider_role_without_identity_header_is_forbidden(): void
+    {
+        $response = $this
+            ->withHeaders($this->headers("provider"))
+            ->patchJson("/api/providers/1/availability", $this->validPayload());
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "PROVIDER_IDENTITY_MISMATCH")
+            ->assertJsonPath("meta.reason", "provider_identity_mismatch");
+    }
+
+    public function test_admin_role_can_update_any_provider_availability(): void
+    {
+        $response = $this
+            ->withHeaders($this->headers("admin"))
+            ->patchJson("/api/providers/2/availability", $this->validPayload());
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("data.provider_id", 2)
+            ->assertJsonPath("meta.contract", "provider-availability-v1");
     }
 
     public function test_unknown_provider_returns_not_found_for_availability_routes(): void
@@ -151,12 +203,18 @@ class ProviderAvailabilityApiTest extends TestCase
             ->assertJsonPath("meta.reason", "validation_failed");
     }
 
-    private function headers(string $role): array
+    private function headers(string $role, ?int $providerId = null): array
     {
-        return [
+        $headers = [
             "Authorization" => "Bearer " . self::API_TOKEN,
             "X-KCONECTA-ROLE" => $role,
         ];
+
+        if ($providerId !== null) {
+            $headers["X-KCONECTA-PROVIDER-ID"] = (string) $providerId;
+        }
+
+        return $headers;
     }
 
     private function validPayload(): array

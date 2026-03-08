@@ -10,6 +10,7 @@ class AuthSessionService
     public const ERROR_TOKEN_INVALID = "TOKEN_INVALID";
     public const ERROR_TOKEN_EXPIRED = "TOKEN_EXPIRED";
     public const ERROR_ROLE_SCOPE_FORBIDDEN = "ROLE_SCOPE_FORBIDDEN";
+    public const ERROR_PROVIDER_IDENTITY_MISMATCH = "PROVIDER_IDENTITY_MISMATCH";
 
     private const DEFAULT_LOGIN_PASSWORD = "kconecta-dev-password";
 

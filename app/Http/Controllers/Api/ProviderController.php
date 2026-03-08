@@ -130,6 +130,19 @@ class ProviderController extends Controller
             );
         }
 
+        if ($this->isProviderIdentityMismatch($request, $id)) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_PROVIDER_IDENTITY_MISMATCH,
+                    "Forbidden",
+                    "providers_availability_show",
+                    "provider_identity_mismatch",
+                    false
+                ),
+                403
+            );
+        }
+
         $payload = $this->providerService->getAvailability($id);
         if ($payload === null) {
             return response()->json(
@@ -166,6 +179,19 @@ class ProviderController extends Controller
                     "Forbidden",
                     "providers_availability_update",
                     "role_scope_forbidden",
+                    false
+                ),
+                403
+            );
+        }
+
+        if ($this->isProviderIdentityMismatch($request, $id)) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_PROVIDER_IDENTITY_MISMATCH,
+                    "Forbidden",
+                    "providers_availability_update",
+                    "provider_identity_mismatch",
                     false
                 ),
                 403
@@ -266,5 +292,34 @@ class ProviderController extends Controller
         }
 
         return "manager";
+    }
+
+    private function resolveProviderIdentity(Request $request): ?int
+    {
+        $candidate = data_get($request->user(), "provider_id");
+        if (is_numeric($candidate) && (int) $candidate > 0) {
+            return (int) $candidate;
+        }
+
+        $header = trim((string) $request->header("X-KCONECTA-PROVIDER-ID", ""));
+        if (is_numeric($header) && (int) $header > 0) {
+            return (int) $header;
+        }
+
+        return null;
+    }
+
+    private function isProviderIdentityMismatch(Request $request, int $targetProviderId): bool
+    {
+        if ($this->resolveRole($request) !== "provider") {
+            return false;
+        }
+
+        $sessionProviderId = $this->resolveProviderIdentity($request);
+        if ($sessionProviderId === null) {
+            return true;
+        }
+
+        return $sessionProviderId !== $targetProviderId;
     }
 }
