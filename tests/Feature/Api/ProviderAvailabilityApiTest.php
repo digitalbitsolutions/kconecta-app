@@ -68,6 +68,19 @@ class ProviderAvailabilityApiTest extends TestCase
             ->assertJsonPath("meta.flow", "providers_availability_show");
     }
 
+    public function test_provider_role_without_identity_header_is_forbidden_from_reading_availability(): void
+    {
+        $response = $this
+            ->withHeaders($this->headers("provider"))
+            ->getJson("/api/providers/1/availability");
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "PROVIDER_IDENTITY_MISMATCH")
+            ->assertJsonPath("meta.reason", "provider_identity_mismatch")
+            ->assertJsonPath("meta.flow", "providers_availability_show");
+    }
+
     public function test_guest_cannot_update_provider_availability(): void
     {
         $response = $this->patchJson("/api/providers/1/availability", $this->validPayload());
@@ -158,7 +171,7 @@ class ProviderAvailabilityApiTest extends TestCase
     public function test_unknown_provider_returns_not_found_for_availability_routes(): void
     {
         $readResponse = $this
-            ->withHeaders($this->headers("provider"))
+            ->withHeaders($this->headers("provider", 999999))
             ->getJson("/api/providers/999999/availability");
 
         $readResponse
@@ -167,7 +180,7 @@ class ProviderAvailabilityApiTest extends TestCase
             ->assertJsonPath("provider_id", 999999);
 
         $updateResponse = $this
-            ->withHeaders($this->headers("provider"))
+            ->withHeaders($this->headers("provider", 999999))
             ->patchJson("/api/providers/999999/availability", $this->validPayload());
 
         $updateResponse
@@ -179,7 +192,7 @@ class ProviderAvailabilityApiTest extends TestCase
     public function test_update_provider_availability_rejects_invalid_payload(): void
     {
         $response = $this
-            ->withHeaders($this->headers("provider"))
+            ->withHeaders($this->headers("provider", 1))
             ->patchJson(
                 "/api/providers/1/availability",
                 [
