@@ -14,6 +14,7 @@ export type AvailabilitySlot = {
 type AvailabilityReadPayload = {
   data: {
     provider_id: number;
+    revision?: number;
     timezone: string;
     slots: AvailabilitySlot[];
   };
@@ -31,6 +32,7 @@ type AvailabilityUpdatePayload = AvailabilityReadPayload & {
 
 export type ProviderAvailability = {
   providerId: string;
+  revision: number;
   timezone: string;
   slots: AvailabilitySlot[];
   source: "database" | "in_memory";
@@ -198,6 +200,10 @@ function normalizeSlots(slots: AvailabilitySlot[] | undefined): AvailabilitySlot
 function toAvailabilityModel(payload: AvailabilityReadPayload): ProviderAvailability {
   return {
     providerId: String(payload.data.provider_id),
+    revision:
+      typeof payload.data.revision === "number" && Number.isFinite(payload.data.revision)
+        ? payload.data.revision
+        : 1,
     timezone: payload.data.timezone,
     slots: normalizeSlots(payload.data.slots),
     source: payload.meta.source,
@@ -212,11 +218,12 @@ export async function fetchProviderAvailability(providerId: string): Promise<Pro
 
 export async function updateProviderAvailability(
   providerId: string,
-  input: Pick<ProviderAvailability, "timezone" | "slots">
+  input: Pick<ProviderAvailability, "revision" | "timezone" | "slots">
 ): Promise<ProviderAvailabilityUpdateResult> {
   const payload = await requestAvailability<AvailabilityUpdatePayload>(`/providers/${providerId}/availability`, {
     method: "PATCH",
     body: {
+      revision: input.revision,
       timezone: input.timezone,
       slots: normalizeSlots(input.slots),
     },
