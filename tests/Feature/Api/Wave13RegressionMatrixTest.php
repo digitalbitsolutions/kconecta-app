@@ -201,6 +201,35 @@ class Wave13RegressionMatrixTest extends TestCase
             ->assertJsonPath("meta.contract", "provider-availability-v1");
     }
 
+    public function test_wave15_stale_revision_returns_conflict_when_guard_enabled(): void
+    {
+        $currentRevision = $this->fetchCurrentRevision(1, "provider", 1);
+        if ($currentRevision <= 0) {
+            $this->markTestIncomplete(
+                "Wave 15 revision token is not exposed by availability read contract yet."
+            );
+            return;
+        }
+
+        $response = $this
+            ->withHeaders($this->headers("provider", 1))
+            ->patchJson("/api/providers/1/availability", $this->validPayload($currentRevision + 1));
+
+        if ($response->status() === 200) {
+            $this->markTestIncomplete(
+                "Wave 15 availability revision conflict guard is not active yet."
+            );
+            return;
+        }
+
+        $response
+            ->assertStatus(409)
+            ->assertJsonPath("error.code", "AVAILABILITY_REVISION_CONFLICT")
+            ->assertJsonPath("meta.contract", "provider-availability-v1")
+            ->assertJsonPath("meta.reason", "revision_conflict")
+            ->assertJsonPath("meta.flow", "providers_availability_update");
+    }
+
     private function headers(string $role, ?int $providerId = null): array
     {
         $headers = [

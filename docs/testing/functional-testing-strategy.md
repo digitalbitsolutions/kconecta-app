@@ -124,6 +124,27 @@ Validate end-to-end functional behavior of native app API contracts before relea
 3. `DEV-73` -> Provider app identity-driven availability editor flow.
 4. `DEV-71` -> Regression matrix updates in `tests/Feature/Api/ProviderAvailabilityApiTest.php` and `tests/Feature/Api/Wave13RegressionMatrixTest.php`.
 
+## Wave 15 Availability Concurrency Matrix
+
+1. Revision token flow (`DEV-77`, `DEV-76`)
+  - Availability read exposes current `revision`.
+  - Availability update includes `revision` in request payload.
+2. Stale write conflict guard (`DEV-77`)
+  - Stale `revision` update returns `409 AVAILABILITY_REVISION_CONFLICT`.
+  - Conflict payload includes deterministic `meta.contract`, `meta.reason`, and flow context.
+3. Mobile conflict recovery (`DEV-76`)
+  - Provider editor renders stale-data state.
+  - UI exposes deterministic `Reload Availability` recovery action.
+4. Baseline protection (`DEV-78`)
+  - Wave 14 ownership checks remain stable while Wave 15 conflict handling is introduced.
+
+## Wave 15 Ticket Mapping
+
+1. `DEV-75` -> Revision/conflict architecture contract.
+2. `DEV-77` -> Backend optimistic concurrency guard implementation.
+3. `DEV-76` -> Mobile conflict UX and revision-aware save flow.
+4. `DEV-78` -> Regression matrix and API assertions for Wave 15.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -139,6 +160,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 9. Run Wave 12 role-boundary regression suite and record whether role guard is active for branch-under-test.
 10. Run Wave 13 availability regression suite and record endpoint readiness (`404` pre-merge vs contract-asserted post-merge).
 11. Run Wave 14 provider identity regression suite and record ownership guard behavior (`PROVIDER_IDENTITY_MISMATCH` + admin override path).
+12. Run Wave 15 revision conflict suite and record stale-write behavior (`AVAILABILITY_REVISION_CONFLICT` + reload path).
 
 ## Entry Criteria
 
