@@ -86,11 +86,13 @@ class Wave13RegressionMatrixTest extends TestCase
 
     public function test_wave13_invalid_availability_payload_returns_validation_contract_when_enabled(): void
     {
+        $revision = $this->currentRevisionOrNull(1, "provider", 1);
         $response = $this
             ->withHeaders($this->headers("provider", 1))
             ->patchJson(
                 "/api/providers/1/availability",
                 [
+                    ...($revision !== null ? ["revision" => $revision] : []),
                     "timezone" => "Europe/Madrid",
                     "slots" => [
                         [
@@ -181,9 +183,10 @@ class Wave13RegressionMatrixTest extends TestCase
 
     public function test_wave14_admin_override_can_update_cross_provider_availability_when_endpoint_is_available(): void
     {
+        $revision = $this->currentRevisionOrNull(2, "admin");
         $response = $this
             ->withHeaders($this->headers("admin"))
-            ->patchJson("/api/providers/2/availability", $this->validPayload());
+            ->patchJson("/api/providers/2/availability", $this->validPayload($revision));
 
         if ($response->status() === 404) {
             $this->markTestIncomplete(
@@ -196,6 +199,35 @@ class Wave13RegressionMatrixTest extends TestCase
             ->assertOk()
             ->assertJsonPath("data.provider_id", 2)
             ->assertJsonPath("meta.contract", "provider-availability-v1");
+    }
+
+    public function test_wave15_stale_revision_returns_conflict_when_guard_enabled(): void
+    {
+        $currentRevision = $this->currentRevisionOrNull(1, "provider", 1);
+        if ($currentRevision === null) {
+            $this->markTestIncomplete(
+                "Wave 15 revision token is not exposed by availability read contract yet."
+            );
+            return;
+        }
+
+        $response = $this
+            ->withHeaders($this->headers("provider", 1))
+            ->patchJson("/api/providers/1/availability", $this->validPayload($currentRevision + 1));
+
+        if ($response->status() === 200) {
+            $this->markTestIncomplete(
+                "Wave 15 availability revision conflict guard is not active yet."
+            );
+            return;
+        }
+
+        $response
+            ->assertStatus(409)
+            ->assertJsonPath("error.code", "AVAILABILITY_REVISION_CONFLICT")
+            ->assertJsonPath("meta.contract", "provider-availability-v1")
+            ->assertJsonPath("meta.reason", "revision_conflict")
+            ->assertJsonPath("meta.flow", "providers_availability_update");
     }
 
     private function headers(string $role, ?int $providerId = null): array
@@ -212,9 +244,9 @@ class Wave13RegressionMatrixTest extends TestCase
         return $headers;
     }
 
-    private function validPayload(): array
+    private function validPayload(?int $revision = null): array
     {
-        return [
+        $payload = [
             "timezone" => "Europe/Madrid",
             "slots" => [
                 [
@@ -225,5 +257,29 @@ class Wave13RegressionMatrixTest extends TestCase
                 ],
             ],
         ];
+
+        if ($revision !== null) {
+            $payload["revision"] = $revision;
+        }
+
+        return $payload;
+    }
+
+    private function currentRevisionOrNull(int $providerId, string $role, ?int $sessionProviderId = null): ?int
+    {
+        $response = $this
+            ->withHeaders($this->headers($role, $sessionProviderId))
+            ->getJson("/api/providers/{$providerId}/availability");
+
+        if ($response->status() !== 200) {
+            return null;
+        }
+
+        $revision = $response->json("data.revision");
+        if (!is_numeric($revision)) {
+            return null;
+        }
+
+        return (int) $revision;
     }
 }
