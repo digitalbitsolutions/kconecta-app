@@ -31,6 +31,7 @@ type AccessState =
   | "editable"
   | "identity-missing"
   | "identity-mismatch"
+  | "revision-conflict"
   | "role-forbidden"
   | "unauthorized";
 
@@ -69,6 +70,10 @@ const toAccessState = (error: unknown): AccessState => {
     return "role-forbidden";
   }
 
+  if (error.status === 409 && error.code === "AVAILABILITY_REVISION_CONFLICT") {
+    return "revision-conflict";
+  }
+
   return "editable";
 };
 
@@ -81,6 +86,9 @@ const toUiError = (error: unknown, state: AccessState): string => {
   }
   if (state === "role-forbidden") {
     return "Your current role is read-only for availability updates.";
+  }
+  if (state === "revision-conflict") {
+    return "Your draft is stale. Reload the latest availability before saving again.";
   }
   if (state === "unauthorized") {
     return "Session is unauthorized or expired. Recover session and retry.";
@@ -206,12 +214,14 @@ const AvailabilityShellScreen = () => {
 
     try {
       const updated = await updateProviderAvailability(availability.providerId, {
+        revision: availability.revision,
         timezone: draftTimezone.trim() || FALLBACK_TIMEZONE,
         slots: draftSlots,
       });
 
       const next: ProviderAvailability = {
         providerId: updated.providerId,
+        revision: updated.revision,
         timezone: updated.timezone,
         slots: cloneSlots(updated.slots),
         source: updated.source,
@@ -320,12 +330,19 @@ const AvailabilityShellScreen = () => {
                 <Text style={styles.metaValue}>{availability.source}</Text>
               </View>
 
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Revision</Text>
+                <Text style={styles.metaValue}>{availability.revision}</Text>
+              </View>
+
               <View style={styles.slotList}>{draftSlots.map(renderSlotEditor)}</View>
 
               {showLockedState ? (
                 <Text style={styles.lockedStateText}>
                   {accessState === "identity-mismatch"
                     ? "Read-only: provider ownership mismatch."
+                    : accessState === "revision-conflict"
+                      ? "Read-only: stale draft detected. Reload latest availability."
                     : accessState === "role-forbidden"
                       ? "Read-only: role scope does not allow availability edits."
                       : accessState === "unauthorized"
@@ -387,6 +404,17 @@ const AvailabilityShellScreen = () => {
                   <Text style={styles.secondaryActionText}>Recover Session</Text>
                 </Pressable>
               ) : null}
+
+              {accessState === "revision-conflict" ? (
+                <Pressable
+                  style={styles.secondaryAction}
+                  onPress={() => {
+                    void loadAvailability();
+                  }}
+                >
+                  <Text style={styles.secondaryActionText}>Reload Availability</Text>
+                </Pressable>
+              ) : null}
             </>
           ) : null}
 
@@ -405,7 +433,9 @@ const AvailabilityShellScreen = () => {
                 </Pressable>
               ) : (
                 <Pressable style={styles.secondaryAction} onPress={() => void loadAvailability()}>
-                  <Text style={styles.secondaryActionText}>Retry</Text>
+                  <Text style={styles.secondaryActionText}>
+                    {accessState === "revision-conflict" ? "Reload Availability" : "Retry"}
+                  </Text>
                 </Pressable>
               )}
             </View>
