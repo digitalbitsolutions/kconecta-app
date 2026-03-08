@@ -35,6 +35,7 @@ class ProviderAvailabilityApiTest extends TestCase
             ->assertJsonStructure([
                 "data" => [
                     "provider_id",
+                    "revision",
                     "timezone",
                     "slots" => [
                         "*" => ["day", "start", "end", "enabled"],
@@ -94,10 +95,10 @@ class ProviderAvailabilityApiTest extends TestCase
 
     public function test_provider_role_can_update_provider_availability(): void
     {
-        $revision = $this->currentRevisionOrNull(1, "provider", 1);
+        $payload = $this->validPayload($this->fetchCurrentRevision(1, "provider", 1));
         $response = $this
             ->withHeaders($this->headers("provider", 1))
-            ->patchJson("/api/providers/1/availability", $this->validPayload($revision));
+            ->patchJson("/api/providers/1/availability", $payload);
 
         $response
             ->assertOk()
@@ -106,6 +107,7 @@ class ProviderAvailabilityApiTest extends TestCase
             ->assertJsonStructure([
                 "data" => [
                     "provider_id",
+                    "revision",
                     "timezone",
                     "slots" => [
                         "*" => ["day", "start", "end", "enabled"],
@@ -159,10 +161,10 @@ class ProviderAvailabilityApiTest extends TestCase
 
     public function test_admin_role_can_update_any_provider_availability(): void
     {
-        $revision = $this->currentRevisionOrNull(2, "admin");
+        $payload = $this->validPayload($this->fetchCurrentRevision(2, "admin"));
         $response = $this
             ->withHeaders($this->headers("admin"))
-            ->patchJson("/api/providers/2/availability", $this->validPayload($revision));
+            ->patchJson("/api/providers/2/availability", $payload);
 
         $response
             ->assertOk()
@@ -193,13 +195,13 @@ class ProviderAvailabilityApiTest extends TestCase
 
     public function test_update_provider_availability_rejects_invalid_payload(): void
     {
-        $revision = $this->currentRevisionOrNull(1, "provider", 1);
+        $revision = $this->fetchCurrentRevision(1, "provider", 1);
         $response = $this
             ->withHeaders($this->headers("provider", 1))
             ->patchJson(
                 "/api/providers/1/availability",
                 [
-                    ...($revision !== null ? ["revision" => $revision] : []),
+                    "revision" => $revision,
                     "timezone" => "Europe/Madrid",
                     "slots" => [
                         [
@@ -220,33 +222,23 @@ class ProviderAvailabilityApiTest extends TestCase
             ->assertJsonPath("meta.reason", "validation_failed");
     }
 
-    public function test_wave15_stale_revision_returns_conflict_when_guard_enabled(): void
+    public function test_update_provider_availability_returns_conflict_for_stale_revision(): void
     {
-        $currentRevision = $this->currentRevisionOrNull(1, "provider", 1);
-        if ($currentRevision === null) {
-            $this->markTestIncomplete(
-                "Wave 15 revision token is not exposed by provider availability read contract yet."
-            );
-            return;
-        }
+        $currentRevision = $this->fetchCurrentRevision(1, "provider", 1);
+        $stalePayload = $this->validPayload($currentRevision + 1);
 
         $response = $this
             ->withHeaders($this->headers("provider", 1))
-            ->patchJson("/api/providers/1/availability", $this->validPayload($currentRevision + 1));
-
-        if ($response->status() === 200) {
-            $this->markTestIncomplete(
-                "Wave 15 stale revision conflict guard is not active yet."
-            );
-            return;
-        }
+            ->patchJson("/api/providers/1/availability", $stalePayload);
 
         $response
             ->assertStatus(409)
             ->assertJsonPath("error.code", "AVAILABILITY_REVISION_CONFLICT")
             ->assertJsonPath("meta.contract", "provider-availability-v1")
             ->assertJsonPath("meta.reason", "revision_conflict")
-            ->assertJsonPath("meta.flow", "providers_availability_update");
+            ->assertJsonPath("meta.flow", "providers_availability_update")
+            ->assertJsonPath("data.provider_id", 1)
+            ->assertJsonPath("data.revision", $currentRevision);
     }
 
     private function headers(string $role, ?int $providerId = null): array
@@ -263,9 +255,10 @@ class ProviderAvailabilityApiTest extends TestCase
         return $headers;
     }
 
-    private function validPayload(?int $revision = null): array
+    private function validPayload(int $revision = 1): array
     {
-        $payload = [
+        return [
+            "revision" => $revision,
             "timezone" => "Europe/Madrid",
             "slots" => [
                 [
@@ -282,30 +275,19 @@ class ProviderAvailabilityApiTest extends TestCase
                 ],
             ],
         ];
-
-        if ($revision !== null) {
-            $payload["revision"] = $revision;
-        }
-
-        return $payload;
     }
 
-    private function currentRevisionOrNull(int $providerId, string $role, ?int $sessionProviderId = null): ?int
+    private function fetchCurrentRevision(int $providerId, string $role, ?int $sessionProviderId = null): int
     {
         $response = $this
             ->withHeaders($this->headers($role, $sessionProviderId))
             ->getJson("/api/providers/{$providerId}/availability");
 
-        if ($response->status() !== 200) {
-            return null;
-        }
+        $response
+            ->assertOk()
+            ->assertJsonPath("data.provider_id", $providerId);
 
-        $revision = $response->json("data.revision");
-        if (!is_numeric($revision)) {
-            return null;
-        }
-
-        return (int) $revision;
+        return (int) $response->json("data.revision");
     }
 
     private function assertValidDataSource(mixed $source): void

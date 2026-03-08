@@ -86,13 +86,13 @@ class Wave13RegressionMatrixTest extends TestCase
 
     public function test_wave13_invalid_availability_payload_returns_validation_contract_when_enabled(): void
     {
-        $revision = $this->currentRevisionOrNull(1, "provider", 1);
+        $revision = $this->fetchCurrentRevision(1, "provider", 1);
         $response = $this
             ->withHeaders($this->headers("provider", 1))
             ->patchJson(
                 "/api/providers/1/availability",
                 [
-                    ...($revision !== null ? ["revision" => $revision] : []),
+                    "revision" => $revision,
                     "timezone" => "Europe/Madrid",
                     "slots" => [
                         [
@@ -183,10 +183,10 @@ class Wave13RegressionMatrixTest extends TestCase
 
     public function test_wave14_admin_override_can_update_cross_provider_availability_when_endpoint_is_available(): void
     {
-        $revision = $this->currentRevisionOrNull(2, "admin");
+        $payload = $this->validPayload($this->fetchCurrentRevision(2, "admin"));
         $response = $this
             ->withHeaders($this->headers("admin"))
-            ->patchJson("/api/providers/2/availability", $this->validPayload($revision));
+            ->patchJson("/api/providers/2/availability", $payload);
 
         if ($response->status() === 404) {
             $this->markTestIncomplete(
@@ -203,8 +203,8 @@ class Wave13RegressionMatrixTest extends TestCase
 
     public function test_wave15_stale_revision_returns_conflict_when_guard_enabled(): void
     {
-        $currentRevision = $this->currentRevisionOrNull(1, "provider", 1);
-        if ($currentRevision === null) {
+        $currentRevision = $this->fetchCurrentRevision(1, "provider", 1);
+        if ($currentRevision <= 0) {
             $this->markTestIncomplete(
                 "Wave 15 revision token is not exposed by availability read contract yet."
             );
@@ -244,9 +244,10 @@ class Wave13RegressionMatrixTest extends TestCase
         return $headers;
     }
 
-    private function validPayload(?int $revision = null): array
+    private function validPayload(int $revision = 1): array
     {
-        $payload = [
+        return [
+            "revision" => $revision,
             "timezone" => "Europe/Madrid",
             "slots" => [
                 [
@@ -257,29 +258,19 @@ class Wave13RegressionMatrixTest extends TestCase
                 ],
             ],
         ];
-
-        if ($revision !== null) {
-            $payload["revision"] = $revision;
-        }
-
-        return $payload;
     }
 
-    private function currentRevisionOrNull(int $providerId, string $role, ?int $sessionProviderId = null): ?int
+    private function fetchCurrentRevision(int $providerId, string $role, ?int $sessionProviderId = null): int
     {
         $response = $this
             ->withHeaders($this->headers($role, $sessionProviderId))
             ->getJson("/api/providers/{$providerId}/availability");
 
-        if ($response->status() !== 200) {
-            return null;
+        if ($response->status() === 404) {
+            return 1;
         }
 
-        $revision = $response->json("data.revision");
-        if (!is_numeric($revision)) {
-            return null;
-        }
-
-        return (int) $revision;
+        $response->assertOk();
+        return (int) $response->json("data.revision");
     }
 }
