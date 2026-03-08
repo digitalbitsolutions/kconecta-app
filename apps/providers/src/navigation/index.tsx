@@ -1,7 +1,7 @@
 import React from "react";
 import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { getSessionSnapshot, registerUnauthorizedResetHandler } from "../auth/session";
+import { getSessionIdentitySnapshot, registerUnauthorizedResetHandler } from "../auth/session";
 import AvailabilityShellScreen from "../screens/AvailabilityShellScreen";
 import ProviderDashboardScreen from "../screens/ProviderDashboardScreen";
 import ProviderDetailScreen from "../screens/ProviderDetailScreen";
@@ -26,7 +26,8 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 const RootStack = () => {
-  const initialRoute = getSessionSnapshot().hasToken ? "ProviderDashboard" : "ProviderUnauthorized";
+  const session = getSessionIdentitySnapshot();
+  const initialRoute = session.hasToken && session.providerId ? "ProviderDashboard" : "ProviderUnauthorized";
 
   React.useEffect(() => {
     registerUnauthorizedResetHandler(() => {

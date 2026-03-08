@@ -11,12 +11,13 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { ApiError } from "../api/client";
+import { getSessionIdentitySnapshot, handleUnauthorizedSession } from "../auth/session";
 import {
   fetchProviderAvailability,
   type AvailabilityDay,
   type AvailabilitySlot,
   type ProviderAvailability,
+  ProviderAvailabilityApiError,
   updateProviderAvailability,
 } from "../api/providerAvailabilityApi";
 import type { RootStackParamList } from "../navigation";
@@ -24,8 +25,14 @@ import { borderRadius, colors, fontSizes, spacing } from "../theme/tokens";
 
 type AvailabilityNavigation = NativeStackNavigationProp<RootStackParamList, "AvailabilityShell">;
 
-const DEFAULT_PROVIDER_ID = "1";
 const FALLBACK_TIMEZONE = "Europe/Madrid";
+
+type AccessState =
+  | "editable"
+  | "identity-missing"
+  | "identity-mismatch"
+  | "role-forbidden"
+  | "unauthorized";
 
 const DAY_LABELS: Record<AvailabilityDay, string> = {
   mon: "Mon",
@@ -45,14 +52,41 @@ const cloneSlots = (slots: AvailabilitySlot[]): AvailabilitySlot[] =>
     enabled: slot.enabled,
   }));
 
-const toUiError = (error: unknown): string => {
-  if (error instanceof ApiError) {
-    if (error.status === 401) {
-      return "Session is unauthorized. Recover session and try again.";
-    }
-    if (error.status === 403) {
-      return "Current role cannot edit availability in this context.";
-    }
+const toAccessState = (error: unknown): AccessState => {
+  if (!(error instanceof ProviderAvailabilityApiError)) {
+    return "editable";
+  }
+
+  if (error.status === 401) {
+    return "unauthorized";
+  }
+
+  if (error.status === 403 && error.code === "PROVIDER_IDENTITY_MISMATCH") {
+    return "identity-mismatch";
+  }
+
+  if (error.status === 403 && error.code === "ROLE_SCOPE_FORBIDDEN") {
+    return "role-forbidden";
+  }
+
+  return "editable";
+};
+
+const toUiError = (error: unknown, state: AccessState): string => {
+  if (state === "identity-missing") {
+    return "Session has no provider identity. Recover session to continue.";
+  }
+  if (state === "identity-mismatch") {
+    return "Ownership mismatch detected. You can only edit your own provider availability.";
+  }
+  if (state === "role-forbidden") {
+    return "Your current role is read-only for availability updates.";
+  }
+  if (state === "unauthorized") {
+    return "Session is unauthorized or expired. Recover session and retry.";
+  }
+
+  if (error instanceof ProviderAvailabilityApiError) {
     if (error.status === 422) {
       return "Invalid schedule format. Use HH:mm and ensure end > start.";
     }
@@ -73,8 +107,13 @@ const AvailabilityShellScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [accessState, setAccessState] = useState<AccessState>("editable");
+  const [sessionProviderId, setSessionProviderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const canEditAvailability = accessState === "editable";
+  const showLockedState = accessState !== "editable";
 
   const hydrateDraft = useCallback((next: ProviderAvailability) => {
     setDraftTimezone(next.timezone);
@@ -86,12 +125,28 @@ const AvailabilityShellScreen = () => {
     setError(null);
     setSuccess(null);
 
+    const identity = getSessionIdentitySnapshot();
+    setSessionProviderId(identity.providerId);
+
+    if (!identity.hasToken || !identity.providerId) {
+      setAvailability(null);
+      setIsEditing(false);
+      setAccessState("identity-missing");
+      setError(toUiError(null, "identity-missing"));
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const next = await fetchProviderAvailability(DEFAULT_PROVIDER_ID);
+      const next = await fetchProviderAvailability(identity.providerId);
       setAvailability(next);
       hydrateDraft(next);
+      setAccessState("editable");
     } catch (loadError) {
-      setError(toUiError(loadError));
+      const nextAccessState = toAccessState(loadError);
+      setAccessState(nextAccessState);
+      setIsEditing(false);
+      setError(toUiError(loadError, nextAccessState));
     } finally {
       setIsLoading(false);
     }
@@ -122,14 +177,14 @@ const AvailabilityShellScreen = () => {
   }, []);
 
   const onStartEditing = useCallback(() => {
-    if (!availability) {
+    if (!availability || !canEditAvailability) {
       return;
     }
     setError(null);
     setSuccess(null);
     hydrateDraft(availability);
     setIsEditing(true);
-  }, [availability, hydrateDraft]);
+  }, [availability, canEditAvailability, hydrateDraft]);
 
   const onCancelEditing = useCallback(() => {
     if (availability) {
@@ -141,7 +196,7 @@ const AvailabilityShellScreen = () => {
   }, [availability, hydrateDraft]);
 
   const onSave = useCallback(async () => {
-    if (!availability || !hasDraftChanges) {
+    if (!availability || !hasDraftChanges || !canEditAvailability) {
       return;
     }
 
@@ -165,13 +220,17 @@ const AvailabilityShellScreen = () => {
       setAvailability(next);
       hydrateDraft(next);
       setIsEditing(false);
+      setAccessState("editable");
       setSuccess(`Availability updated at ${new Date(updated.updatedAt).toLocaleTimeString()}.`);
     } catch (saveError) {
-      setError(toUiError(saveError));
+      const nextAccessState = toAccessState(saveError);
+      setAccessState(nextAccessState);
+      setIsEditing(false);
+      setError(toUiError(saveError, nextAccessState));
     } finally {
       setIsSaving(false);
     }
-  }, [availability, draftSlots, draftTimezone, hasDraftChanges, hydrateDraft]);
+  }, [availability, canEditAvailability, draftSlots, draftTimezone, hasDraftChanges, hydrateDraft]);
 
   const renderSlotEditor = (slot: AvailabilitySlot) => {
     return (
@@ -180,10 +239,10 @@ const AvailabilityShellScreen = () => {
 
         <View style={styles.slotEditor}>
           <TextInput
-            style={[styles.timeInput, styles.timeInputStart, !isEditing && styles.timeInputReadonly]}
+            style={[styles.timeInput, styles.timeInputStart, (!isEditing || !canEditAvailability) && styles.timeInputReadonly]}
             value={slot.start}
             onChangeText={(value) => updateSlot(slot.day, { start: value })}
-            editable={isEditing}
+            editable={isEditing && canEditAvailability}
             autoCapitalize="none"
             autoCorrect={false}
             placeholder="08:00"
@@ -191,10 +250,10 @@ const AvailabilityShellScreen = () => {
           />
           <Text style={styles.timeDivider}>-</Text>
           <TextInput
-            style={[styles.timeInput, styles.timeInputEnd, !isEditing && styles.timeInputReadonly]}
+            style={[styles.timeInput, styles.timeInputEnd, (!isEditing || !canEditAvailability) && styles.timeInputReadonly]}
             value={slot.end}
             onChangeText={(value) => updateSlot(slot.day, { end: value })}
-            editable={isEditing}
+            editable={isEditing && canEditAvailability}
             autoCapitalize="none"
             autoCorrect={false}
             placeholder="12:00"
@@ -205,10 +264,10 @@ const AvailabilityShellScreen = () => {
               styles.enabledBadge,
               styles.enabledBadgeSpacing,
               slot.enabled ? styles.enabledBadgeActive : styles.enabledBadgeMuted,
-              !isEditing && styles.enabledBadgeReadonly,
+              (!isEditing || !canEditAvailability) && styles.enabledBadgeReadonly,
             ]}
             onPress={() => {
-              if (!isEditing) {
+              if (!isEditing || !canEditAvailability) {
                 return;
               }
               updateSlot(slot.day, { enabled: !slot.enabled });
@@ -240,12 +299,17 @@ const AvailabilityShellScreen = () => {
           {!isLoading && availability ? (
             <>
               <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Session Provider</Text>
+                <Text style={styles.metaValue}>{sessionProviderId ?? "missing"}</Text>
+              </View>
+
+              <View style={styles.metaRow}>
                 <Text style={styles.metaLabel}>Timezone</Text>
                 <TextInput
-                  style={[styles.timezoneInput, !isEditing && styles.timeInputReadonly]}
+                  style={[styles.timezoneInput, (!isEditing || !canEditAvailability) && styles.timeInputReadonly]}
                   value={draftTimezone}
                   onChangeText={setDraftTimezone}
-                  editable={isEditing}
+                  editable={isEditing && canEditAvailability}
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
@@ -258,21 +322,40 @@ const AvailabilityShellScreen = () => {
 
               <View style={styles.slotList}>{draftSlots.map(renderSlotEditor)}</View>
 
+              {showLockedState ? (
+                <Text style={styles.lockedStateText}>
+                  {accessState === "identity-mismatch"
+                    ? "Read-only: provider ownership mismatch."
+                    : accessState === "role-forbidden"
+                      ? "Read-only: role scope does not allow availability edits."
+                      : accessState === "unauthorized"
+                        ? "Session unauthorized. Recover to continue editing."
+                        : "Session identity is incomplete. Recover to continue editing."}
+                </Text>
+              ) : null}
+
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
               {success ? <Text style={styles.successText}>{success}</Text> : null}
 
               {!isEditing ? (
-                <Pressable style={styles.primaryAction} onPress={onStartEditing}>
+                <Pressable
+                  style={[styles.primaryAction, !canEditAvailability && styles.disabledAction]}
+                  onPress={onStartEditing}
+                  disabled={!canEditAvailability}
+                >
                   <Text style={styles.primaryActionText}>Edit Availability</Text>
                 </Pressable>
               ) : (
                 <View style={styles.actionRow}>
                   <Pressable
-                    style={[styles.primaryAction, (!hasDraftChanges || isSaving) && styles.disabledAction]}
+                    style={[
+                      styles.primaryAction,
+                      (!hasDraftChanges || isSaving || !canEditAvailability) && styles.disabledAction,
+                    ]}
                     onPress={() => {
                       void onSave();
                     }}
-                    disabled={!hasDraftChanges || isSaving}
+                    disabled={!hasDraftChanges || isSaving || !canEditAvailability}
                   >
                     <Text style={styles.primaryActionText}>{isSaving ? "Saving..." : "Save Changes"}</Text>
                   </Pressable>
@@ -286,15 +369,45 @@ const AvailabilityShellScreen = () => {
                   </Pressable>
                 </View>
               )}
+
+              {accessState === "identity-mismatch" || accessState === "role-forbidden" ? (
+                <Pressable style={styles.secondaryAction} onPress={() => navigation.navigate("ProviderDashboard")}>
+                  <Text style={styles.secondaryActionText}>Back to Dashboard</Text>
+                </Pressable>
+              ) : null}
+
+              {accessState === "identity-missing" || accessState === "unauthorized" ? (
+                <Pressable
+                  style={styles.secondaryAction}
+                  onPress={() => {
+                    handleUnauthorizedSession();
+                    navigation.navigate("ProviderUnauthorized");
+                  }}
+                >
+                  <Text style={styles.secondaryActionText}>Recover Session</Text>
+                </Pressable>
+              ) : null}
             </>
           ) : null}
 
           {!isLoading && !availability ? (
             <View style={styles.errorBlock}>
               <Text style={styles.errorText}>{error ?? "Unable to load availability."}</Text>
-              <Pressable style={styles.secondaryAction} onPress={() => void loadAvailability()}>
-                <Text style={styles.secondaryActionText}>Retry</Text>
-              </Pressable>
+              {accessState === "identity-missing" || accessState === "unauthorized" ? (
+                <Pressable
+                  style={styles.secondaryAction}
+                  onPress={() => {
+                    handleUnauthorizedSession();
+                    navigation.navigate("ProviderUnauthorized");
+                  }}
+                >
+                  <Text style={styles.secondaryActionText}>Recover Session</Text>
+                </Pressable>
+              ) : (
+                <Pressable style={styles.secondaryAction} onPress={() => void loadAvailability()}>
+                  <Text style={styles.secondaryActionText}>Retry</Text>
+                </Pressable>
+              )}
             </View>
           ) : null}
 
@@ -466,6 +579,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: borderRadius.md,
     borderWidth: 1,
+    marginTop: spacing.sm,
     paddingVertical: spacing.sm,
   },
   secondaryActionSpacing: {
@@ -491,6 +605,12 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: colors.danger,
+    fontSize: fontSizes.sm,
+    fontWeight: "600",
+    marginTop: spacing.md,
+  },
+  lockedStateText: {
+    color: colors.warning,
     fontSize: fontSizes.sm,
     fontWeight: "600",
     marginTop: spacing.md,
