@@ -11,7 +11,8 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { fetchProperties, type PropertyViewModel } from "../api/propertyApi";
+import { ApiError } from "../api/client";
+import { fetchPropertyPortfolio, type PropertyViewModel } from "../api/propertyApi";
 import PropertyListItem from "../components/PropertyListItem";
 import type { ManagerStackParamList } from "../navigation";
 import { borderRadius, colors, fontSizes, spacing } from "../theme/tokens";
@@ -24,38 +25,56 @@ const PropertyListScreen = () => {
   const [properties, setProperties] = useState<PropertyViewModel[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [total, setTotal] = useState<number>(0);
+  const [source, setSource] = useState<"database" | "in_memory" | "unknown">("unknown");
 
-  const loadProperties = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const rows = await fetchProperties();
-      setProperties(rows);
-    } catch (fetchError) {
-      const message = fetchError instanceof Error ? fetchError.message : "Unable to load properties.";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const normalizedSearch = useMemo(() => search.trim(), [search]);
+
+  const loadProperties = useCallback(
+    async (searchTerm: string) => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const payload = await fetchPropertyPortfolio({
+          search: searchTerm || undefined,
+          page: 1,
+          perPage: 50,
+        });
+
+        setProperties(payload.properties);
+        setTotal(payload.meta.total);
+        setSource(payload.meta.source);
+      } catch (fetchError) {
+        if (fetchError instanceof ApiError) {
+          if (fetchError.status === 401) {
+            navigation.reset({ index: 0, routes: [{ name: "SessionExpired" }] });
+            return;
+          }
+          if (fetchError.status === 403) {
+            navigation.reset({ index: 0, routes: [{ name: "Unauthorized" }] });
+            return;
+          }
+        }
+
+        const message = fetchError instanceof Error ? fetchError.message : "Unable to load properties.";
+        setError(message);
+        setProperties([]);
+        setTotal(0);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [navigation]
+  );
 
   useEffect(() => {
-    loadProperties();
-  }, [loadProperties]);
+    const timer = setTimeout(() => {
+      loadProperties(normalizedSearch);
+    }, 250);
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!term) {
-      return properties;
-    }
-    return properties.filter((property) => {
-      return (
-        property.title.toLowerCase().includes(term) ||
-        property.city.toLowerCase().includes(term) ||
-        property.status.toLowerCase().includes(term)
-      );
-    });
-  }, [properties, search]);
+    return () => clearTimeout(timer);
+  }, [normalizedSearch, loadProperties]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -65,10 +84,14 @@ const PropertyListScreen = () => {
       <TextInput
         value={search}
         onChangeText={setSearch}
-        placeholder="Search by title, city or status"
+        placeholder="Search by title, city, manager or status"
         placeholderTextColor={colors.textMuted}
         style={styles.search}
       />
+
+      {!loading && !error ? (
+        <Text style={styles.metaText}>Showing {properties.length} of {total} properties ({source})</Text>
+      ) : null}
 
       {loading ? (
         <View style={styles.loadingWrap}>
@@ -81,22 +104,22 @@ const PropertyListScreen = () => {
         <View style={styles.errorWrap}>
           <Text style={styles.errorTitle}>Unable to load properties</Text>
           <Text style={styles.errorBody}>{error}</Text>
-          <Pressable style={styles.retryButton} onPress={loadProperties}>
+          <Pressable style={styles.retryButton} onPress={() => loadProperties(normalizedSearch)}>
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
         </View>
       ) : null}
 
-      {!loading && !error && filtered.length === 0 ? (
+      {!loading && !error && properties.length === 0 ? (
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyTitle}>No properties found</Text>
           <Text style={styles.emptyBody}>Try another keyword or clear the search.</Text>
         </View>
       ) : null}
 
-      {!loading && !error && filtered.length > 0 ? (
+      {!loading && !error && properties.length > 0 ? (
         <FlatList
-          data={filtered}
+          data={properties}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <PropertyListItem
@@ -141,9 +164,14 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: fontSizes.md,
     marginTop: spacing.md,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
+  },
+  metaText: {
+    color: colors.textMuted,
+    fontSize: fontSizes.xs,
+    marginBottom: spacing.sm,
   },
   list: {
     paddingBottom: spacing.xxl,
