@@ -1,0 +1,28 @@
+{
+  "id": "ARCH-012",
+  "title": "Define Wave 16 manager auth/session and portfolio contract",
+  "description": "Extend architecture docs with manager session lifecycle rules, auth error envelope, and dashboard/property-list data contract required for 1:1 CRM parity progression.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Manager auth/session lifecycle contract is explicit for login, refresh, and expired session states",
+    "Portfolio API contract includes KPI summary fields and list/filter payload shape",
+    "UI state map defines deterministic behaviors for loading, empty, unauthorized, and error states"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave16",
+    "stack": "React Native with TypeScript",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "skills": ["architecture-core"],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "id": "QA-015",
+  "title": "Add Wave 16 manager auth and portfolio regression matrix",
+  "description": "Expand QA suite with manager login/session-expiry coverage plus dashboard/list contract assertions after moving to real backend payloads.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/Wave16RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix includes manager auth success/failure/session-expired scenarios",
+    "API tests assert manager dashboard/list contract fields and error envelopes",
+    "Wave 14/15 provider baseline remains green after manager parity changes"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave16",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "skills": ["qa-core"],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

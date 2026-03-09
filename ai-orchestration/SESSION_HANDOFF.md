@@ -7,6 +7,13 @@
 - Mobile runtime: manager app validada en emulador Android con Expo Go
 - Backend test policy: Docker-only (sin XAMPP)
 - Jira/GitHub: enlace de repositorio ya completado en Atlassian (backfill finalizado)
+- Wave activa: `Wave 16 - Manager parity foundation`
+- Jira abierto:
+  - `DEV-79` (epic/devops) To Do
+  - `DEV-80` (architect/ARCH-012) In Progress
+  - `DEV-81` (backend/BE-014) To Do
+  - `DEV-82` (mobile/MOB-013) To Do
+  - `DEV-83` (qa/QA-015) To Do
 
 ## Important Runtime Notes
 

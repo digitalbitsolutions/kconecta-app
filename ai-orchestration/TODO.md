@@ -2,14 +2,19 @@
 
 Fecha: 2026-03-09
 Repo objetivo: `D:\still\kconecta-app`
-Estado: app manager arrancable en emulador; continuar cierre funcional hacia 1:1 con CRM.
+Estado: app manager arrancable en emulador; Wave 16 abierta para cerrar brecha hacia 1:1 con CRM.
 
 ## Estado actual verificado
 
 - Manager app inicia y renderiza Dashboard en Android Emulator con Expo Go.
 - Providers app tambien tiene scaffold funcional.
 - Jira + GitHub vinculados (repositorio `digitalbitsolutions/kconecta-app` conectado en Code).
-- Persisten tareas de cierre por wave para backend/mobile/qa (ver Jira antes de continuar).
+- Wave 16 creada y publicada en Jira:
+  - `DEV-79` epic (To Do)
+  - `DEV-80` architect (In Progress)
+  - `DEV-81` backend (To Do)
+  - `DEV-82` mobile (To Do)
+  - `DEV-83` qa (To Do)
 
 ## Decisiones operativas vigentes
 
@@ -20,10 +25,10 @@ Estado: app manager arrancable en emulador; continuar cierre funcional hacia 1:1
 
 ## Pendientes P0 (siguiente sesion)
 
-- [ ] Confirmar en Jira el conjunto exacto de tickets abiertos de la wave activa.
-- [ ] Cerrar PRs/merges pendientes con issue key en titulo/descripción para trazabilidad en Jira Code.
-- [ ] Completar flujo auth real contra backend (endpoint login/sesion estable) en manager y providers.
-- [ ] Sustituir datos mock de dashboard por data real de API en manager.
+- [ ] Ejecutar `DEV-80` (architect) y abrir PR draft con issue key.
+- [ ] Ejecutar `DEV-81` (backend) y abrir PR draft con issue key.
+- [ ] Ejecutar `DEV-82` (mobile) y abrir PR draft con issue key.
+- [ ] Ejecutar `DEV-83` (qa) y abrir PR draft con issue key.
 
 ## Pendientes P1
 

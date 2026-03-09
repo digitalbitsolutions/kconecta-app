@@ -1,0 +1,29 @@
+{
+  "id": "MOB-013",
+  "title": "Wire manager dashboard and property portfolio to real API data",
+  "description": "Replace manager dashboard/list mock metrics with API-driven data and align screen states with Wave 16 auth/session contract.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/screens/ManagerDashboardScreen.tsx",
+    "apps/manager/src/screens/PropertyListScreen.tsx",
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/auth/session.ts"
+  ],
+  "acceptance_criteria": [
+    "Manager dashboard loads KPIs from backend contract and handles loading/error states",
+    "Property list applies API-backed filtering without hardcoded mock values",
+    "Unauthorized/session-expired responses route to correct auth screens"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave16",
+    "stack": "React Native with TypeScript",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "skills": ["mobile-core"],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

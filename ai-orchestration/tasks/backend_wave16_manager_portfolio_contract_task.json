@@ -1,0 +1,27 @@
+{
+  "id": "BE-014",
+  "title": "Implement manager portfolio summary and filter contract",
+  "description": "Expose manager dashboard KPIs and property list filters through stable API contract aligned with mobile manager needs.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "Manager API returns dashboard KPI payload with deterministic fields",
+    "Property list endpoint supports contract-aligned filters and pagination metadata",
+    "Feature tests cover authorized manager access, validation errors, and payload schema"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave16",
+    "executor_model": "ollama_chat/deepseek-coder:6.7b",
+    "skills": ["backend-core"],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

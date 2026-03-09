@@ -1,0 +1,27 @@
+{
+  "id": "EPIC-W16",
+  "title": "Wave 16 - Manager parity foundation (auth + portfolio real data)",
+  "description": "Coordinate Wave 16 to replace manager mock flows with production-aligned behavior: stable auth/session contract, real dashboard/list data, and regression coverage.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/wave16-manager-parity-plan.md",
+    "ai-orchestration/tasks",
+    "docs/testing/functional-testing-strategy.md"
+  ],
+  "acceptance_criteria": [
+    "Wave 16 tickets are defined for architect/backend/mobile/qa with dependency order",
+    "Execution plan includes PR/Jira traceability and rollback checkpoints",
+    "Risk log covers auth/session regressions and data-contract drift"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave16",
+    "stack": "React Native with TypeScript",
+    "skills": ["devops-core"],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}
