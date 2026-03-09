@@ -26,7 +26,16 @@ class PropertyApiTest extends TestCase
                 ],
                 "meta" => [
                     "count",
-                    "filters" => ["status", "city", "manager_id"],
+                    "page",
+                    "per_page",
+                    "total",
+                    "filters" => ["status", "city", "manager_id", "search"],
+                    "kpis" => [
+                        "active_properties",
+                        "reserved_properties",
+                        "avg_time_to_close_days",
+                        "provider_matches_pending",
+                    ],
                     "source",
                 ],
             ]);
@@ -37,12 +46,18 @@ class PropertyApiTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->getJson("/api/properties?status=available&city=Madrid");
+        $response = $this->actingAs($user)->getJson(
+            "/api/properties?status=available&city=Madrid&search=Modern&page=1&per_page=1"
+        );
 
         $response
             ->assertOk()
             ->assertJsonPath("meta.filters.status", "available")
-            ->assertJsonPath("meta.filters.city", "Madrid");
+            ->assertJsonPath("meta.filters.city", "Madrid")
+            ->assertJsonPath("meta.filters.search", "Modern")
+            ->assertJsonPath("meta.page", 1)
+            ->assertJsonPath("meta.per_page", 1)
+            ->assertJsonPath("meta.count", 1);
         $this->assertValidDataSource($response->json("meta.source"));
     }
 
@@ -86,7 +101,16 @@ class PropertyApiTest extends TestCase
                 ],
                 "meta" => [
                     "count",
-                    "filters" => ["status", "city", "manager_id"],
+                    "page",
+                    "per_page",
+                    "total",
+                    "filters" => ["status", "city", "manager_id", "search"],
+                    "kpis" => [
+                        "active_properties",
+                        "reserved_properties",
+                        "avg_time_to_close_days",
+                        "provider_matches_pending",
+                    ],
                     "source",
                 ],
             ]);
@@ -102,6 +126,31 @@ class PropertyApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath("data.id", 101);
+    }
+
+    public function test_properties_endpoint_returns_validation_errors_for_invalid_pagination(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties?page=0&per_page=500");
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(["page", "per_page"]);
+    }
+
+    public function test_provider_role_is_forbidden_from_manager_properties_endpoint(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-ROLE" => "provider",
+            ])
+            ->getJson("/api/properties");
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN");
     }
 
     private function assertValidDataSource(mixed $source): void

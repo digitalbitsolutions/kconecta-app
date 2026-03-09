@@ -47,14 +47,58 @@ class PropertyController extends Controller
             );
         }
 
+        $validated = $request->validate([
+            "status" => ["nullable", "string", "max:50"],
+            "city" => ["nullable", "string", "max:120"],
+            "manager_id" => ["nullable", "string", "max:120"],
+            "search" => ["nullable", "string", "max:120"],
+            "page" => ["nullable", "integer", "min:1"],
+            "per_page" => ["nullable", "integer", "min:1", "max:100"],
+        ]);
+
         $filters = [
-            "status" => $request->query("status"),
-            "city" => $request->query("city"),
-            "manager_id" => $request->query("manager_id"),
+            "status" => $validated["status"] ?? null,
+            "city" => $validated["city"] ?? null,
+            "manager_id" => $validated["manager_id"] ?? null,
+            "search" => $validated["search"] ?? null,
+            "page" => $validated["page"] ?? 1,
+            "per_page" => $validated["per_page"] ?? 25,
         ];
 
         $payload = $this->propertyService->listProperties($filters);
 
+        return response()->json($payload, 200);
+    }
+
+    public function summary(Request $request): JsonResponse
+    {
+        if (!$this->apiAccessService->isAuthorized($request)) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_TOKEN_INVALID,
+                    "Unauthorized",
+                    "properties_summary",
+                    "token_invalid",
+                    false
+                ),
+                401
+            );
+        }
+
+        if (!$this->hasAllowedRole($request, ["manager", "admin"])) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_ROLE_SCOPE_FORBIDDEN,
+                    "Forbidden",
+                    "properties_summary",
+                    "role_scope_forbidden",
+                    false
+                ),
+                403
+            );
+        }
+
+        $payload = $this->propertyService->summaryProperties();
         return response()->json($payload, 200);
     }
 
