@@ -249,6 +249,67 @@ Define the minimum environment and auth contract required for native app release
   - No breaking response shape removals.
   - Older clients can still read availability; update behavior without `revision` must return deterministic validation error.
 
+## Wave 16 Manager Auth and Portfolio Contract
+
+### Manager Session Lifecycle Rules
+
+- Login entrypoint:
+  - `POST /api/auth/login`
+  - Required request fields: `email`, `password`.
+  - Manager app accepts roles: `manager`, `admin`.
+  - Any other role must route to deterministic unauthorized state in app.
+- Refresh lifecycle:
+  - `POST /api/auth/refresh` on first `401 TOKEN_EXPIRED`.
+  - Retry original request once after successful refresh.
+  - On refresh failure (`TOKEN_INVALID`, `TOKEN_REVOKED`), route to `SessionExpired`.
+- Expired/invalid session behavior:
+  - `401 TOKEN_EXPIRED` -> refresh attempt path.
+  - `401 TOKEN_INVALID` / `TOKEN_REVOKED` -> hard session reset and auth entry route.
+  - Session reset must clear secure storage + in-memory session cache.
+
+### Manager Auth Error Envelope
+
+- Auth endpoints must return deterministic envelope:
+  - `error.code`
+  - `error.message`
+  - `meta.contract`
+  - `meta.retryable`
+- Minimum manager-facing codes:
+  - `AUTH_INVALID_CREDENTIALS` -> login denied, retryable.
+  - `TOKEN_EXPIRED` -> refresh path.
+  - `TOKEN_INVALID` -> non-retryable, session reset.
+  - `TOKEN_REVOKED` -> non-retryable, session reset.
+  - `ROLE_SCOPE_FORBIDDEN` -> authenticated but unauthorized for manager surface.
+
+### Manager Portfolio API Contract
+
+- Dashboard summary contract (`GET /api/properties/summary`):
+  - `data.kpis.active_properties` (number)
+  - `data.kpis.reserved_properties` (number)
+  - `data.kpis.avg_time_to_close_days` (number)
+  - `data.kpis.provider_matches_pending` (number)
+  - `meta.contract` (`manager-portfolio-summary-v1`)
+- Property list contract (`GET /api/properties`):
+  - Existing list payload remains backward compatible.
+  - Additive filter query params:
+    - `status` (optional)
+    - `city` (optional)
+    - `search` (optional)
+    - `page` / `per_page` (optional pagination)
+  - Response includes deterministic pagination metadata:
+    - `meta.count`
+    - `meta.page`
+    - `meta.per_page`
+    - `meta.total`
+    - `meta.filters`
+
+### Contract Compatibility Notes
+
+- Wave 16 is additive for manager domain:
+  - No endpoint removals.
+  - No breaking field removals for existing clients.
+  - New summary endpoint and list metadata are backward-compatible additions.
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):

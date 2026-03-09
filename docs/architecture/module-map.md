@@ -14,8 +14,10 @@
   - Property listing and lifecycle state.
   - Ownership and manager assignment.
   - Property metrics feeding manager dashboards.
+  - Manager portfolio summary and filter contract for native app parity.
 - Main contracts:
   - `/api/properties*`
+  - `/api/properties/summary`
 
 ### Provider Module
 
@@ -125,6 +127,22 @@
   - Provider identity mismatch remains `403 PROVIDER_IDENTITY_MISMATCH`.
 - Only authorized + ownership-valid requests reach revision conflict checks.
 - Admin override remains allowed across provider ids but still respects revision checks.
+
+## Wave 16 Manager Portfolio Boundary
+
+### Manager Portfolio Contract Layer
+
+- Responsibilities:
+  - Serve deterministic manager KPI summary payload for dashboard.
+  - Serve property list data with normalized filter and pagination metadata.
+  - Preserve backward compatibility with existing property list consumers.
+- Main contracts:
+  - `GET /api/properties/summary`
+  - `GET /api/properties?status=&city=&search=&page=&per_page=`
+- Error semantics:
+  - `401 TOKEN_EXPIRED` / `TOKEN_INVALID` handled by Auth Session Module.
+  - `403 ROLE_SCOPE_FORBIDDEN` for non-manager/non-admin access.
+  - Validation errors return deterministic envelope for filter parameters.
 
 ## Compatibility Rules
 

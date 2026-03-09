@@ -205,3 +205,56 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend optimistic concurrency guard for availability updates (`BE-013`).
 3. Provider editor conflict UX + reload/retry path (`MOB-012`).
 4. Regression coverage for revision conflicts and Wave 14 baseline (`QA-014`).
+
+## Wave 16 Manager Deterministic State Map
+
+### Manager Login and Session States
+
+- `manager_login_idle`
+  - Email/password inputs enabled.
+  - Submit CTA available.
+- `manager_login_submitting`
+  - Disable submit to avoid duplicate requests.
+  - Keep context on same screen.
+- `manager_login_error`
+  - Show deterministic auth error copy from envelope.
+  - Keep entered email; clear password only if required by policy.
+- `manager_session_expired`
+  - Route to `SessionExpired`.
+  - Primary CTA: `Sign in again`.
+- `manager_unauthorized_role`
+  - Route to `Unauthorized`.
+  - Explain role mismatch and provide return CTA.
+
+### Manager Dashboard States
+
+- `dashboard_loading`
+  - Show KPI skeletons/spinners.
+- `dashboard_ready`
+  - Render KPI cards from API summary payload.
+- `dashboard_empty`
+  - Render zero-state when no portfolio metrics are available.
+- `dashboard_error`
+  - Show deterministic retryable error block and `Retry` CTA.
+- `dashboard_unauthorized`
+  - For `403 ROLE_SCOPE_FORBIDDEN`, keep session and route to unauthorized state.
+
+### Property List States
+
+- `list_loading`
+  - Blocking loading state on initial fetch.
+- `list_ready`
+  - Render rows and active filter chips.
+- `list_empty`
+  - No results state with clear-filter guidance.
+- `list_filtering`
+  - Non-blocking refresh while query/filter changes are applied.
+- `list_error`
+  - Deterministic error state with `Retry` CTA and preserved filter inputs.
+
+## Wave 16 Delivery Sequencing
+
+1. Manager contract hardening and state map (`ARCH-012`).
+2. Portfolio summary/filter backend contract (`BE-014`).
+3. Manager real-data wiring and session UX alignment (`MOB-013`).
+4. Manager parity regression suite (`QA-015`).
