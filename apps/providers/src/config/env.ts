@@ -1,9 +1,13 @@
-﻿type RuntimeEnv = {
+type RuntimeEnv = {
   apiBaseUrl: string;
   mobileApiToken: string;
   requestTimeoutMs: number;
   stage: "local" | "staging" | "production";
   diagnosticsEnabled: boolean;
+  bootstrapProviderId: string | null;
+  bootstrapRole: "provider" | "manager" | "admin";
+  bootstrapEmail: string;
+  bootstrapPassword: string;
 };
 
 type ProcessLike = {
@@ -56,6 +60,35 @@ function resolveTimeoutMs(): number {
   return parsed;
 }
 
+function resolveBootstrapProviderId(): string | null {
+  const raw = readEnv("EXPO_PUBLIC_PROVIDER_ID");
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function resolveBootstrapRole(): RuntimeEnv["bootstrapRole"] {
+  const raw = readEnv("EXPO_PUBLIC_PROVIDER_ROLE")?.toLowerCase();
+  if (raw === "admin") {
+    return "admin";
+  }
+  if (raw === "manager") {
+    return "manager";
+  }
+  return "provider";
+}
+
+function resolveBootstrapEmail(): string {
+  return readEnv("EXPO_PUBLIC_BOOTSTRAP_EMAIL") ?? "provider1@provider.local";
+}
+
+function resolveBootstrapPassword(): string {
+  return readEnv("EXPO_PUBLIC_BOOTSTRAP_PASSWORD") ?? "kconecta-dev-password";
+}
+
 const stage = resolveStage();
 
 export const providerEnv: RuntimeEnv = {
@@ -64,4 +97,8 @@ export const providerEnv: RuntimeEnv = {
   requestTimeoutMs: resolveTimeoutMs(),
   stage,
   diagnosticsEnabled: resolveDiagnostics(stage),
+  bootstrapProviderId: resolveBootstrapProviderId(),
+  bootstrapRole: resolveBootstrapRole(),
+  bootstrapEmail: resolveBootstrapEmail(),
+  bootstrapPassword: resolveBootstrapPassword(),
 };

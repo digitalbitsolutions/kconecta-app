@@ -20,7 +20,7 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $payload = $request->validate([
-            "email" => ["required", "string"],
+            "email" => ["required", "string", "email"],
             "password" => ["required", "string"],
         ]);
 
@@ -45,6 +45,43 @@ class AuthController extends Controller
 
     public function refresh(Request $request): JsonResponse
     {
+        $refreshToken = trim((string) $request->input("refresh_token", ""));
+        if ($refreshToken !== "") {
+            $validation = $this->authSessionService->validateToken($refreshToken, "refresh");
+            if ((bool) ($validation["valid"] ?? false)) {
+                $claims = (array) ($validation["payload"] ?? []);
+                return response()->json(
+                    $this->authSessionService->buildRefreshPayloadFromClaims($claims),
+                    200
+                );
+            }
+
+            if (str_starts_with($refreshToken, "rtk_")) {
+                return response()->json(
+                    $this->authSessionService->buildLegacyRefreshPayload($refreshToken),
+                    200
+                );
+            }
+
+            $errorCode = (bool) ($validation["expired"] ?? false)
+                ? AuthSessionService::ERROR_TOKEN_EXPIRED
+                : AuthSessionService::ERROR_TOKEN_INVALID;
+            $reason = $errorCode === AuthSessionService::ERROR_TOKEN_EXPIRED
+                ? "token_expired"
+                : "token_invalid";
+
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    $errorCode,
+                    "Unauthorized",
+                    "refresh",
+                    $reason,
+                    $errorCode !== AuthSessionService::ERROR_TOKEN_INVALID
+                ),
+                401
+            );
+        }
+
         if (!$this->apiAccessService->isAuthorized($request)) {
             return response()->json(
                 $this->authSessionService->buildErrorPayload(
@@ -58,10 +95,8 @@ class AuthController extends Controller
             );
         }
 
-        $refreshToken = trim((string) $request->input("refresh_token", ""));
-
         return response()->json(
-            $this->authSessionService->buildRefreshPayload($refreshToken),
+            $this->authSessionService->buildLegacyRefreshPayload(null),
             200
         );
     }

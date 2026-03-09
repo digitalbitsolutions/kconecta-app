@@ -1,0 +1,29 @@
+{
+    "id":  "QA-013",
+    "title":  "Add Wave 14 provider identity regression matrix for availability flow",
+    "description":  "Extend QA suite to validate provider self-scope enforcement, admin override paths, and mobile availability UX behavior when identity or role contract fails.",
+    "agent":  "qa",
+    "priority":  "medium",
+    "files_scope":  [
+                        "docs/testing/functional-testing-strategy.md",
+                        "tests/Feature/Api/ProviderAvailabilityApiTest.php",
+                        "tests/Feature/Api/Wave13RegressionMatrixTest.php"
+                    ],
+    "acceptance_criteria":  [
+                                "Regression matrix includes provider self-scope and cross-scope forbidden scenarios",
+                                "Backend contract assertions cover 401, 403, and successful update paths",
+                                "Wave 13 baseline scenarios remain covered after Wave 14 changes"
+                            ],
+    "commit_type":  "test",
+    "metadata":  {
+                     "wave":  "wave14",
+                     "executor_model":  "ollama_chat/llama3.1:8b",
+                     "skills":  [
+                                    "qa-core"
+                                ],
+                     "rag":  {
+                                 "enabled":  true,
+                                 "top_k":  4
+                             }
+                 }
+}

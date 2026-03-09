@@ -1,45 +1,147 @@
 import React, { useState } from "react";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from "react-native";
-import { setRuntimeToken } from "../../auth/session";
+import { Image, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from "react-native";
+import { setRuntimeSession } from "../../auth/session";
 import { managerEnv } from "../../config/env";
 import type { ManagerStackParamList } from "../../navigation";
 import { borderRadius, colors, fontSizes, spacing } from "../../theme/tokens";
 
 type LoginNavigation = NativeStackNavigationProp<ManagerStackParamList, "Login">;
 
+type LoginApiPayload = {
+  data?: {
+    access_token?: string;
+    refresh_token?: string;
+    role?: string | null;
+    provider_id?: number | string | null;
+  };
+  error?: {
+    message?: string;
+  };
+  message?: string;
+};
+
+function toStringOrNull(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
 const LoginScreen = () => {
   const navigation = useNavigation<LoginNavigation>();
-  const [token, setToken] = useState(managerEnv.mobileApiToken);
+  const [email, setEmail] = useState(managerEnv.bootstrapEmail);
+  const [password, setPassword] = useState(managerEnv.bootstrapPassword);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const onContinue = () => {
-    setRuntimeToken(token);
-    navigation.reset({
-      index: 0,
-      routes: [{ name: "ManagerDashboard" }],
-    });
+  const onContinue = async () => {
+    const normalizedEmail = email.trim();
+    const normalizedPassword = password.trim();
+
+    if (!normalizedEmail || !normalizedPassword) {
+      setError("Email and password are required.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${managerEnv.apiBaseUrl}/auth/login`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          password: normalizedPassword,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as LoginApiPayload;
+      const accessToken = toStringOrNull(payload?.data?.access_token);
+      const role = toStringOrNull(payload?.data?.role) ?? "manager";
+
+      if (!response.ok || !accessToken) {
+        const apiError = toStringOrNull(payload?.error?.message);
+        const fallbackMessage = toStringOrNull(payload?.message);
+        setError(apiError ?? fallbackMessage ?? "Unable to sign in.");
+        return;
+      }
+
+      if (role !== "manager" && role !== "admin") {
+        setError("This account cannot access the manager app.");
+        return;
+      }
+
+      setRuntimeSession({
+        accessToken,
+        refreshToken: toStringOrNull(payload.data?.refresh_token),
+        role,
+        providerId:
+          typeof payload.data?.provider_id === "number"
+            ? String(payload.data.provider_id)
+            : toStringOrNull(payload.data?.provider_id),
+        source: "runtime",
+      });
+
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "ManagerDashboard" }],
+      });
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : "Network request failed.";
+      setError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.card}>
+        <Image source={require("../../../assets/images/logo-clean.png")} style={styles.logo} resizeMode="contain" />
         <Text style={styles.title}>Manager Access</Text>
-        <Text style={styles.subtitle}>Authenticate to continue into property operations.</Text>
+        <Text style={styles.subtitle}>Sign in to continue into property operations.</Text>
 
-        <Text style={styles.label}>Bearer token</Text>
+        <Text style={styles.label}>Email</Text>
         <TextInput
-          value={token}
-          onChangeText={setToken}
+          value={email}
+          onChangeText={setEmail}
           autoCapitalize="none"
           autoCorrect={false}
+          keyboardType="email-address"
           style={styles.input}
-          placeholder="Enter manager token"
+          placeholder="manager@kconecta.local"
           placeholderTextColor={colors.textMuted}
         />
 
-        <Pressable style={styles.primaryAction} onPress={onContinue}>
-          <Text style={styles.primaryActionText}>Continue</Text>
+        <Text style={styles.label}>Password</Text>
+        <TextInput
+          value={password}
+          onChangeText={setPassword}
+          autoCapitalize="none"
+          autoCorrect={false}
+          secureTextEntry
+          style={styles.input}
+          placeholder="••••••••"
+          placeholderTextColor={colors.textMuted}
+        />
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        <Pressable
+          style={[styles.primaryAction, isSubmitting ? styles.primaryActionDisabled : null]}
+          onPress={onContinue}
+          disabled={isSubmitting}
+        >
+          <Text style={styles.primaryActionText}>
+            {isSubmitting ? "Signing in..." : "Sign in"}
+          </Text>
         </Pressable>
 
         <Text style={styles.meta}>
@@ -63,6 +165,12 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     padding: spacing.lg,
+  },
+  logo: {
+    alignSelf: "center",
+    height: 64,
+    marginBottom: spacing.md,
+    width: 64,
   },
   title: {
     color: colors.textPrimary,
@@ -97,10 +205,18 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     paddingVertical: spacing.md,
   },
+  primaryActionDisabled: {
+    opacity: 0.65,
+  },
   primaryActionText: {
     color: colors.surface,
     fontSize: fontSizes.md,
     fontWeight: "700",
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: fontSizes.sm,
+    marginTop: spacing.md,
   },
   meta: {
     color: colors.textMuted,

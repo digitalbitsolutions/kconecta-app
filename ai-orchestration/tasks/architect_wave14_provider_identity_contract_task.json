@@ -1,0 +1,28 @@
+{
+    "id":  "ARCH-010",
+    "title":  "Define Wave 14 provider identity and availability ownership contract",
+    "description":  "Extend architecture docs to define how provider identity is resolved from session context, how mobile/editor states map to identity mismatch scenarios, and which API contract protects role boundaries.",
+    "agent":  "architect",
+    "priority":  "high",
+    "files_scope":  [
+                        "docs/architecture/mobile-release-contract.md"
+                    ],
+    "acceptance_criteria":  [
+                                "Provider identity source is explicit for authenticated provider app flows",
+                                "Role/ownership constraints are mapped to API responses and UI states",
+                                "Wave 14 contract references existing Wave 13 availability endpoints without breaking compatibility"
+                            ],
+    "commit_type":  "docs",
+    "metadata":  {
+                     "wave":  "wave14",
+                     "stack":  "React Native with TypeScript",
+                     "executor_model":  "ollama_chat/llama3.1:8b",
+                     "skills":  [
+                                    "architect-core"
+                                ],
+                     "rag":  {
+                                 "enabled":  true,
+                                 "top_k":  4
+                             }
+                 }
+}

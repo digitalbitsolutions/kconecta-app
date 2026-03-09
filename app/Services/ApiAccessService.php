@@ -8,6 +8,10 @@ class ApiAccessService
 {
     private const DEFAULT_MOBILE_TOKEN = "kconecta-dev-token";
 
+    public function __construct(private readonly AuthSessionService $authSessionService)
+    {
+    }
+
     public function isAuthorized(Request $request): bool
     {
         if ($request->user() !== null) {
@@ -19,7 +23,22 @@ class ApiAccessService
             return false;
         }
 
-        return hash_equals($this->expectedToken(), $token);
+        if (hash_equals($this->expectedToken(), $token)) {
+            return true;
+        }
+
+        return $this->authSessionService->isAccessTokenValid($token);
+    }
+
+    public function resolveAccessTokenClaims(Request $request): array
+    {
+        $token = $this->extractBearerToken($request);
+        if ($token === null) {
+            return [];
+        }
+
+        $claims = $this->authSessionService->resolveAccessTokenClaims($token);
+        return is_array($claims) ? $claims : [];
     }
 
     private function extractBearerToken(Request $request): ?string

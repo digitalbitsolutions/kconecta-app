@@ -1,9 +1,9 @@
-# Module Map
+﻿# Module Map
 
 ## App Surfaces
 
 - `manager-app` (React Native): properties, manager dashboard, provider discovery.
-- `provider-app` (React Native): service provider profile, availability, assigned requests.
+- `provider-app` (React Native): provider self-profile, availability, assigned requests.
 - `admin-surface` (web/backoffice): full CRUD across domains, audit, support workflows.
 
 ## Backend Modules
@@ -20,13 +20,13 @@
 ### Provider Module
 
 - Responsibilities:
-  - Provider catalog and filtering.
+  - Provider profile and status for self-service flows.
   - Availability and service coverage by city/category.
   - Weekly availability slot orchestration for provider workflows.
   - Identity-bound availability writes for provider self-scope.
   - Provider quality indicators (rating, active status).
 - Main contracts:
-  - `/api/providers*`
+  - `/api/providers/{id}` (self/admin reads)
   - `/api/providers/{id}/availability` (read and mutate with role guard)
 
 ### Admin Module

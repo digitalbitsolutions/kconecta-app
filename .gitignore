@@ -8,3 +8,16 @@ ai-orchestration/.env.jira
 ai-orchestration/.env.llm
 __pycache__/
 *.pyc
+node_modules/
+npm-debug.log*
+apps/*/node_modules/
+apps/*/.expo/
+apps/*/.expo-shared/
+apps/*/dist/
+apps/*/.expo-export-smoke/
+apps/*/.env
+apps/*/expo-*.log
+apps/*/metro-session*.log
+.tmp-expo-probe/
+tmp-emulator-screen.png
+view.xml

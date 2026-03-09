@@ -15,8 +15,11 @@ class OpenClawService:
         binary = self._resolve_binary()
         if not binary:
             return False
-        capabilities = self._detect_capabilities(binary)
-        return capabilities["run"] or capabilities["agent_local"]
+        try:
+            capabilities = self._detect_capabilities(binary)
+            return capabilities["run"] or capabilities["agent_local"]
+        except Exception:
+            return False
 
     def resolve_command(self) -> list[str]:
         binary = self._resolve_binary()
@@ -119,11 +122,14 @@ class OpenClawService:
         }
 
     def _supports_run_subcommand(self, binary: str) -> bool:
-        probe = self.runner.run(
-            [binary, "--help"],
-            check=False,
-            timeout=20,
-        )
+        try:
+            probe = self.runner.run(
+                [binary, "--help"],
+                check=False,
+                timeout=20,
+            )
+        except Exception:
+            return False
         if probe.returncode != 0:
             return False
         lines = (probe.stdout + "\n" + probe.stderr).splitlines()
@@ -147,11 +153,14 @@ class OpenClawService:
         return False
 
     def _supports_agent_local(self, binary: str) -> bool:
-        probe = self.runner.run(
-            [binary, "agent", "--help"],
-            check=False,
-            timeout=20,
-        )
+        try:
+            probe = self.runner.run(
+                [binary, "agent", "--help"],
+                check=False,
+                timeout=20,
+            )
+        except Exception:
+            return False
         if probe.returncode != 0:
             return False
         text = (probe.stdout + "\n" + probe.stderr).lower()

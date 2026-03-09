@@ -9,6 +9,7 @@ export const colors = {
   surface: "#FFFFFF",
   border: "#E2E8F0",
   warning: "#B45309",
+  danger: "#B91C1C",
 };
 
 export const spacing = {

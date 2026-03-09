@@ -1,4 +1,4 @@
-# Multi-App Strategy
+﻿# Multi-App Strategy
 
 ## Scope
 
@@ -34,16 +34,22 @@ When a native admin app would make sense:
 - Exposed modules:
   - dashboard
   - properties list/detail
-  - provider lookup
+  - provider lookup (manager context only)
 
 ### Provider App
 
 - Focus: provider profile, availability, assigned tasks.
 - Data ownership: provider configuration and service operations.
 - Exposed modules:
-  - profile
-  - availability
-  - assignment queue
+  - login/auth bootstrap
+  - my profile
+  - my availability editor
+  - assignment queue (next wave)
+
+Separation rule:
+
+- Provider app must not expose cross-provider directory management as primary flow.
+- Manager app must not expose provider-only edit operations.
 
 ## Shared Backend Strategy
 

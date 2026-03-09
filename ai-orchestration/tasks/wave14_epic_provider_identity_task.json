@@ -1,0 +1,29 @@
+{
+  "id": "EPIC-W14",
+  "title": "Wave 14 - Provider identity and availability persistence hardening",
+  "description": "Coordinate Wave 14 execution to eliminate hardcoded provider identity in native flow, enforce backend actor resolution, and lock regression coverage for provider availability persistence.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/wave14-provider-identity-plan.md",
+    "ai-orchestration/tasks",
+    "docs/testing/functional-testing-strategy.md"
+  ],
+  "acceptance_criteria": [
+    "Wave 14 ticket set is defined for architect/backend/mobile/qa with clear dependency order",
+    "Execution checkpoints include branch isolation, PR gate, and Jira traceability",
+    "Wave 14 rollout risks and rollback notes are documented"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave14",
+    "stack": "React Native with TypeScript",
+    "skills": [
+      "devops-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "BE-013",
+  "title": "Implement availability revision guard and conflict response",
+  "description": "Add optimistic concurrency to provider availability updates using revision token checks and deterministic conflict payloads for stale writes.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Http/Controllers/Api/ProviderController.php",
+    "app/Services/ProviderService.php",
+    "tests/Feature/Api/ProviderAvailabilityApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "PATCH availability requires revision token and rejects stale writes with conflict code",
+    "Successful update returns incremented revision value",
+    "Feature tests cover success, stale conflict, and missing revision validation"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave15",
+    "executor_model": "ollama_chat/deepseek-coder:6.7b",
+    "skills": ["backend-core"],
+    "rag": {"enabled": true, "top_k": 4}
+  }
+}

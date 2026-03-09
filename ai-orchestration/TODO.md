@@ -1,36 +1,59 @@
 ﻿# TODO prioritario - Reanudacion de orquestacion
 
-Fecha: 2026-03-07
-Repo objetivo: D:\still\kconecta-app
-Estado: Pendiente de retomar (prioridad alta)
+Fecha: 2026-03-09
+Repo objetivo: `D:\still\kconecta-app`
+Estado: app manager arrancable en emulador; continuar cierre funcional hacia 1:1 con CRM.
 
-## 1) Bloqueante principal (P0)
-- [ ] Resolver ejecutor OpenClaw con soporte `openclaw run`.
-- [ ] Si la version actual no soporta `run`, mantener `AiderExecutor` como fallback operativo.
-- [ ] Revalidar selector con `AI_EXECUTOR=auto` y confirmar `selected_executor` en preflight.
+## Estado actual verificado
 
-## 2) Validacion tecnica inmediata (P0)
-- [ ] Ejecutar: `py ai-orchestration/orchestrator.py preflight`
-- [ ] Confirmar campos: `openclaw_available`, `aider_available`, `selected_executor`, `google_ag_available`, `ollama_available`.
-- [ ] Verificar que no haya fallback inesperado cuando OpenClaw este bien instalado.
+- Manager app inicia y renderiza Dashboard en Android Emulator con Expo Go.
+- Providers app tambien tiene scaffold funcional.
+- Jira + GitHub vinculados (repositorio `digitalbitsolutions/kconecta-app` conectado en Code).
+- Persisten tareas de cierre por wave para backend/mobile/qa (ver Jira antes de continuar).
 
-## 3) Continuidad de desarrollo (P1)
-- [ ] Retomar Wave 11 (ARCH-007, MOB-008, QA-010) en modo apply controlado.
-- [ ] Ejecutar primero Architect (ARCH-007) y luego Mobile/QA.
-- [ ] Mantener cambios dentro de `files_scope` y commits semanticos.
+## Decisiones operativas vigentes
 
-## 4) Jira y trazabilidad (P1)
-- [ ] Revisar board/filtros/sprint activo para visualizar To Do / In Progress / Done.
-- [ ] Mantener comentarios automaticos por ejecucion en tickets DEV-55, DEV-56, DEV-57.
-- [ ] Ajustar estados para que el board refleje avance real.
+- Ejecutar con `AI_EXECUTOR=aider` (OpenClaw en observacion).
+- Mantener merge gate humano (`approve-merge` + `merge-pr`).
+- No usar comandos destructivos.
+- Entorno backend/testing: Docker Desktop (sin XAMPP).
 
-## 5) Comandos de arranque rapido al volver
+## Pendientes P0 (siguiente sesion)
+
+- [ ] Confirmar en Jira el conjunto exacto de tickets abiertos de la wave activa.
+- [ ] Cerrar PRs/merges pendientes con issue key en titulo/descripción para trazabilidad en Jira Code.
+- [ ] Completar flujo auth real contra backend (endpoint login/sesion estable) en manager y providers.
+- [ ] Sustituir datos mock de dashboard por data real de API en manager.
+
+## Pendientes P1
+
+- [ ] Cobertura QA de regresion auth + disponibilidad.
+- [ ] Hardening de errores de red y sesion expirada en ambas apps.
+- [ ] Checklist de release interno (build profile, envs, smoke en emulador).
+
+## Comandos estables (Expo en emulador)
+
 ```powershell
-cd D:\still\kconecta-app
-py ai-orchestration/orchestrator.py preflight
-py ai-orchestration/orchestrator.py run-task --agent architect --task-file ai-orchestration/tasks/architect_wave11_ui_information_architecture_task.json --dry-run
+cd D:\still\kconecta-app\apps\manager
+npx expo start --go --lan --port 8088 --clear
 ```
 
-## Nota operativa
-- Docker Desktop puede permanecer encendido.
-- Backend CRM origen en Docker: instancia `kconecta` (contexto ya confirmado).
+En otra terminal:
+
+```powershell
+adb -s emulator-5554 shell pm clear host.exp.exponent
+adb -s emulator-5554 reverse --remove-all
+adb -s emulator-5554 reverse tcp:8088 tcp:8088
+adb -s emulator-5554 shell am start -a android.intent.action.VIEW -d exp://127.0.0.1:8088
+```
+
+## Prompt recomendado para retomar con Codex
+
+```text
+Continuemos en kconecta-app desde el ultimo snapshot.
+1) Mantén AI_EXECUTOR=aider.
+2) Revisa Jira abierto de la wave activa y PRs abiertos.
+3) Ejecuta el ciclo backend -> mobile -> qa con PRs y actualización Jira.
+4) No uses comandos destructivos.
+5) Reporta avances y bloqueos brevemente en cada paso.
+```

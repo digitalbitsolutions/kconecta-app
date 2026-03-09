@@ -18,7 +18,7 @@ import type { RootStackParamList } from "../navigation";
 import { fetchProviders, type ProviderViewModel } from "../api/providerApi";
 import { borderRadius, colors, fontSizes, spacing } from "../theme/tokens";
 
-type ProviderListNavigation = NativeStackNavigationProp<RootStackParamList, "ProviderList">;
+type ProviderListNavigation = NativeStackNavigationProp<RootStackParamList, "ProviderDashboard">;
 
 const ProviderListScreen = () => {
   const navigation = useNavigation<ProviderListNavigation>();

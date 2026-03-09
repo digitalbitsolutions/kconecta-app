@@ -1,0 +1,25 @@
+{
+  "id": "ARCH-011",
+  "title": "Define Wave 15 availability revision and conflict UX contract",
+  "description": "Extend architecture docs with availability revision token semantics, conflict response envelope, and deterministic mobile recovery states for stale update collisions.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Contract defines revision/version field for availability read/update operations",
+    "Conflict response semantics include deterministic error code and retry guidance",
+    "Mobile UX states for conflict/reload/retry are documented"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave15",
+    "stack": "React Native with TypeScript",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "skills": ["architecture-core"],
+    "rag": {"enabled": true, "top_k": 4}
+  }
+}

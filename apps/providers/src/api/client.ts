@@ -1,4 +1,9 @@
-﻿import { getAccessToken } from "../auth/session";
+import {
+  getAccessToken,
+  getRefreshToken,
+  handleUnauthorizedSession,
+  refreshSessionTokens,
+} from "../auth/session";
 import { providerEnv } from "../config/env";
 
 export type ApiRequestOptions = {
@@ -17,11 +22,48 @@ export class ApiError extends Error {
   }
 }
 
+type ErrorPayload = {
+  message?: string;
+  error?: {
+    message?: string;
+    code?: string;
+  };
+};
+
+type RawResponse = {
+  response: Response;
+  payload: unknown;
+};
+
 export function getApiBaseUrl(): string {
   return providerEnv.apiBaseUrl;
 }
 
-export async function requestJson<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+function toErrorMessage(payload: unknown, status: number): string {
+  const errorPayload = (typeof payload === "object" && payload ? payload : {}) as ErrorPayload;
+  if (typeof errorPayload.message === "string" && errorPayload.message.trim().length > 0) {
+    return errorPayload.message;
+  }
+  if (
+    typeof errorPayload.error?.message === "string" &&
+    errorPayload.error.message.trim().length > 0
+  ) {
+    return errorPayload.error.message;
+  }
+  return `HTTP ${status}`;
+}
+
+function shouldAttemptRefresh(path: string, status: number): boolean {
+  if (status !== 401) {
+    return false;
+  }
+  if (path.startsWith("/auth/")) {
+    return false;
+  }
+  return getRefreshToken() !== null;
+}
+
+async function executeRequest(path: string, options: ApiRequestOptions): Promise<RawResponse> {
   const method = options.method ?? "GET";
   const token = getAccessToken();
   const headers: Record<string, string> = {
@@ -62,13 +104,34 @@ export async function requestJson<T>(path: string, options: ApiRequestOptions = 
     }
   }
 
-  if (!response.ok) {
-    const message =
-      typeof payload?.message === "string" && payload.message.trim().length > 0
-        ? payload.message
-        : `HTTP ${response.status}`;
-    throw new ApiError(message, response.status);
+  return {
+    response,
+    payload,
+  };
+}
+
+function ensureSuccess<T>(result: RawResponse): T {
+  if (!result.response.ok) {
+    throw new ApiError(toErrorMessage(result.payload, result.response.status), result.response.status);
   }
 
-  return payload as T;
+  return result.payload as T;
+}
+
+export async function requestJson<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+  const firstAttempt = await executeRequest(path, options);
+  if (!firstAttempt.response.ok && shouldAttemptRefresh(path, firstAttempt.response.status)) {
+    const refreshed = await refreshSessionTokens();
+    if (refreshed) {
+      const retryAttempt = await executeRequest(path, options);
+      if (!retryAttempt.response.ok && retryAttempt.response.status === 401) {
+        handleUnauthorizedSession();
+      }
+      return ensureSuccess<T>(retryAttempt);
+    }
+
+    handleUnauthorizedSession();
+  }
+
+  return ensureSuccess<T>(firstAttempt);
 }

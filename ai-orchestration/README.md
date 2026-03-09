@@ -110,6 +110,7 @@ Executor environment variables:
 - `AI_MAX_DIFF_FILES` (default: `25`)
 - `AI_MAX_DIFF_LINES` (default: `1200`)
 - `AI_ALLOW_LARGE_DIFF=true|false` (default: `false`)
+- `CRM_BACKEND_ROOT` (optional): absolute path to CRM Laravel backend root for Docker test runs
 
 ## Commands
 
@@ -188,6 +189,12 @@ py ai-orchestration/orchestrator.py run-task --agent architect --task-file ai-or
 
 ```powershell
 py ai-orchestration/orchestrator.py create-pr --agent mobile --base main
+```
+
+Include Jira key in PR title (recommended for automatic Jira Code linking):
+
+```powershell
+py ai-orchestration/orchestrator.py create-pr --agent mobile --base main --issue DEV-76
 ```
 
 ### 5) Human approval gate
@@ -294,6 +301,33 @@ Transition issue:
 ```powershell
 py ai-orchestration/orchestrator.py jira-transition --issue KCON-12 --to "In Review"
 ```
+
+### 11) Backend tests via Docker (no XAMPP)
+
+Use this to run Laravel tests from the original CRM backend containerized stack:
+
+```powershell
+py ai-orchestration/orchestrator.py backend-test-docker
+```
+
+Optional flags:
+
+```powershell
+# Custom backend path
+py ai-orchestration/orchestrator.py backend-test-docker --backend-root D:\still\kconecta.com\web
+
+# Run only selected tests
+py ai-orchestration/orchestrator.py backend-test-docker --filter AuthenticationTest
+
+# Skip automatic .env bootstrap inside container
+py ai-orchestration/orchestrator.py backend-test-docker --skip-ensure-env
+```
+
+What it does:
+
+- starts `app` and `mysql` in Docker (`docker compose up -d app mysql`)
+- ensures `.env` exists inside the `app` container (unless skipped)
+- runs `php artisan test` with `testing` env overrides (`sqlite :memory:` and array drivers)
 
 ## Task contract
 

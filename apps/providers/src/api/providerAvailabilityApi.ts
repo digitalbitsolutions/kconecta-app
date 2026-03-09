@@ -1,4 +1,10 @@
-import { getAccessToken, getSessionIdentitySnapshot } from "../auth/session";
+import {
+  getAccessToken,
+  getRefreshToken,
+  getSessionIdentitySnapshot,
+  handleUnauthorizedSession,
+  refreshSessionTokens,
+} from "../auth/session";
 import { providerEnv } from "../config/env";
 import { getApiBaseUrl } from "./client";
 
@@ -124,64 +130,84 @@ function buildAvailabilityHeaders(extraHeaders: Record<string, string> | undefin
 }
 
 async function requestAvailability<T>(path: string, options: AvailabilityRequestOptions = {}): Promise<T> {
+  const shouldAttemptRefresh = !path.startsWith("/auth/") && getRefreshToken() !== null;
   const method = options.method ?? "GET";
-  const token = getAccessToken();
+  const executeAttempt = async (): Promise<{ response: Response; payload: unknown }> => {
+    const token = getAccessToken();
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      ...(options.body !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...buildAvailabilityHeaders(options.headers),
+    };
 
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-    ...(options.body !== undefined ? { "Content-Type": "application/json" } : {}),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...buildAvailabilityHeaders(options.headers),
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), providerEnv.requestTimeoutMs);
+
+    let response: Response;
+    try {
+      response = await fetch(`${getApiBaseUrl()}${path}`, {
+        method,
+        headers,
+        body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new ProviderAvailabilityApiError(
+          `Request timed out after ${providerEnv.requestTimeoutMs}ms`,
+          408,
+          "REQUEST_TIMEOUT",
+          null
+        );
+      }
+
+      const message = error instanceof Error ? error.message : "Network request failed";
+      throw new ProviderAvailabilityApiError(message, 0, "NETWORK_ERROR", null);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    const raw = await response.text();
+    let payload: unknown = {};
+    if (raw) {
+      try {
+        payload = JSON.parse(raw);
+      } catch {
+        payload = {};
+      }
+    }
+
+    return {
+      response,
+      payload,
+    };
   };
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), providerEnv.requestTimeoutMs);
-
-  let response: Response;
-  try {
-    response = await fetch(`${getApiBaseUrl()}${path}`, {
-      method,
-      headers,
-      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new ProviderAvailabilityApiError(
-        `Request timed out after ${providerEnv.requestTimeoutMs}ms`,
-        408,
-        "REQUEST_TIMEOUT",
-        null
-      );
-    }
-
-    const message = error instanceof Error ? error.message : "Network request failed";
-    throw new ProviderAvailabilityApiError(message, 0, "NETWORK_ERROR", null);
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
-  const raw = await response.text();
-  let payload: unknown = {};
-  if (raw) {
-    try {
-      payload = JSON.parse(raw);
-    } catch {
-      payload = {};
+  let attempt = await executeAttempt();
+  if (!attempt.response.ok && attempt.response.status === 401 && shouldAttemptRefresh) {
+    const refreshed = await refreshSessionTokens();
+    if (refreshed) {
+      attempt = await executeAttempt();
+    } else {
+      handleUnauthorizedSession();
     }
   }
 
-  if (!response.ok) {
-    const errorPayload = toErrorPayload(payload);
+  if (!attempt.response.ok) {
+    if (attempt.response.status === 401) {
+      handleUnauthorizedSession();
+    }
+    const errorPayload = toErrorPayload(attempt.payload);
     throw new ProviderAvailabilityApiError(
-      errorPayload.message ?? errorPayload.error?.message ?? `HTTP ${response.status}`,
-      response.status,
+      errorPayload.message ?? errorPayload.error?.message ?? `HTTP ${attempt.response.status}`,
+      attempt.response.status,
       errorPayload.error?.code ?? null,
       errorPayload.meta?.reason ?? null
     );
   }
 
-  return payload as T;
+  return attempt.payload as T;
 }
 
 function normalizeSlots(slots: AvailabilitySlot[] | undefined): AvailabilitySlot[] {

@@ -1,0 +1,24 @@
+{
+  "id": "QA-014",
+  "title": "Add Wave 15 availability concurrency regression matrix",
+  "description": "Extend QA suite for revision-aware availability updates, stale-write conflicts, and reload/retry paths across provider role and admin override scenarios.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/ProviderAvailabilityApiTest.php",
+    "tests/Feature/Api/Wave13RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix includes stale write conflict scenarios",
+    "API tests assert deterministic conflict code and metadata",
+    "Wave 14 identity guard baseline remains covered"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave15",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "skills": ["qa-core"],
+    "rag": {"enabled": true, "top_k": 4}
+  }
+}

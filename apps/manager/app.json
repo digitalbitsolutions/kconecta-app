@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Kconecta Manager",
+    "slug": "kconecta-manager",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/images/logo-clean.png",
+    "splash": {
+      "image": "./assets/images/logo-clean.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/logo-clean.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.kconecta.manager"
+    },
+    "ios": {
+      "bundleIdentifier": "com.kconecta.manager"
+    }
+  }
+}

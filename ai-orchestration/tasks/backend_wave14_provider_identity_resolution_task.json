@@ -1,0 +1,32 @@
+{
+    "id":  "BE-012",
+    "title":  "Implement provider identity resolution for availability operations",
+    "description":  "Harden provider availability endpoints by resolving provider identity from authenticated context and role guard rules, preventing hardcoded or cross-provider updates while preserving admin override behavior.",
+    "agent":  "backend",
+    "priority":  "high",
+    "files_scope":  [
+                        "app/Http/Controllers/Api/ProviderController.php",
+                        "app/Services/AuthSessionService.php",
+                        "app/Services/ProviderService.php",
+                        "routes/api.php",
+                        "tests/Feature/Api/ProviderAvailabilityApiTest.php"
+                    ],
+    "acceptance_criteria":  [
+                                "Provider role can read/update only its own availability unless explicit admin scope is used",
+                                "Controller/service contract returns deterministic errors for identity mismatch",
+                                "Feature tests cover provider self-access, forbidden cross-access, and admin override"
+                            ],
+    "commit_type":  "feat",
+    "metadata":  {
+                     "wave":  "wave14",
+                     "domain":  "provider-availability",
+                     "executor_model":  "ollama_chat/llama3.1:8b",
+                     "skills":  [
+                                    "backend-core"
+                                ],
+                     "rag":  {
+                                 "enabled":  true,
+                                 "top_k":  4
+                             }
+                 }
+}

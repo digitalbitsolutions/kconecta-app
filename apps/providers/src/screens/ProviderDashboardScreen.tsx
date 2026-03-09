@@ -2,7 +2,12 @@ import React from "react";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
-import { getSessionSnapshot, handleUnauthorizedSession } from "../auth/session";
+import {
+  clearSession,
+  getSessionIdentitySnapshot,
+  getSessionSnapshot,
+  handleUnauthorizedSession,
+} from "../auth/session";
 import type { RootStackParamList } from "../navigation";
 import { borderRadius, colors, fontSizes, spacing } from "../theme/tokens";
 
@@ -11,44 +16,56 @@ type DashboardNavigation = NativeStackNavigationProp<RootStackParamList, "Provid
 const ProviderDashboardScreen = () => {
   const navigation = useNavigation<DashboardNavigation>();
   const session = getSessionSnapshot();
+  const identity = getSessionIdentitySnapshot();
+  const roleLabel = identity.role ?? "unknown";
+
+  const openMyProfile = () => {
+    if (!identity.providerId) {
+      handleUnauthorizedSession();
+      navigation.navigate("ProviderUnauthorized");
+      return;
+    }
+
+    navigation.navigate("ProviderDetail", {
+      providerId: identity.providerId,
+      providerName: `Provider ${identity.providerId}`,
+    });
+  };
+
+  const onSignOut = () => {
+    clearSession();
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "ProviderLogin" }],
+    });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Provider Dashboard</Text>
-      <Text style={styles.subtitle}>Track availability, status and assigned workload.</Text>
+      <Text style={styles.subtitle}>Manage your profile, availability and daily operations.</Text>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Today Status</Text>
-        <Text style={styles.cardValue}>Active</Text>
-        <Text style={styles.cardHelper}>Session: {session.hasToken ? session.source : "none"}</Text>
+        <Text style={styles.cardTitle}>Session</Text>
+        <Text style={styles.cardValue}>{identity.providerId ? `Provider #${identity.providerId}` : "No provider identity"}</Text>
+        <Text style={styles.cardHelper}>Role: {roleLabel}</Text>
+        <Text style={styles.cardHelper}>Token source: {session.hasToken ? session.source : "none"}</Text>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Availability</Text>
-        <Text style={styles.cardValue}>3 Open Slots</Text>
-        <Text style={styles.cardHelper}>Morning 2 | Afternoon 1</Text>
+        <Text style={styles.cardValue}>Manage weekly slots</Text>
+        <Text style={styles.cardHelper}>Keep your schedule updated for assignments</Text>
         <Pressable style={styles.primaryAction} onPress={() => navigation.navigate("AvailabilityShell")}>
-          <Text style={styles.primaryActionText}>Manage Availability</Text>
+          <Text style={styles.primaryActionText}>Open Availability Editor</Text>
         </Pressable>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Directory</Text>
-        <Text style={styles.cardHelper}>Browse providers and detail records.</Text>
-        <Pressable style={styles.secondaryAction} onPress={() => navigation.navigate("ProviderList")}>
-          <Text style={styles.secondaryActionText}>Open Providers</Text>
-        </Pressable>
-        <Pressable
-          style={styles.secondaryAction}
-          onPress={() =>
-            navigation.navigate("ProviderRoleMismatch", {
-              expectedRole: "provider",
-              actualRole: "manager",
-              context: "provider_dashboard_guard",
-            })
-          }
-        >
-          <Text style={styles.secondaryActionText}>Simulate Role Mismatch</Text>
+        <Text style={styles.cardTitle}>My profile</Text>
+        <Text style={styles.cardHelper}>Review your provider profile and operational status.</Text>
+        <Pressable style={styles.secondaryAction} onPress={openMyProfile}>
+          <Text style={styles.secondaryActionText}>Open My Profile</Text>
         </Pressable>
       </View>
 
@@ -60,6 +77,10 @@ const ProviderDashboardScreen = () => {
         }}
       >
         <Text style={styles.warningActionText}>Simulate Unauthorized State</Text>
+      </Pressable>
+
+      <Pressable style={styles.signOutAction} onPress={onSignOut}>
+        <Text style={styles.signOutActionText}>Sign out</Text>
       </Pressable>
     </SafeAreaView>
   );
@@ -140,6 +161,19 @@ const styles = StyleSheet.create({
   },
   warningActionText: {
     color: colors.surface,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
+  },
+  signOutAction: {
+    alignItems: "center",
+    borderColor: colors.danger,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  signOutActionText: {
+    color: colors.danger,
     fontSize: fontSizes.sm,
     fontWeight: "700",
   },

@@ -5,13 +5,13 @@ import { getSessionIdentitySnapshot, registerUnauthorizedResetHandler } from "..
 import AvailabilityShellScreen from "../screens/AvailabilityShellScreen";
 import ProviderDashboardScreen from "../screens/ProviderDashboardScreen";
 import ProviderDetailScreen from "../screens/ProviderDetailScreen";
-import ProviderListScreen from "../screens/ProviderListScreen";
 import RoleMismatchScreen from "../screens/RoleMismatchScreen";
 import ProviderUnauthorizedScreen from "../screens/ProviderUnauthorizedScreen";
+import ProviderLoginScreen from "../screens/auth/LoginScreen";
 
 export type RootStackParamList = {
+  ProviderLogin: undefined;
   ProviderDashboard: undefined;
-  ProviderList: undefined;
   ProviderDetail: { providerId: string; providerName: string };
   AvailabilityShell: undefined;
   ProviderRoleMismatch: {
@@ -27,7 +27,7 @@ const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 const RootStack = () => {
   const session = getSessionIdentitySnapshot();
-  const initialRoute = session.hasToken && session.providerId ? "ProviderDashboard" : "ProviderUnauthorized";
+  const initialRoute = session.hasToken && session.providerId ? "ProviderDashboard" : "ProviderLogin";
 
   React.useEffect(() => {
     registerUnauthorizedResetHandler(() => {
@@ -45,6 +45,11 @@ const RootStack = () => {
   return (
     <Stack.Navigator initialRouteName={initialRoute}>
       <Stack.Screen
+        name="ProviderLogin"
+        component={ProviderLoginScreen}
+        options={{ title: "Provider Login", headerBackVisible: false }}
+      />
+      <Stack.Screen
         name="ProviderDashboard"
         component={ProviderDashboardScreen}
         options={{ title: "Provider Dashboard" }}
@@ -55,14 +60,9 @@ const RootStack = () => {
         options={{ title: "Availability Editor" }}
       />
       <Stack.Screen
-        name="ProviderList"
-        component={ProviderListScreen}
-        options={{ title: "Providers" }}
-      />
-      <Stack.Screen
         name="ProviderDetail"
         component={ProviderDetailScreen}
-        options={{ title: "Provider Details" }}
+        options={{ title: "My Profile" }}
       />
       <Stack.Screen
         name="ProviderUnauthorized"

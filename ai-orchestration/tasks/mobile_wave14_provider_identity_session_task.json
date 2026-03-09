@@ -1,0 +1,31 @@
+{
+    "id":  "MOB-011",
+    "title":  "Replace hardcoded provider identity in availability editor flow",
+    "description":  "Update providers app availability editor to derive provider identity from session/auth context, remove hardcoded provider fallback, and handle unauthorized or ownership mismatch states with deterministic UX.",
+    "agent":  "mobile",
+    "priority":  "high",
+    "files_scope":  [
+                        "apps/providers/src/screens/AvailabilityShellScreen.tsx",
+                        "apps/providers/src/api/providerAvailabilityApi.ts",
+                        "apps/providers/src/auth/session.ts",
+                        "apps/providers/src/navigation/index.tsx"
+                    ],
+    "acceptance_criteria":  [
+                                "Availability screen no longer uses hardcoded provider ID",
+                                "Session identity is the source of provider API calls in provider role flow",
+                                "UI shows explicit recovery state for unauthorized/forbidden identity mismatch responses"
+                            ],
+    "commit_type":  "feat",
+    "metadata":  {
+                     "wave":  "wave14",
+                     "stack":  "React Native with TypeScript",
+                     "executor_model":  "ollama_chat/llama3.1:8b",
+                     "skills":  [
+                                    "mobile-core"
+                                ],
+                     "rag":  {
+                                 "enabled":  true,
+                                 "top_k":  4
+                             }
+                 }
+}

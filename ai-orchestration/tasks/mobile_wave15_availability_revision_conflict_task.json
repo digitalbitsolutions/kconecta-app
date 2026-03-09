@@ -1,0 +1,25 @@
+{
+  "id": "MOB-012",
+  "title": "Handle availability revision conflicts in provider editor",
+  "description": "Wire provider availability editor to send revision token on save, detect conflict responses, and show deterministic reload/retry UX.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/providers/src/screens/AvailabilityShellScreen.tsx",
+    "apps/providers/src/api/providerAvailabilityApi.ts",
+    "apps/providers/src/auth/session.ts"
+  ],
+  "acceptance_criteria": [
+    "Availability save request includes revision token from last read",
+    "Conflict response shows explicit stale-data state with reload CTA",
+    "Successful retry after reload is supported in UI flow"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave15",
+    "stack": "React Native with TypeScript",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "skills": ["mobile-core"],
+    "rag": {"enabled": true, "top_k": 4}
+  }
+}

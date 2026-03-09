@@ -1,0 +1,24 @@
+{
+  "id": "EPIC-W15",
+  "title": "Wave 15 - Availability optimistic concurrency and conflict recovery",
+  "description": "Coordinate Wave 15 delivery to prevent stale availability overwrites by introducing revision-aware save semantics, mobile conflict UX, and regression coverage across backend and native flows.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/wave15-availability-concurrency-plan.md",
+    "ai-orchestration/tasks",
+    "docs/testing/functional-testing-strategy.md"
+  ],
+  "acceptance_criteria": [
+    "Wave 15 ticket set is defined for architect/backend/mobile/qa with dependency order",
+    "Execution plan includes PR/Jira traceability and rollback checkpoints",
+    "Conflict handling rollout risk notes are documented"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave15",
+    "stack": "React Native with TypeScript",
+    "skills": ["devops-core"],
+    "rag": {"enabled": true, "top_k": 4}
+  }
+}

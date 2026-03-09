@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
@@ -18,7 +18,7 @@ const ProviderUnauthorizedScreen = () => {
     clearSession();
     navigation.reset({
       index: 0,
-      routes: [{ name: "ProviderDashboard" }],
+      routes: [{ name: "ProviderLogin" }],
     });
   };
 
@@ -31,7 +31,7 @@ const ProviderUnauthorizedScreen = () => {
         </Text>
 
         <Pressable style={styles.primaryAction} onPress={onRecover}>
-          <Text style={styles.primaryActionText}>Recover Session</Text>
+          <Text style={styles.primaryActionText}>Go To Login</Text>
         </Pressable>
       </View>
     </SafeAreaView>

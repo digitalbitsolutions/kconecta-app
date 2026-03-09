@@ -1,4 +1,4 @@
-﻿import { requestJson } from "./client";
+﻿import { ApiError, requestJson } from "./client";
 
 export type ProviderStatus = "active" | "inactive";
 
@@ -10,6 +10,19 @@ export type ProviderRecord = {
   category?: string;
   city?: string;
   rating?: number;
+};
+
+type LegacyServiceRecord = {
+  id?: number | string;
+  name?: string;
+  title?: string;
+  role?: string;
+  status?: string;
+  category?: string;
+  city?: string;
+  location?: string;
+  province?: string;
+  rating?: number | string;
 };
 
 type ProviderListPayload = {
@@ -49,12 +62,87 @@ function toViewModel(record: ProviderRecord): ProviderViewModel {
   };
 }
 
+function toLegacyViewModel(record: LegacyServiceRecord): ProviderViewModel {
+  const normalizedStatus = String(record.status ?? "").trim().toLowerCase();
+  const status: ProviderStatus =
+    normalizedStatus === "inactive" || normalizedStatus === "disabled" ? "inactive" : "active";
+
+  const nameCandidate =
+    typeof record.name === "string" && record.name.trim().length > 0
+      ? record.name
+      : typeof record.title === "string" && record.title.trim().length > 0
+        ? record.title
+        : "Service Provider";
+
+  const cityCandidate =
+    typeof record.city === "string" && record.city.trim().length > 0
+      ? record.city
+      : typeof record.location === "string" && record.location.trim().length > 0
+        ? record.location
+        : typeof record.province === "string" && record.province.trim().length > 0
+          ? record.province
+          : "Unknown City";
+
+  const parsedRating =
+    typeof record.rating === "number"
+      ? record.rating
+      : typeof record.rating === "string"
+        ? Number.parseFloat(record.rating)
+        : Number.NaN;
+
+  return {
+    id: String(record.id ?? nameCandidate),
+    name: nameCandidate,
+    category:
+      typeof record.category === "string" && record.category.trim().length > 0
+        ? record.category
+        : "General Services",
+    city: cityCandidate,
+    rating: Number.isFinite(parsedRating) ? parsedRating : 4.0,
+    isAvailableToday: status === "active",
+    status,
+  };
+}
+
+async function requestProvidersWithLegacyFallback(
+  path: string,
+): Promise<ProviderRecord[] | LegacyServiceRecord[]> {
+  try {
+    const payload = await requestJson<ProviderListPayload>(path);
+    return payload.data;
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 404 || path !== "/providers") {
+      throw error;
+    }
+
+    const payload = await requestJson<{ data: LegacyServiceRecord[] }>("/services");
+    return payload.data;
+  }
+}
+
 export async function fetchProviders(): Promise<ProviderViewModel[]> {
-  const payload = await requestJson<ProviderListPayload>("/providers");
-  return payload.data.map(toViewModel);
+  const rows = await requestProvidersWithLegacyFallback("/providers");
+  if (rows.length === 0) {
+    return [];
+  }
+
+  if ("title" in rows[0] || "location" in rows[0] || "province" in rows[0]) {
+    return (rows as LegacyServiceRecord[]).map(toLegacyViewModel);
+  }
+
+  return (rows as ProviderRecord[]).map(toViewModel);
 }
 
 export async function fetchProviderById(id: string): Promise<ProviderViewModel> {
-  const payload = await requestJson<ProviderDetailPayload>(`/providers/${id}`);
-  return toViewModel(payload.data);
+  try {
+    const payload = await requestJson<ProviderDetailPayload>(`/providers/${id}`);
+    return toViewModel(payload.data);
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 404) {
+      throw error;
+    }
+
+    const payload = await requestJson<{ data: LegacyServiceRecord }>(`/services/${id}`);
+    return toLegacyViewModel(payload.data);
+  }
 }

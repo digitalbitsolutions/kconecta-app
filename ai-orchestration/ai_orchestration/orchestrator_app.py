@@ -199,18 +199,19 @@ class Orchestrator:
             self.audit.log("run_task_dry_run", payload)
             return payload
 
-        file_scope = output.target_files or task.files_scope
+        file_scope = self._resolve_file_scope(task=task, suggested=output.target_files)
         if not file_scope:
             raise RuntimeError(
                 "Task has no file scope. For non dry-run execution provide files_scope in task file."
             )
 
         prompt = self._build_execution_prompt(task, output)
+        executor_model = self._select_executor_model(task)
         execution_result = self.executors.apply_patch(
             worktree=worktree,
             prompt=prompt,
             files=file_scope,
-            model="deepseek-coder:6.7b",
+            model=executor_model,
         )
         changed_files = self.git.changed_files(cwd=worktree)
         self._validate_changed_files_within_scope(changed_files, file_scope, worktree=worktree)
@@ -241,6 +242,7 @@ class Orchestrator:
             "committed_files": committed_files,
             "commit_message": commit_message,
             "executor": execution_result.selected_executor,
+            "executor_model": executor_model,
             "executor_command": execution_result.command,
             "executor_fallback_from": execution_result.fallback_from,
             "executor_fallback_reason": execution_result.fallback_reason,
@@ -255,18 +257,56 @@ class Orchestrator:
         self.audit.log("run_task_apply", payload)
         return payload
 
-    def create_pr(self, agent_name: str, base_branch: str = DEFAULT_BASE_BRANCH) -> dict[str, Any]:
+    def _resolve_file_scope(self, *, task: TaskSpec, suggested: list[str]) -> list[str]:
+        allowed = [item.replace("\\", "/").strip() for item in task.files_scope if item.strip()]
+        if not allowed:
+            return []
+
+        if not suggested:
+            return allowed
+
+        allowed_set = set(allowed)
+        scoped = []
+        for item in suggested:
+            normalized = item.replace("\\", "/").strip()
+            if normalized in allowed_set:
+                scoped.append(normalized)
+
+        return scoped or allowed
+
+    def _select_executor_model(self, task: TaskSpec) -> str:
+        configured = task.metadata.get("executor_model")
+        if isinstance(configured, str) and configured.strip():
+            return configured.strip()
+
+        if task.commit_type in {"docs", "test"}:
+            return "mistral"
+
+        return "deepseek-coder:6.7b"
+
+    def create_pr(
+        self,
+        agent_name: str,
+        base_branch: str = DEFAULT_BASE_BRANCH,
+        issue_key: str | None = None,
+    ) -> dict[str, Any]:
         normalized_agent = agent_name.strip().lower()
         if normalized_agent not in AGENT_BRANCHES:
             raise ValueError(
                 f"Unknown agent '{agent_name}'. Expected: {', '.join(sorted(AGENT_BRANCHES.keys()))}"
             )
 
-        url = self.pr_service.create_draft_pr(normalized_agent, base_branch=base_branch)
+        normalized_issue = issue_key.strip().upper() if issue_key else None
+        url = self.pr_service.create_draft_pr(
+            normalized_agent,
+            base_branch=base_branch,
+            issue_key=normalized_issue,
+        )
         payload = {
             "agent": normalized_agent,
             "branch": AGENT_BRANCHES[normalized_agent],
             "base": base_branch,
+            "issue_key": normalized_issue,
             "pr_url": url,
         }
         self.audit.log("create_pr", payload)
@@ -431,11 +471,150 @@ class Orchestrator:
         self.audit.log("jira_list", payload)
         return payload
 
+    def backend_test_docker(
+        self,
+        *,
+        backend_root: Path | None = None,
+        phpunit_filter: str | None = None,
+        ensure_env_file: bool = True,
+    ) -> dict[str, Any]:
+        resolved_backend = self._resolve_backend_root(backend_root)
+        compose_file = resolved_backend / "docker-compose.yml"
+        if not compose_file.exists():
+            raise FileNotFoundError(
+                f"docker-compose.yml not found in backend root: {resolved_backend}"
+            )
+
+        up_command = [
+            "docker",
+            "compose",
+            "-f",
+            str(compose_file),
+            "up",
+            "-d",
+            "app",
+            "mysql",
+        ]
+        up_result = self.runner.run(up_command, cwd=resolved_backend, check=False, timeout=900)
+        if up_result.returncode != 0:
+            raise RuntimeError(
+                "Failed to start backend docker services.\n"
+                f"stdout:\n{up_result.stdout}\n"
+                f"stderr:\n{up_result.stderr}"
+            )
+
+        env_prepare_result = None
+        if ensure_env_file:
+            env_prepare_command = [
+                "docker",
+                "compose",
+                "-f",
+                str(compose_file),
+                "exec",
+                "-T",
+                "app",
+                "sh",
+                "-lc",
+                "if [ ! -f .env ]; then cp .env.example .env; fi",
+            ]
+            env_prepare_result = self.runner.run(
+                env_prepare_command,
+                cwd=resolved_backend,
+                check=False,
+                timeout=300,
+            )
+            if env_prepare_result.returncode != 0:
+                raise RuntimeError(
+                    "Failed to ensure backend .env file inside app container.\n"
+                    f"stdout:\n{env_prepare_result.stdout}\n"
+                    f"stderr:\n{env_prepare_result.stderr}"
+                )
+
+        testing_overrides = {
+            "APP_ENV": "testing",
+            "CACHE_STORE": "array",
+            "DB_CONNECTION": "sqlite",
+            "DB_DATABASE": ":memory:",
+            "SESSION_DRIVER": "array",
+            "QUEUE_CONNECTION": "sync",
+            "MAIL_MAILER": "array",
+            "BROADCAST_CONNECTION": "null",
+            "PULSE_ENABLED": "false",
+            "TELESCOPE_ENABLED": "false",
+            "NIGHTWATCH_ENABLED": "false",
+        }
+        test_command = [
+            "docker",
+            "compose",
+            "-f",
+            str(compose_file),
+            "exec",
+            "-T",
+        ]
+        for key, value in testing_overrides.items():
+            test_command.extend(["-e", f"{key}={value}"])
+        test_command.extend(["app", "php", "artisan", "test"])
+        if phpunit_filter:
+            test_command.extend(["--filter", phpunit_filter])
+
+        test_result = self.runner.run(
+            test_command,
+            cwd=resolved_backend,
+            check=False,
+            timeout=1800,
+        )
+
+        payload = {
+            "backend_root": str(resolved_backend),
+            "compose_file": str(compose_file),
+            "ensure_env_file": ensure_env_file,
+            "phpunit_filter": phpunit_filter,
+            "up_command": up_command,
+            "up_returncode": up_result.returncode,
+            "env_prepare_command": (
+                env_prepare_result.command if env_prepare_result else None
+            ),
+            "env_prepare_returncode": (
+                env_prepare_result.returncode if env_prepare_result else None
+            ),
+            "command": test_command,
+            "returncode": test_result.returncode,
+            "success": test_result.returncode == 0,
+            "stdout": test_result.stdout,
+            "stderr": test_result.stderr,
+        }
+        self.audit.log("backend_test_docker", payload)
+        return payload
+
     def _validate_task_agent(self, task: TaskSpec, agent_name: str) -> None:
         if task.agent != agent_name:
             raise ValueError(
                 f"Task agent mismatch. Task expects '{task.agent}', command received '{agent_name}'."
             )
+
+    def _resolve_backend_root(self, explicit: Path | None = None) -> Path:
+        candidates: list[Path] = []
+        if explicit:
+            candidates.append(explicit)
+
+        env_path = os.environ.get("CRM_BACKEND_ROOT", "").strip()
+        if env_path:
+            candidates.append(Path(env_path))
+
+        candidates.append(self.repo_root.parent / "kconecta.com" / "web")
+        candidates.append(Path(r"D:\still\kconecta.com\web"))
+
+        for candidate in candidates:
+            root = candidate.expanduser()
+            if (root / "docker-compose.yml").exists():
+                return root
+
+        checked = ", ".join(str(path) for path in candidates)
+        raise FileNotFoundError(
+            "Could not resolve CRM backend root for Docker tests. "
+            f"Checked: {checked}. "
+            "Set CRM_BACKEND_ROOT or pass --backend-root."
+        )
 
     def _build_agent_context(self, task: TaskSpec) -> AgentExecutionContext:
         skills = self.skill_service.resolve_for_task(task)
@@ -514,16 +693,20 @@ class Orchestrator:
 
     def _build_execution_prompt(self, task: TaskSpec, output: Any) -> str:
         validation_text = "\n".join(f"- {step}" for step in output.validation_steps) or "- none"
+        acceptance_text = "\n".join(f"- {item}" for item in task.acceptance_criteria) or "- none"
         file_scope_text = "\n".join(f"- {path}" for path in (output.target_files or task.files_scope))
         return (
-            f"Implement task '{task.id}: {task.title}'.\n"
-            f"Description:\n{task.description}\n\n"
-            f"Plan summary:\n{output.plan_summary}\n\n"
-            f"Required changes:\n{output.proposed_changes}\n\n"
+            "Edit files directly now. Do not ask follow-up questions.\n"
+            f"Task: {task.id} - {task.title}\n"
+            f"Goal: {task.description}\n\n"
             f"Allowed file scope:\n{file_scope_text}\n\n"
-            f"Validation steps:\n{validation_text}\n"
-            "Preserve existing behavior outside scope. "
-            "Only modify files inside Allowed file scope."
+            f"Acceptance criteria:\n{acceptance_text}\n\n"
+            f"Validation checks:\n{validation_text}\n\n"
+            "Constraints:\n"
+            "- Modify only files from Allowed file scope.\n"
+            "- Preserve behavior outside this task.\n"
+            "- Keep changes concise and production-ready.\n"
+            "- Apply edits in-place and finish."
         )
 
     def _save_transcript(self, task_id: str, agent_name: str, transcript: str) -> Path:
@@ -729,6 +912,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     create_pr_parser.add_argument("--agent", required=True, choices=sorted(AGENT_BRANCHES.keys()))
     create_pr_parser.add_argument("--base", default=DEFAULT_BASE_BRANCH)
+    create_pr_parser.add_argument(
+        "--issue",
+        required=False,
+        help="Optional Jira issue key (for example DEV-72) to prefix PR title.",
+    )
 
     approve_parser = subparsers.add_parser(
         "approve-merge",
@@ -823,6 +1011,29 @@ def build_parser() -> argparse.ArgumentParser:
     jira_list_parser.add_argument("--status", default="open")
     jira_list_parser.add_argument("--max-results", type=int, default=20)
 
+    backend_test_parser = subparsers.add_parser(
+        "backend-test-docker",
+        help="Run Laravel backend tests via Docker (no local/XAMPP PHP runtime).",
+    )
+    backend_test_parser.add_argument(
+        "--backend-root",
+        required=False,
+        help=(
+            "Path to CRM backend root with docker-compose.yml. "
+            "If omitted, uses CRM_BACKEND_ROOT or default sibling path."
+        ),
+    )
+    backend_test_parser.add_argument(
+        "--filter",
+        required=False,
+        help="Optional phpunit filter expression.",
+    )
+    backend_test_parser.add_argument(
+        "--skip-ensure-env",
+        action="store_true",
+        help="Skip creating .env inside app container when missing.",
+    )
+
     return parser
 
 
@@ -834,6 +1045,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     orchestrator = Orchestrator(resolve_repo_root())
+    exit_code = 0
     try:
         if args.command == "preflight":
             result = orchestrator.preflight(fix_models=args.fix_models)
@@ -846,7 +1058,11 @@ def main(argv: list[str] | None = None) -> int:
                 dry_run=args.dry_run,
             )
         elif args.command == "create-pr":
-            result = orchestrator.create_pr(agent_name=args.agent, base_branch=args.base)
+            result = orchestrator.create_pr(
+                agent_name=args.agent,
+                base_branch=args.base,
+                issue_key=args.issue,
+            )
         elif args.command == "approve-merge":
             result = orchestrator.approve_merge(pr_id=args.pr)
         elif args.command == "merge-pr":
@@ -897,6 +1113,15 @@ def main(argv: list[str] | None = None) -> int:
                 status=args.status,
                 max_results=args.max_results,
             )
+        elif args.command == "backend-test-docker":
+            backend_root = Path(args.backend_root) if args.backend_root else None
+            result = orchestrator.backend_test_docker(
+                backend_root=backend_root,
+                phpunit_filter=args.filter,
+                ensure_env_file=not args.skip_ensure_env,
+            )
+            if not result.get("success", False):
+                exit_code = 1
         else:
             parser.error(f"Unsupported command: {args.command}")
             return 2
@@ -905,7 +1130,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print(json.dumps(result, indent=2, ensure_ascii=True))
-    return 0
+    return exit_code
 
 
 def _parse_json_params(raw: str, *, params_file: str | None = None) -> dict[str, Any]:

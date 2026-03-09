@@ -4,6 +4,8 @@ type RuntimeEnv = {
   requestTimeoutMs: number;
   stage: "local" | "staging" | "production";
   diagnosticsEnabled: boolean;
+  bootstrapEmail: string;
+  bootstrapPassword: string;
 };
 
 type ProcessLike = {
@@ -58,10 +60,20 @@ function resolveTimeoutMs(): number {
 
 const stage = resolveStage();
 
+function resolveBootstrapEmail(): string {
+  return readEnv("EXPO_PUBLIC_BOOTSTRAP_EMAIL") ?? "manager@kconecta.local";
+}
+
+function resolveBootstrapPassword(): string {
+  return readEnv("EXPO_PUBLIC_BOOTSTRAP_PASSWORD") ?? "kconecta-dev-password";
+}
+
 export const managerEnv: RuntimeEnv = {
   apiBaseUrl: readEnv("EXPO_PUBLIC_API_URL") ?? "http://10.0.2.2:8000/api",
   mobileApiToken: readEnv("EXPO_PUBLIC_MOBILE_API_TOKEN") ?? "kconecta-dev-token",
   requestTimeoutMs: resolveTimeoutMs(),
   stage,
   diagnosticsEnabled: resolveDiagnostics(stage),
+  bootstrapEmail: resolveBootstrapEmail(),
+  bootstrapPassword: resolveBootstrapPassword(),
 };

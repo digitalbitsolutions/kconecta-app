@@ -2,6 +2,49 @@
 
 Repositorio base para el desarrollo de apps nativas (React Native + TypeScript) y la capa de orquestacion AI local.
 
+## Apps nativas (manager/providers)
+
+Este repo ya incluye scaffold React Native (Expo + TypeScript) para:
+
+- `apps/manager`
+- `apps/providers`
+
+### 1) Instalar dependencias
+
+```powershell
+npm install
+```
+
+### 2) Configurar variables por app
+
+```powershell
+Copy-Item apps/manager/.env.example apps/manager/.env
+Copy-Item apps/providers/.env.example apps/providers/.env
+```
+
+### 3) Arrancar en emulador Android
+
+Manager app:
+
+```powershell
+npm run manager:android
+```
+
+Providers app:
+
+```powershell
+npm run provider:android
+```
+
+Comandos utiles:
+
+```powershell
+npm run manager:start
+npm run provider:start
+npm run mobile:typecheck
+npm run mobile:doctor
+```
+
 ## Docker local (DB compartida de desarrollo)
 
 Este repo incluye `docker-compose.yml` para levantar una base MySQL local y Adminer usando el volumen persistente:

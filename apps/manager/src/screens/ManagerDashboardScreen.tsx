@@ -2,7 +2,7 @@
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
-import { getSessionSnapshot } from "../auth/session";
+import { clearSession, getSessionSnapshot } from "../auth/session";
 import KpiCard from "../components/KpiCard";
 import { managerEnv } from "../config/env";
 import type { ManagerStackParamList } from "../navigation";
@@ -13,6 +13,15 @@ type DashboardNavigation = NativeStackNavigationProp<ManagerStackParamList, "Man
 const ManagerDashboardScreen = () => {
   const navigation = useNavigation<DashboardNavigation>();
   const sessionSnapshot = getSessionSnapshot();
+  const roleLabel = sessionSnapshot.role ?? "unknown";
+
+  const onLogout = () => {
+    clearSession();
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "Login" }],
+    });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -47,6 +56,7 @@ const ManagerDashboardScreen = () => {
             <Text style={styles.diagnosticsTitle}>Environment diagnostics</Text>
             <Text style={styles.diagnosticsItem}>Stage: {managerEnv.stage}</Text>
             <Text style={styles.diagnosticsItem}>API: {managerEnv.apiBaseUrl}</Text>
+            <Text style={styles.diagnosticsItem}>Role: {roleLabel}</Text>
             <Text style={styles.diagnosticsItem}>
               Token: {sessionSnapshot.hasToken ? `loaded (${sessionSnapshot.source})` : "missing"}
             </Text>
@@ -59,6 +69,10 @@ const ManagerDashboardScreen = () => {
           <Text style={styles.sectionItem}>- Confirm provider assignment for 3 requests</Text>
           <Text style={styles.sectionItem}>- Resolve 2 maintenance alerts</Text>
         </View>
+
+        <Pressable style={styles.logoutAction} onPress={onLogout}>
+          <Text style={styles.logoutActionText}>Sign out</Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -151,6 +165,19 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSizes.sm,
     lineHeight: 22,
+  },
+  logoutAction: {
+    alignItems: "center",
+    borderColor: colors.danger,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  logoutActionText: {
+    color: colors.danger,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
   },
 });
 
