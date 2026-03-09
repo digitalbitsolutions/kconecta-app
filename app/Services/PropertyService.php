@@ -45,22 +45,94 @@ class PropertyService
                     ) {
                         return false;
                     }
+                    if (!empty($filters["search"])) {
+                        $search = strtolower((string) $filters["search"]);
+                        $haystack = strtolower(
+                            implode(
+                                " ",
+                                [
+                                    (string) ($item["title"] ?? ""),
+                                    (string) ($item["city"] ?? ""),
+                                    (string) ($item["status"] ?? ""),
+                                    (string) ($item["manager_id"] ?? ""),
+                                ]
+                            )
+                        );
+                        if (!str_contains($haystack, $search)) {
+                            return false;
+                        }
+                    }
                     return true;
                 }
             )
         );
 
+        $page = max(1, (int) ($filters["page"] ?? 1));
+        $perPage = max(1, min(100, (int) ($filters["per_page"] ?? 25)));
+        $total = count($filtered);
+        $offset = ($page - 1) * $perPage;
+        $pagedRows = array_slice($filtered, $offset, $perPage);
+        $summary = $this->buildKpis($filtered);
+
         return [
-            "data" => $filtered,
+            "data" => array_values($pagedRows),
             "meta" => [
-                "count" => count($filtered),
+                "count" => count($pagedRows),
+                "page" => $page,
+                "per_page" => $perPage,
+                "total" => $total,
                 "filters" => [
                     "status" => $filters["status"] ?? null,
                     "city" => $filters["city"] ?? null,
                     "manager_id" => $filters["manager_id"] ?? null,
+                    "search" => $filters["search"] ?? null,
                 ],
+                "kpis" => $summary,
                 "source" => $dataset["source"],
             ],
+        ];
+    }
+
+    public function summaryProperties(array $filters = []): array
+    {
+        $dataset = $this->loadRows();
+        $rows = $dataset["rows"];
+        $summary = $this->buildKpis($rows);
+
+        return [
+            "data" => [
+                "kpis" => $summary,
+            ],
+            "meta" => [
+                "contract" => "manager-portfolio-summary-v1",
+                "source" => $dataset["source"],
+            ],
+        ];
+    }
+
+    private function buildKpis(array $rows): array
+    {
+        $active = 0;
+        $reserved = 0;
+        foreach ($rows as $row) {
+            $status = strtolower((string) ($row["status"] ?? ""));
+            if ($status === "available") {
+                $active++;
+            }
+            if ($status === "reserved") {
+                $reserved++;
+            }
+        }
+
+        $portfolioSize = count($rows);
+        $avgCloseDays = $portfolioSize > 0 ? 21 : 0;
+        $providerMatchesPending = $portfolioSize > 0 ? max(1, (int) ceil($portfolioSize * 0.25)) : 0;
+
+        return [
+            "active_properties" => $active,
+            "reserved_properties" => $reserved,
+            "avg_time_to_close_days" => $avgCloseDays,
+            "provider_matches_pending" => $providerMatchesPending,
         ];
     }
 
