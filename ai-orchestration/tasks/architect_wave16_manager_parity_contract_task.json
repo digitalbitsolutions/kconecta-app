@@ -19,7 +19,7 @@
     "wave": "wave16",
     "stack": "React Native with TypeScript",
     "executor_model": "ollama_chat/llama3.1:8b",
-    "skills": ["architecture-core"],
+    "skills": ["architect-core"],
     "rag": {
       "enabled": true,
       "top_k": 4
