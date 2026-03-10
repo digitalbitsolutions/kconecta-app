@@ -166,6 +166,29 @@ Validate end-to-end functional behavior of native app API contracts before relea
 4. `DEV-82` -> Mobile manager dashboard/property screens wired to real API data.
 5. `DEV-83` -> Regression matrix + API assertions in `tests/Feature/Api/Wave16RegressionMatrixTest.php`.
 
+## Wave 17 Manager Property Actions Matrix
+
+1. Manager mutation contract (`DEV-88`, `DEV-86`, `DEV-87`)
+  - `/api/properties/{id}/reserve` returns `meta.contract=property-mutation-v1` and `meta.flow=properties_reserve`.
+  - `/api/properties/{id}/release` returns `meta.contract=property-mutation-v1` and `meta.flow=properties_release`.
+  - `PATCH /api/properties/{id}` returns `meta.contract=property-mutation-v1` and `meta.flow=properties_update`.
+2. Conflict and guardrail behavior (`DEV-88`, `DEV-87`)
+  - Reserving an already reserved property returns `409 PROPERTY_STATE_CONFLICT` with deterministic `meta.reason`.
+  - Updating with unchanged status returns `409 PROPERTY_STATE_CONFLICT`.
+  - Provider role access to manager mutations returns `403 ROLE_SCOPE_FORBIDDEN`.
+  - Invalid/missing token on manager mutation routes returns `401 TOKEN_INVALID`.
+3. Baseline safety (`DEV-87`)
+  - Wave 16 manager portfolio list/detail contract remains stable while mutation routes are introduced.
+  - Wave 14/15 provider availability ownership/revision behavior remains unchanged.
+
+## Wave 17 Ticket Mapping
+
+1. `DEV-84` -> Wave 17 orchestration epic and rollout tracking.
+2. `DEV-85` -> Manager property mutation architecture contract/state map.
+3. `DEV-88` -> Backend reserve/release/status mutation endpoints and deterministic envelope.
+4. `DEV-86` -> Mobile manager property actions wired to mutation API and UX feedback states.
+5. `DEV-87` -> Regression matrix and API assertions in `tests/Feature/Api/Wave17RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -183,6 +206,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 11. Run Wave 14 provider identity regression suite and record ownership guard behavior (`PROVIDER_IDENTITY_MISMATCH` + admin override path).
 12. Run Wave 15 revision conflict suite and record stale-write behavior (`AVAILABILITY_REVISION_CONFLICT` + reload path).
 13. Run Wave 16 manager parity regression suite and record auth + portfolio contract evidence.
+14. Run Wave 17 manager mutation regression suite and record reserve/release/update guardrail evidence.
 
 ## Entry Criteria
 
