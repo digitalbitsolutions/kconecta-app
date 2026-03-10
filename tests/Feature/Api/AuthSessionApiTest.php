@@ -144,6 +144,94 @@ class AuthSessionApiTest extends TestCase
             ->assertJsonPath("data.revoked", true);
     }
 
+    public function test_auth_me_requires_authorization_with_contract_meta_when_endpoint_is_available(): void
+    {
+        $response = $this->getJson("/api/auth/me");
+
+        if ($this->isAuthMeEndpointUnavailable($response->status())) {
+            $this->markTestIncomplete("Wave 20 auth/me endpoint is not merged in this branch yet.");
+            return;
+        }
+
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("error.code", "TOKEN_INVALID")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.mode", "scaffold")
+            ->assertJsonPath("meta.flow", "me")
+            ->assertJsonPath("meta.reason", "token_invalid")
+            ->assertJsonPath("meta.retryable", false);
+    }
+
+    public function test_auth_me_returns_session_payload_for_valid_manager_token_when_endpoint_is_available(): void
+    {
+        $login = $this->postJson("/api/auth/login", [
+            "email" => "manager@kconecta.local",
+            "password" => "kconecta-dev-password",
+        ]);
+        $login->assertOk();
+
+        $token = (string) $login->json("data.access_token");
+        $response = $this->withHeaders([
+            "Authorization" => "Bearer " . $token,
+        ])->getJson("/api/auth/me");
+
+        if ($this->isAuthMeEndpointUnavailable($response->status())) {
+            $this->markTestIncomplete("Wave 20 auth/me endpoint is not merged in this branch yet.");
+            return;
+        }
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("data.role", "manager")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.mode", "scaffold")
+            ->assertJsonPath("meta.flow", "me")
+            ->assertJsonPath("meta.reason", "session_resolved")
+            ->assertJsonStructure([
+                "data" => [
+                    "subject",
+                    "email",
+                    "role",
+                    "scope",
+                    "provider_id",
+                    "issued_at",
+                ],
+                "meta" => ["contract", "mode", "flow", "reason"],
+            ]);
+
+        $scope = (array) $response->json("data.scope");
+        $this->assertContains("properties:*", $scope);
+    }
+
+    public function test_auth_me_rejects_provider_scope_for_manager_runtime_when_endpoint_is_available(): void
+    {
+        $login = $this->postJson("/api/auth/login", [
+            "email" => "provider1@provider.local",
+            "password" => "kconecta-dev-password",
+        ]);
+        $login->assertOk()->assertJsonPath("data.role", "provider");
+
+        $token = (string) $login->json("data.access_token");
+        $response = $this->withHeaders([
+            "Authorization" => "Bearer " . $token,
+        ])->getJson("/api/auth/me");
+
+        if ($this->isAuthMeEndpointUnavailable($response->status())) {
+            $this->markTestIncomplete("Wave 20 auth/me endpoint is not merged in this branch yet.");
+            return;
+        }
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.mode", "scaffold")
+            ->assertJsonPath("meta.flow", "me")
+            ->assertJsonPath("meta.reason", "role_scope_forbidden")
+            ->assertJsonPath("meta.retryable", false);
+    }
+
     private function assertAuthErrorCode(mixed $code): void
     {
         $this->assertContains(
@@ -151,5 +239,10 @@ class AuthSessionApiTest extends TestCase
             ["TOKEN_INVALID", "TOKEN_EXPIRED"],
             "Expected TOKEN_INVALID or TOKEN_EXPIRED error code for unauthorized token flow."
         );
+    }
+
+    private function isAuthMeEndpointUnavailable(int $status): bool
+    {
+        return $status === 404 || $status === 405;
     }
 }

@@ -238,6 +238,29 @@ Validate end-to-end functional behavior of native app API contracts before relea
 4. `DEV-97` -> Mobile manager handoff UI/API wiring.
 5. `DEV-98` -> Regression matrix + API assertions in `tests/Feature/Api/Wave19RegressionMatrixTest.php`.
 
+## Wave 20 Manager Login-First Session Matrix
+
+1. Login-first bootstrap contract (`DEV-100`, `DEV-102`, `DEV-103`)
+  - Manager app boot resolves session through `/api/auth/me` before entering dashboard route.
+  - Missing token routes to `Login`.
+  - `401 TOKEN_INVALID/TOKEN_EXPIRED` routes to `SessionExpired`.
+  - `403 ROLE_SCOPE_FORBIDDEN` routes to `Unauthorized`.
+2. Auth introspection endpoint contract (`DEV-101`, `DEV-103`)
+  - `GET /api/auth/me` returns deterministic `auth-session-v1` envelope for valid manager/admin session.
+  - Unauthorized requests return deterministic `401` envelope with `flow=me`.
+  - Provider-scope session against manager runtime contract returns deterministic `403 ROLE_SCOPE_FORBIDDEN`.
+3. Cross-wave baseline protection (`DEV-103`)
+  - Wave 16 manager portfolio read contract remains stable.
+  - Wave 17-19 manager property mutation + provider handoff contracts remain stable while login-first flow is introduced.
+
+## Wave 20 Ticket Mapping
+
+1. `DEV-99` -> Wave 20 orchestration epic and rollout tracking.
+2. `DEV-100` -> Manager login-first architecture/session contract.
+3. `DEV-101` -> Backend `/api/auth/me` session introspection endpoint.
+4. `DEV-102` -> Mobile login-first bootstrap and deterministic auth fallback routing.
+5. `DEV-103` -> Regression matrix + API assertions in `tests/Feature/Api/Wave20RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -258,6 +281,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 14. Run Wave 17 manager mutation regression suite and record reserve/release/update guardrail evidence.
 15. Run Wave 18 manager auth/property-form regression suite and record validation field-map + create/edit evidence.
 16. Run Wave 19 manager-provider handoff regression suite and record candidates/assignment envelope evidence.
+17. Run Wave 20 login-first session regression suite and record bootstrap/auth-me deterministic routing evidence.
 
 ## Entry Criteria
 
