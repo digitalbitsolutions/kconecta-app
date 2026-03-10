@@ -478,17 +478,45 @@ class Orchestrator:
         phpunit_filter: str | None = None,
         ensure_env_file: bool = True,
     ) -> dict[str, Any]:
-        resolved_backend = self._resolve_backend_root(backend_root)
+        requested_backend = self._resolve_backend_root(backend_root)
+        resolved_backend = requested_backend
         compose_file = resolved_backend / "docker-compose.yml"
         if not compose_file.exists():
             raise FileNotFoundError(
                 f"docker-compose.yml not found in backend root: {resolved_backend}"
             )
 
-        app_service, db_service, available_services = self._resolve_compose_services(
-            compose_file=compose_file,
-            backend_root=resolved_backend,
-        )
+        fallback_applied = False
+        fallback_reason: str | None = None
+        fallback_backend_root: str | None = None
+        try:
+            app_service, db_service, available_services = self._resolve_compose_services(
+                compose_file=compose_file,
+                backend_root=resolved_backend,
+            )
+        except RuntimeError as exc:
+            if "No PHP app service found in docker-compose.yml." not in str(exc):
+                raise
+
+            fallback_candidate = self._find_backend_root_with_php_service(
+                exclude={resolved_backend.resolve()},
+            )
+            if fallback_candidate is None:
+                raise RuntimeError(
+                    f"{exc}\n"
+                    "No fallback backend with PHP app service was found. "
+                    "Set CRM_BACKEND_ROOT to your Laravel backend root or pass --backend-root."
+                ) from exc
+
+            fallback_applied = True
+            fallback_reason = str(exc)
+            fallback_backend_root = str(fallback_candidate)
+            resolved_backend = fallback_candidate
+            compose_file = resolved_backend / "docker-compose.yml"
+            app_service, db_service, available_services = self._resolve_compose_services(
+                compose_file=compose_file,
+                backend_root=resolved_backend,
+            )
 
         up_command = [
             "docker",
@@ -504,7 +532,9 @@ class Orchestrator:
         up_result = self.runner.run(up_command, cwd=resolved_backend, check=False, timeout=900)
         if up_result.returncode != 0:
             raise RuntimeError(
-                "Failed to start backend docker services.\n"
+                f"Failed to start backend docker services in: {resolved_backend}\n"
+                f"Requested backend root: {requested_backend}\n"
+                f"Fallback applied: {fallback_applied}\n"
                 f"stdout:\n{up_result.stdout}\n"
                 f"stderr:\n{up_result.stderr}"
             )
@@ -571,7 +601,11 @@ class Orchestrator:
         )
 
         payload = {
+            "requested_backend_root": str(requested_backend),
             "backend_root": str(resolved_backend),
+            "fallback_applied": fallback_applied,
+            "fallback_reason": fallback_reason,
+            "fallback_backend_root": fallback_backend_root,
             "compose_file": str(compose_file),
             "app_service": app_service,
             "db_service": db_service,
@@ -602,16 +636,7 @@ class Orchestrator:
             )
 
     def _resolve_backend_root(self, explicit: Path | None = None) -> Path:
-        candidates: list[Path] = []
-        if explicit:
-            candidates.append(explicit)
-
-        env_path = os.environ.get("CRM_BACKEND_ROOT", "").strip()
-        if env_path:
-            candidates.append(Path(env_path))
-
-        candidates.append(self.repo_root.parent / "kconecta.com" / "web")
-        candidates.append(Path(r"D:\still\kconecta.com\web"))
+        candidates = self._candidate_backend_roots(explicit=explicit)
 
         for candidate in candidates:
             root = candidate.expanduser()
@@ -625,12 +650,50 @@ class Orchestrator:
             "Set CRM_BACKEND_ROOT or pass --backend-root."
         )
 
-    def _resolve_compose_services(
+    def _candidate_backend_roots(self, explicit: Path | None = None) -> list[Path]:
+        candidates: list[Path] = []
+        if explicit:
+            candidates.append(explicit)
+
+        env_path = os.environ.get("CRM_BACKEND_ROOT", "").strip()
+        if env_path:
+            candidates.append(Path(env_path))
+
+        candidates.append(self.repo_root.parent / "kconecta.com" / "web")
+        candidates.append(Path(r"D:\still\kconecta.com\web"))
+        return candidates
+
+    def _find_backend_root_with_php_service(
+        self,
+        *,
+        exclude: set[Path] | None = None,
+    ) -> Path | None:
+        excluded = {path.resolve() for path in (exclude or set())}
+        for candidate in self._candidate_backend_roots():
+            root = candidate.expanduser()
+            if root.resolve() in excluded:
+                continue
+            compose_file = root / "docker-compose.yml"
+            if not compose_file.exists():
+                continue
+            available = self._inspect_compose_services(
+                compose_file=compose_file,
+                backend_root=root,
+            )
+            if self._select_service(
+                available=available,
+                explicit=os.environ.get("CRM_APP_SERVICE", "").strip() or None,
+                candidates=["app", "php", "backend"],
+            ):
+                return root
+        return None
+
+    def _inspect_compose_services(
         self,
         *,
         compose_file: Path,
         backend_root: Path,
-    ) -> tuple[str, str | None, set[str]]:
+    ) -> set[str]:
         services_result = self.runner.run(
             ["docker", "compose", "-f", str(compose_file), "config", "--services"],
             cwd=backend_root,
@@ -644,11 +707,22 @@ class Orchestrator:
                 f"stderr:\n{services_result.stderr}"
             )
 
-        available = {
+        return {
             line.strip()
             for line in services_result.stdout.splitlines()
             if line.strip()
         }
+
+    def _resolve_compose_services(
+        self,
+        *,
+        compose_file: Path,
+        backend_root: Path,
+    ) -> tuple[str, str | None, set[str]]:
+        available = self._inspect_compose_services(
+            compose_file=compose_file,
+            backend_root=backend_root,
+        )
         app_service = self._select_service(
             available=available,
             explicit=os.environ.get("CRM_APP_SERVICE", "").strip() or None,
