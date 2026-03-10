@@ -1,0 +1,29 @@
+{
+  "id": "QA-016",
+  "title": "Add Wave 17 manager property actions regression matrix",
+  "description": "Expand QA coverage with manager property mutation regressions, including reserve/release/status transitions, auth failures, and conflict handling.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/Wave17RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix includes happy-path and failure-path coverage for manager property actions",
+    "API tests assert mutation response contract and role/session guardrails",
+    "Previous wave manager/provider baseline remains green after mutation flow changes"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave17",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "skills": [
+      "qa-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}
