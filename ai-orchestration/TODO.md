@@ -1,65 +1,55 @@
-﻿# TODO prioritario - Reanudacion de orquestacion
+# TODO prioritario - Wave 18
 
-Fecha: 2026-03-09
+Fecha: 2026-03-10
 Repo objetivo: `D:\still\kconecta-app`
-Estado: app manager arrancable en emulador; Wave 16 abierta para cerrar brecha hacia 1:1 con CRM.
 
-## Estado actual verificado
+## Estado
 
-- Manager app inicia y renderiza Dashboard en Android Emulator con Expo Go.
-- Providers app tambien tiene scaffold funcional.
-- Jira + GitHub vinculados (repositorio `digitalbitsolutions/kconecta-app` conectado en Code).
-- Wave 16 creada y publicada en Jira:
-  - `DEV-79` epic (To Do)
-  - `DEV-80` architect (In Progress)
-  - `DEV-81` backend (To Do)
-  - `DEV-82` mobile (To Do)
-  - `DEV-83` qa (To Do)
+- Wave activa: `Wave 18 - Manager auth hardening and property form parity`.
+- Jira abierto: `DEV-89`, `DEV-90`, `DEV-91`, `DEV-92`, `DEV-93` (todos `In Progress`).
+- PRs draft abiertos:
+  - `#76` architect
+  - `#77` backend
+  - `#78` mobile
+  - `#79` qa (CONFLICTING)
 
-## Decisiones operativas vigentes
+## P0 (inmediato)
 
-- Ejecutar con `AI_EXECUTOR=aider` (OpenClaw en observacion).
-- Mantener merge gate humano (`approve-merge` + `merge-pr`).
-- No usar comandos destructivos.
-- Entorno backend/testing: Docker Desktop (sin XAMPP).
-- Politica tecnica activa: runner bloquea `xampp` y `php` host; usar Docker (`backend-test-docker` o MCP docker).
+- [ ] Resolver conflicto de `#79` (`agent/qa` vs `main`).
+- [ ] Revisar y aprobar `#76`.
+- [ ] Ejecutar `approve-merge` + `merge-pr` para `#76`.
+- [ ] Revisar y aprobar `#77`.
+- [ ] Ejecutar `approve-merge` + `merge-pr` para `#77`.
+- [ ] Revisar y aprobar `#78`.
+- [ ] Ejecutar `approve-merge` + `merge-pr` para `#78`.
+- [ ] Revalidar `#79` tras rebase/merge de `main`, luego aprobar y merge.
+- [ ] Transicionar Jira a `Done` (`DEV-90/91/93/92`) y cerrar epic `DEV-89`.
 
-## Pendientes P0 (siguiente sesion)
+## P1
 
-- [ ] Ejecutar `DEV-80` (architect) y abrir PR draft con issue key.
-- [ ] Ejecutar `DEV-81` (backend) y abrir PR draft con issue key.
-- [ ] Ejecutar `DEV-82` (mobile) y abrir PR draft con issue key.
-- [ ] Ejecutar `DEV-83` (qa) y abrir PR draft con issue key.
+- [ ] Smoke test manager en emulador con `main` mergeado:
+  - login manager
+  - listado de propiedades
+  - crear propiedad
+  - editar propiedad
+  - validar refresco list/detail
+- [ ] Definir Wave 19 con foco en paridad de acciones avanzadas del CRM manager.
 
-## Pendientes P1
+## Restricciones activas
 
-- [ ] Cobertura QA de regresion auth + disponibilidad.
-- [ ] Hardening de errores de red y sesion expirada en ambas apps.
-- [ ] Checklist de release interno (build profile, envs, smoke en emulador).
+- [x] No usar XAMPP.
+- [x] Backend/testing por Docker.
+- [x] No usar comandos destructivos.
+- [x] Mantener `AI_EXECUTOR=aider`.
 
-## Comandos estables (Expo en emulador)
-
-```powershell
-cd D:\still\kconecta-app\apps\manager
-npx expo start --go --lan --port 8088 --clear
-```
-
-En otra terminal:
+## Comandos base
 
 ```powershell
-adb -s emulator-5554 shell pm clear host.exp.exponent
-adb -s emulator-5554 reverse --remove-all
-adb -s emulator-5554 reverse tcp:8088 tcp:8088
-adb -s emulator-5554 shell am start -a android.intent.action.VIEW -d exp://127.0.0.1:8088
-```
-
-## Prompt recomendado para retomar con Codex
-
-```text
-Continuemos en kconecta-app desde el ultimo snapshot.
-1) Mantén AI_EXECUTOR=aider.
-2) Revisa Jira abierto de la wave activa y PRs abiertos.
-3) Ejecuta el ciclo backend -> mobile -> qa con PRs y actualización Jira.
-4) No uses comandos destructivos.
-5) Reporta avances y bloqueos brevemente en cada paso.
+cd D:\still\kconecta-app
+$env:AI_EXECUTOR='aider'
+$env:AIDER_EDIT_FORMAT='diff'
+$env:AIDER_EXEC_TIMEOUT_SECONDS='600'
+py ai-orchestration/orchestrator.py preflight
+gh pr list --state open --limit 20
+py ai-orchestration/orchestrator.py jira-list --max-results 20
 ```
