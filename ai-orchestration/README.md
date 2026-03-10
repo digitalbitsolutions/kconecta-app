@@ -110,6 +110,7 @@ Executor environment variables:
 - `AI_MAX_DIFF_FILES` (default: `25`)
 - `AI_MAX_DIFF_LINES` (default: `1200`)
 - `AI_ALLOW_LARGE_DIFF=true|false` (default: `false`)
+- `AI_ALLOW_HOST_PHP=true|false` (default: `false`, host PHP/XAMPP blocked)
 - `CRM_BACKEND_ROOT` (optional): absolute path to CRM Laravel backend root for Docker test runs
 
 ## Commands
@@ -251,6 +252,12 @@ Call MCP action:
 
 ```powershell
 py ai-orchestration/orchestrator.py mcp-call --server filesystem --action read_text --params '{"path":"ai-orchestration/README.md","max_chars":1200}'
+```
+
+Run backend Laravel tests through MCP (Docker-only, no XAMPP):
+
+```powershell
+py ai-orchestration/orchestrator.py mcp-call --server docker --action run_backend_tests --params '{"backend_root":"D:\\still\\kconecta.com\\web","filter":"AuthenticationTest"}'
 ```
 
 If your shell escapes JSON poorly, use `--params-file`:
@@ -412,6 +419,9 @@ The orchestration scaffold itself does not modify database data.
   - Keep fallback executor (`aider`) until the coding-agent OpenClaw distribution is installed.
 - `Aider not found`:
   - Install `aider-chat` or use `py -m aider.main` fallback path.
+- `Host PHP or XAMPP command blocked`:
+  - This is intentional policy.
+  - Use `backend-test-docker` or MCP `docker.run_backend_tests`.
 - `Large uncontrolled diff blocked`:
   - Reduce file scope or split the task.
   - Only if intentional, set `AI_ALLOW_LARGE_DIFF=true`.

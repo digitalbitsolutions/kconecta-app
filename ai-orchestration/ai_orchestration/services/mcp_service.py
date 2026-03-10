@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -119,32 +120,215 @@ class LocalMcpService:
         raise ValueError(f"Unsupported ollama MCP action '{action}'.")
 
     def _call_docker(self, action: str, params: dict[str, Any]) -> Any:
-        if action != "list_containers":
-            raise ValueError(f"Unsupported docker MCP action '{action}'.")
+        if action == "list_containers":
+            result = self.runner.run(
+                [
+                    "docker",
+                    "ps",
+                    "--format",
+                    "{{json .}}",
+                ],
+                check=False,
+                timeout=120,
+            )
+            if result.returncode != 0:
+                return {"available": False, "error": result.stderr or result.stdout}
 
-        result = self.runner.run(
-            [
-                "docker",
-                "ps",
-                "--format",
-                "{{json .}}",
-            ],
+            containers = []
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    containers.append(json.loads(line))
+                except json.JSONDecodeError:
+                    containers.append({"raw": line})
+            return {"available": True, "containers": containers}
+
+        if action == "run_backend_tests":
+            return self._run_backend_tests(params)
+
+        raise ValueError(f"Unsupported docker MCP action '{action}'.")
+
+    def _run_backend_tests(self, params: dict[str, Any]) -> dict[str, Any]:
+        backend_root = self._resolve_backend_root(str(params.get("backend_root", "")).strip())
+        compose_file = backend_root / "docker-compose.yml"
+        if not compose_file.exists():
+            raise ValueError(f"docker-compose.yml not found in backend root: {backend_root}")
+
+        services_result = self.runner.run(
+            ["docker", "compose", "-f", str(compose_file), "config", "--services"],
+            cwd=backend_root,
             check=False,
             timeout=120,
         )
-        if result.returncode != 0:
-            return {"available": False, "error": result.stderr or result.stdout}
+        if services_result.returncode != 0:
+            return {
+                "success": False,
+                "backend_root": str(backend_root),
+                "error": services_result.stderr or services_result.stdout,
+            }
 
-        containers = []
-        for line in result.stdout.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                containers.append(json.loads(line))
-            except json.JSONDecodeError:
-                containers.append({"raw": line})
-        return {"available": True, "containers": containers}
+        available_services = {
+            line.strip()
+            for line in services_result.stdout.splitlines()
+            if line.strip()
+        }
+        app_service = self._select_service(
+            available=available_services,
+            explicit=str(params.get("app_service", "")).strip() or None,
+            candidates=["app", "php", "backend"],
+        )
+        if not app_service:
+            raise ValueError(
+                "No PHP app service found in compose file. "
+                f"Available services: {sorted(available_services)}"
+            )
+
+        db_service = self._select_service(
+            available=available_services,
+            explicit=str(params.get("db_service", "")).strip() or None,
+            candidates=["mysql", "db", "database"],
+        )
+
+        up_command = ["docker", "compose", "-f", str(compose_file), "up", "-d", app_service]
+        if db_service:
+            up_command.append(db_service)
+
+        up_result = self.runner.run(
+            up_command,
+            cwd=backend_root,
+            check=False,
+            timeout=900,
+        )
+        if up_result.returncode != 0:
+            return {
+                "success": False,
+                "backend_root": str(backend_root),
+                "command": up_command,
+                "stdout": up_result.stdout,
+                "stderr": up_result.stderr,
+            }
+
+        ensure_env_file = bool(params.get("ensure_env_file", True))
+        env_prepare_result = None
+        if ensure_env_file:
+            env_prepare_command = [
+                "docker",
+                "compose",
+                "-f",
+                str(compose_file),
+                "exec",
+                "-T",
+                app_service,
+                "sh",
+                "-lc",
+                "if [ ! -f .env ]; then cp .env.example .env; fi",
+            ]
+            env_prepare_result = self.runner.run(
+                env_prepare_command,
+                cwd=backend_root,
+                check=False,
+                timeout=300,
+            )
+            if env_prepare_result.returncode != 0:
+                return {
+                    "success": False,
+                    "backend_root": str(backend_root),
+                    "command": env_prepare_command,
+                    "stdout": env_prepare_result.stdout,
+                    "stderr": env_prepare_result.stderr,
+                }
+
+        overrides = {
+            "APP_ENV": "testing",
+            "CACHE_STORE": "array",
+            "DB_CONNECTION": "sqlite",
+            "DB_DATABASE": ":memory:",
+            "SESSION_DRIVER": "array",
+            "QUEUE_CONNECTION": "sync",
+            "MAIL_MAILER": "array",
+            "BROADCAST_CONNECTION": "null",
+            "PULSE_ENABLED": "false",
+            "TELESCOPE_ENABLED": "false",
+            "NIGHTWATCH_ENABLED": "false",
+        }
+        test_command = [
+            "docker",
+            "compose",
+            "-f",
+            str(compose_file),
+            "exec",
+            "-T",
+        ]
+        for key, value in overrides.items():
+            test_command.extend(["-e", f"{key}={value}"])
+        test_command.extend([app_service, "php", "artisan", "test"])
+
+        phpunit_filter = str(params.get("filter", "")).strip()
+        if phpunit_filter:
+            test_command.extend(["--filter", phpunit_filter])
+
+        test_result = self.runner.run(
+            test_command,
+            cwd=backend_root,
+            check=False,
+            timeout=1800,
+        )
+        return {
+            "success": test_result.returncode == 0,
+            "backend_root": str(backend_root),
+            "compose_file": str(compose_file),
+            "app_service": app_service,
+            "db_service": db_service,
+            "ensure_env_file": ensure_env_file,
+            "filter": phpunit_filter or None,
+            "command": test_command,
+            "returncode": test_result.returncode,
+            "stdout": test_result.stdout,
+            "stderr": test_result.stderr,
+            "env_prepare_returncode": (
+                env_prepare_result.returncode if env_prepare_result else None
+            ),
+        }
+
+    def _select_service(
+        self,
+        *,
+        available: set[str],
+        explicit: str | None,
+        candidates: list[str],
+    ) -> str | None:
+        if explicit:
+            return explicit if explicit in available else None
+
+        for candidate in candidates:
+            if candidate in available:
+                return candidate
+        return None
+
+    def _resolve_backend_root(self, explicit: str) -> Path:
+        candidates: list[Path] = []
+        if explicit:
+            candidates.append(Path(explicit))
+
+        env_path = os.environ.get("CRM_BACKEND_ROOT", "").strip()
+        if env_path:
+            candidates.append(Path(env_path))
+
+        candidates.append(self.repo_root.parent / "kconecta.com" / "web")
+        candidates.append(Path(r"D:\still\kconecta.com\web"))
+
+        for candidate in candidates:
+            root = candidate.expanduser()
+            if (root / "docker-compose.yml").exists():
+                return root
+
+        checked = ", ".join(str(path) for path in candidates)
+        raise ValueError(
+            "Could not resolve backend root for docker tests. "
+            f"Checked: {checked}. Set CRM_BACKEND_ROOT or pass backend_root param."
+        )
 
     def _resolve_repo_path(self, raw_path: str) -> Path:
         candidate = (self.repo_root / raw_path).resolve()
@@ -203,8 +387,8 @@ class LocalMcpService:
                 },
                 "docker": {
                     "enabled": True,
-                    "description": "Read-only container listing from local Docker Desktop.",
-                    "actions": {"list_containers": {}},
+                    "description": "Docker-only runtime for backend checks (no XAMPP).",
+                    "actions": {"list_containers": {}, "run_backend_tests": {}},
                 },
             }
         }

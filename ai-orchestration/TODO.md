@@ -22,6 +22,7 @@ Estado: app manager arrancable en emulador; Wave 16 abierta para cerrar brecha h
 - Mantener merge gate humano (`approve-merge` + `merge-pr`).
 - No usar comandos destructivos.
 - Entorno backend/testing: Docker Desktop (sin XAMPP).
+- Politica tecnica activa: runner bloquea `xampp` y `php` host; usar Docker (`backend-test-docker` o MCP docker).
 
 ## Pendientes P0 (siguiente sesion)
 

@@ -1,3 +1,9 @@
+policy:
+  php_runtime: docker_only
+  disallow:
+    - xampp
+    - host_php
+
 servers:
   git:
     enabled: true
@@ -23,6 +29,7 @@ servers:
 
   docker:
     enabled: true
-    description: "Read-only local Docker container listing."
+    description: "Docker-only runtime for backend checks (no XAMPP)."
     actions:
       list_containers: {}
+      run_backend_tests: {}

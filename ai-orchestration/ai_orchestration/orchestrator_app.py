@@ -485,6 +485,11 @@ class Orchestrator:
                 f"docker-compose.yml not found in backend root: {resolved_backend}"
             )
 
+        app_service, db_service, available_services = self._resolve_compose_services(
+            compose_file=compose_file,
+            backend_root=resolved_backend,
+        )
+
         up_command = [
             "docker",
             "compose",
@@ -492,9 +497,10 @@ class Orchestrator:
             str(compose_file),
             "up",
             "-d",
-            "app",
-            "mysql",
+            app_service,
         ]
+        if db_service:
+            up_command.append(db_service)
         up_result = self.runner.run(up_command, cwd=resolved_backend, check=False, timeout=900)
         if up_result.returncode != 0:
             raise RuntimeError(
@@ -512,7 +518,7 @@ class Orchestrator:
                 str(compose_file),
                 "exec",
                 "-T",
-                "app",
+                app_service,
                 "sh",
                 "-lc",
                 "if [ ! -f .env ]; then cp .env.example .env; fi",
@@ -553,7 +559,7 @@ class Orchestrator:
         ]
         for key, value in testing_overrides.items():
             test_command.extend(["-e", f"{key}={value}"])
-        test_command.extend(["app", "php", "artisan", "test"])
+        test_command.extend([app_service, "php", "artisan", "test"])
         if phpunit_filter:
             test_command.extend(["--filter", phpunit_filter])
 
@@ -567,6 +573,9 @@ class Orchestrator:
         payload = {
             "backend_root": str(resolved_backend),
             "compose_file": str(compose_file),
+            "app_service": app_service,
+            "db_service": db_service,
+            "available_services": sorted(available_services),
             "ensure_env_file": ensure_env_file,
             "phpunit_filter": phpunit_filter,
             "up_command": up_command,
@@ -615,6 +624,63 @@ class Orchestrator:
             f"Checked: {checked}. "
             "Set CRM_BACKEND_ROOT or pass --backend-root."
         )
+
+    def _resolve_compose_services(
+        self,
+        *,
+        compose_file: Path,
+        backend_root: Path,
+    ) -> tuple[str, str | None, set[str]]:
+        services_result = self.runner.run(
+            ["docker", "compose", "-f", str(compose_file), "config", "--services"],
+            cwd=backend_root,
+            check=False,
+            timeout=120,
+        )
+        if services_result.returncode != 0:
+            raise RuntimeError(
+                "Failed to inspect docker compose services.\n"
+                f"stdout:\n{services_result.stdout}\n"
+                f"stderr:\n{services_result.stderr}"
+            )
+
+        available = {
+            line.strip()
+            for line in services_result.stdout.splitlines()
+            if line.strip()
+        }
+        app_service = self._select_service(
+            available=available,
+            explicit=os.environ.get("CRM_APP_SERVICE", "").strip() or None,
+            candidates=["app", "php", "backend"],
+        )
+        if not app_service:
+            raise RuntimeError(
+                "No PHP app service found in docker-compose.yml. "
+                f"Available services: {sorted(available)}"
+            )
+
+        db_service = self._select_service(
+            available=available,
+            explicit=os.environ.get("CRM_DB_SERVICE", "").strip() or None,
+            candidates=["mysql", "db", "database"],
+        )
+        return app_service, db_service, available
+
+    def _select_service(
+        self,
+        *,
+        available: set[str],
+        explicit: str | None,
+        candidates: list[str],
+    ) -> str | None:
+        if explicit:
+            return explicit if explicit in available else None
+
+        for candidate in candidates:
+            if candidate in available:
+                return candidate
+        return None
 
     def _build_agent_context(self, task: TaskSpec) -> AgentExecutionContext:
         skills = self.skill_service.resolve_for_task(task)

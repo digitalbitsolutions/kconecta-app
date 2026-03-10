@@ -35,6 +35,7 @@ class CommandRunner:
         timeout: int = 600,
         env: dict[str, str] | None = None,
     ) -> CommandResult:
+        self._enforce_runtime_policy(command)
         process = subprocess.run(
             command,
             cwd=str(cwd) if cwd else None,
@@ -61,3 +62,26 @@ class CommandRunner:
         if extra:
             base.update(extra)
         return base
+
+    def _enforce_runtime_policy(self, command: list[str]) -> None:
+        if not command:
+            return
+
+        joined = " ".join(command).lower()
+        if "xampp" in joined:
+            raise RuntimeError(
+                "XAMPP usage is blocked by policy. Use Docker-based commands instead."
+            )
+
+        allow_host_php = os.environ.get("AI_ALLOW_HOST_PHP", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        executable = Path(command[0]).name.lower()
+        if executable in {"php", "php.exe"} and not allow_host_php:
+            raise RuntimeError(
+                "Host PHP execution is blocked by policy. Use `docker compose exec app php ...` "
+                "or `py ai-orchestration/orchestrator.py backend-test-docker`."
+            )

@@ -17,6 +17,10 @@
 
 ## Important Runtime Notes
 
+- Politica de ejecucion reforzada: el runner de orquestacion bloquea comandos con `xampp` y `php` local.
+  - Ruta permitida: `py ai-orchestration/orchestrator.py backend-test-docker`
+  - MCP permitido: `docker.run_backend_tests`
+
 - El error recurrente de Expo (`Something went wrong` / `Failed to download remote update`) fue por flujo de arranque inestable (`localhost` IPv6 y sesiones previas de Expo Go).
 - Flujo estable recomendado para emulador:
 
