@@ -252,9 +252,37 @@ Define the first production-shaped mobile information architecture for manager a
 - `list_error`
   - Deterministic error state with `Retry` CTA and preserved filter inputs.
 
+## Wave 17 Manager Property Mutation State Map
+
+- `property_mutation_pending`
+  - Show loading indicator and pending state.
+  - Disable duplicate mutation actions.
+- `property_mutation_success`
+  - Show success message and updated property state.
+  - Trigger deterministic dashboard/list refresh.
+- `property_mutation_conflict`
+  - Show conflict state (`409 PROPERTY_STATE_CONFLICT`) with reload CTA.
+  - Preserve user draft intent if action can be retried.
+- `property_mutation_forbidden`
+  - Show forbidden state for `403 ROLE_SCOPE_FORBIDDEN`.
+  - Keep session active and disable forbidden controls.
+- `property_mutation_session_expired`
+  - Trigger on unrecoverable `401 TOKEN_INVALID`/`TOKEN_REVOKED`.
+  - Route to `SessionExpired` with deterministic recovery CTA.
+- `property_mutation_validation_error`
+  - Show field/action-level validation feedback (`422 VALIDATION_ERROR`).
+  - Keep screen context and allow corrective retry.
+
 ## Wave 16 Delivery Sequencing
 
 1. Manager contract hardening and state map (`ARCH-012`).
 2. Portfolio summary/filter backend contract (`BE-014`).
 3. Manager real-data wiring and session UX alignment (`MOB-013`).
 4. Manager parity regression suite (`QA-015`).
+
+## Wave 17 Delivery Sequencing
+
+1. Property mutation contract and state map (`ARCH-013`).
+2. Backend manager mutation endpoints and guards (`BE-015`).
+3. Manager mutation controls wired to API (`MOB-014`).
+4. Mutation regression matrix and baseline verification (`QA-016`).
