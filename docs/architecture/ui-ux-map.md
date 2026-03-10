@@ -373,3 +373,49 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend provider-candidate + assignment endpoints (`BE-017`).
 3. Manager handoff UI wired to API (`MOB-016`).
 4. Regression matrix for assignment flow and Wave 16-18 baseline (`QA-018`).
+
+## Wave 20 Manager Login-First Session State Map
+
+### App Entry and Session Bootstrap States
+
+- `entry_bootstrap_check`
+  - App starts and checks persisted session token.
+- `entry_login_required`
+  - No valid session token; route to `Login`.
+- `entry_session_validating`
+  - Token exists; call `GET /api/auth/me` before mounting manager shell.
+- `entry_session_valid`
+  - Session claims accepted; route to manager dashboard stack.
+- `entry_session_expired`
+  - Refresh attempt failed or token invalid; route to `SessionExpired`.
+- `entry_unauthorized_role`
+  - Authenticated token not in manager/admin scope; route to `Unauthorized`.
+
+### Login Screen States
+
+- `login_idle`
+  - Inputs enabled; submit available.
+- `login_submitting`
+  - Disable duplicate submits while request is in flight.
+- `login_success`
+  - Persist tokens; transition to `entry_session_validating`.
+- `login_error_invalid_credentials`
+  - Show deterministic invalid credentials feedback.
+- `login_error_transport`
+  - Show retryable network/system feedback with retry CTA.
+
+### Runtime Session Guard States
+
+- `runtime_refreshing`
+  - Single refresh owner handles concurrent `401 TOKEN_EXPIRED` responses.
+- `runtime_refresh_failed`
+  - Clear session and reset navigation to `SessionExpired`.
+- `runtime_scope_forbidden`
+  - Keep session active and route user to `Unauthorized`.
+
+## Wave 20 Delivery Sequencing
+
+1. Login-first and auth/me state contract (`ARCH-016`).
+2. Backend auth/me endpoint and session envelope parity (`BE-018`).
+3. Manager login-first bootstrap wiring (`MOB-017`).
+4. Regression matrix for login/session parity and Wave 16-19 baseline (`QA-019`).
