@@ -118,4 +118,89 @@ class AuthController extends Controller
 
         return response()->json($this->authSessionService->buildLogoutPayload(), 200);
     }
+
+    public function me(Request $request): JsonResponse
+    {
+        if (!$this->apiAccessService->isAuthorized($request)) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_TOKEN_INVALID,
+                    "Unauthorized",
+                    "me",
+                    "token_invalid",
+                    false
+                ),
+                401
+            );
+        }
+
+        $claims = $this->apiAccessService->resolveAccessTokenClaims($request);
+        $role = $this->resolveRoleFromContext($request, $claims);
+        if (!in_array($role, ["manager", "admin"], true)) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_ROLE_SCOPE_FORBIDDEN,
+                    "Forbidden",
+                    "me",
+                    "role_scope_forbidden",
+                    false
+                ),
+                403
+            );
+        }
+
+        $scope = $claims["scope"] ?? null;
+        if (!is_array($scope)) {
+            $scope = $this->authSessionService->scopesForRole($role);
+        }
+
+        $email = strtolower(trim((string) ($claims["email"] ?? "")));
+        if ($email === "") {
+            $email = "mobile@kconecta.local";
+        }
+
+        $providerId = null;
+        if (is_numeric($claims["provider_id"] ?? null)) {
+            $candidate = (int) $claims["provider_id"];
+            $providerId = $candidate > 0 ? $candidate : null;
+        }
+
+        $issuedAt = (int) ($claims["iat"] ?? 0);
+        $issuedAtIso = $issuedAt > 0 ? gmdate("c", $issuedAt) : gmdate("c");
+
+        return response()->json(
+            [
+                "data" => [
+                    "subject" => $email,
+                    "email" => $email,
+                    "role" => $role,
+                    "scope" => array_values($scope),
+                    "provider_id" => $providerId,
+                    "issued_at" => $issuedAtIso,
+                ],
+                "meta" => [
+                    "contract" => AuthSessionService::CONTRACT,
+                    "mode" => AuthSessionService::MODE,
+                    "flow" => "me",
+                    "reason" => "session_resolved",
+                ],
+            ],
+            200
+        );
+    }
+
+    private function resolveRoleFromContext(Request $request, array $claims): string
+    {
+        $role = strtolower(trim((string) ($claims["role"] ?? "")));
+        if ($role !== "") {
+            return $role;
+        }
+
+        $headerRole = strtolower(trim((string) $request->header("X-KCONECTA-ROLE", "")));
+        if ($headerRole !== "") {
+            return $headerRole;
+        }
+
+        return "manager";
+    }
 }
