@@ -674,6 +674,52 @@ class PropertyApiTest extends TestCase
         );
     }
 
+    public function test_wave21_assignment_context_contract_when_endpoint_is_available(): void
+    {
+        $unassigned = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/101/assignment-context");
+
+        if ($this->isWave21AssignmentContextEndpointUnavailable($unassigned->status())) {
+            $this->markTestIncomplete(
+                "Wave 21 assignment-context endpoint is not merged in this branch yet."
+            );
+            return;
+        }
+
+        $unassigned
+            ->assertOk()
+            ->assertJsonPath("data.property_id", 101)
+            ->assertJsonPath("data.assignment.assigned", false)
+            ->assertJsonPath("data.assignment.state", "unassigned")
+            ->assertJsonPath("meta.contract", "manager-provider-context-v1")
+            ->assertJsonPath("meta.flow", "properties_assignment_context")
+            ->assertJsonPath("meta.reason", "assignment_context_loaded");
+
+        $assignedMutation = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-MANAGER-ID" => "mgr-wave21",
+            ])
+            ->postJson("/api/properties/101/assign-provider", [
+                "provider_id" => 1,
+                "note" => "Wave 21 QA assignment context check",
+            ]);
+        $assignedMutation->assertOk();
+
+        $assigned = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/101/assignment-context");
+
+        $assigned
+            ->assertOk()
+            ->assertJsonPath("data.assignment.assigned", true)
+            ->assertJsonPath("data.assignment.state", "assigned")
+            ->assertJsonPath("data.assignment.provider.id", 1)
+            ->assertJsonPath("meta.contract", "manager-provider-context-v1")
+            ->assertJsonPath("meta.flow", "properties_assignment_context");
+    }
+
     private function assertValidDataSource(mixed $source): void
     {
         $this->assertContains(
@@ -688,6 +734,11 @@ class PropertyApiTest extends TestCase
     }
 
     private function isWave19HandoffEndpointUnavailable(int $status): bool
+    {
+        return $status === 404 || $status === 405;
+    }
+
+    private function isWave21AssignmentContextEndpointUnavailable(int $status): bool
     {
         return $status === 404 || $status === 405;
     }
