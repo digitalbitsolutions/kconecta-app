@@ -411,63 +411,134 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("meta.reason", "token_invalid");
     }
 
-    public function test_wave18_create_property_validation_envelope_when_endpoint_is_available(): void
+    public function test_manager_can_fetch_provider_candidates_for_property(): void
     {
         $response = $this
             ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
-            ->postJson("/api/properties", [
-                "title" => "A",
-                "city" => "",
-                "status" => "invalid",
-            ]);
-
-        if ($this->isFormEndpointUnavailable($response->status())) {
-            $this->markTestIncomplete(
-                "Wave 18 manager property form endpoint is not merged in this branch yet."
-            );
-            return;
-        }
+            ->getJson("/api/properties/101/provider-candidates");
 
         $response
-            ->assertStatus(422)
-            ->assertJsonPath("error.code", "VALIDATION_ERROR")
-            ->assertJsonPath("meta.contract", "manager-property-form-v1")
-            ->assertJsonPath("meta.flow", "properties_create")
-            ->assertJsonPath("meta.reason", "validation_error")
-            ->assertJsonPath("meta.retryable", true)
+            ->assertOk()
+            ->assertJsonPath("data.property_id", 101)
             ->assertJsonStructure([
-                "error" => [
-                    "fields" => ["title", "city", "status"],
+                "data" => [
+                    "property_id",
+                    "candidates" => [
+                        "*" => ["id", "name", "role", "status", "category", "city", "rating"],
+                    ],
                 ],
-            ]);
+                "meta" => ["contract", "flow", "reason", "source"],
+            ])
+            ->assertJsonPath("meta.contract", "manager-provider-handoff-v1")
+            ->assertJsonPath("meta.flow", "properties_provider_candidates")
+            ->assertJsonPath("meta.reason", "candidates_loaded");
+
+        $this->assertNotEmpty((array) $response->json("data.candidates", []));
     }
 
-    public function test_wave18_form_endpoints_require_manager_scope_when_available(): void
+    public function test_provider_candidates_endpoint_is_forbidden_for_provider_role(): void
     {
-        $forbidden = $this
+        $response = $this
             ->withHeaders([
                 "Authorization" => "Bearer " . self::API_TOKEN,
                 "X-KCONECTA-ROLE" => "provider",
             ])
-            ->postJson("/api/properties", [
-                "title" => "Scope check",
-                "city" => "Madrid",
-                "status" => "available",
-            ]);
+            ->getJson("/api/properties/101/provider-candidates");
 
-        if ($this->isFormEndpointUnavailable($forbidden->status())) {
-            $this->markTestIncomplete(
-                "Wave 18 manager property form endpoint is not merged in this branch yet."
-            );
-            return;
-        }
-
-        $forbidden
+        $response
             ->assertForbidden()
             ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
-            ->assertJsonPath("meta.flow", "properties_create")
-            ->assertJsonPath("meta.reason", "role_scope_forbidden")
-            ->assertJsonPath("meta.retryable", false);
+            ->assertJsonPath("meta.flow", "properties_provider_candidates")
+            ->assertJsonPath("meta.reason", "role_scope_forbidden");
+    }
+
+    public function test_manager_can_assign_provider_to_property(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-MANAGER-ID" => "mgr-009",
+            ])
+            ->postJson("/api/properties/101/assign-provider", [
+                "provider_id" => 1,
+                "note" => "Priority match for tenant request",
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("data.property_id", 101)
+            ->assertJsonPath("data.provider_id", 1)
+            ->assertJsonPath("data.property.provider_id", 1)
+            ->assertJsonPath("data.property.manager_id", "mgr-009")
+            ->assertJsonPath("meta.contract", "manager-provider-handoff-v1")
+            ->assertJsonPath("meta.flow", "properties_assign_provider")
+            ->assertJsonPath("meta.reason", "provider_assigned");
+    }
+
+    public function test_assign_provider_returns_validation_error_for_missing_provider_id(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/101/assign-provider", []);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonPath("error.code", "VALIDATION_ERROR")
+            ->assertJsonPath("meta.contract", "manager-provider-handoff-v1")
+            ->assertJsonPath("meta.flow", "properties_assign_provider")
+            ->assertJsonPath("meta.reason", "validation_error")
+            ->assertJsonPath("error.fields.provider_id.0", "The provider id field is required.");
+    }
+
+    public function test_assign_provider_returns_not_found_for_unknown_provider(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/101/assign-provider", [
+                "provider_id" => 999999,
+            ]);
+
+        $response
+            ->assertNotFound()
+            ->assertJsonPath("error.code", "PROVIDER_NOT_FOUND")
+            ->assertJsonPath("meta.contract", "manager-provider-handoff-v1")
+            ->assertJsonPath("meta.flow", "properties_assign_provider")
+            ->assertJsonPath("meta.reason", "provider_not_found")
+            ->assertJsonPath("provider_id", 999999);
+    }
+
+    public function test_assign_provider_returns_conflict_for_inactive_provider(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/101/assign-provider", [
+                "provider_id" => 2,
+            ]);
+
+        $response
+            ->assertStatus(409)
+            ->assertJsonPath("error.code", "ASSIGNMENT_CONFLICT")
+            ->assertJsonPath("meta.contract", "manager-provider-handoff-v1")
+            ->assertJsonPath("meta.flow", "properties_assign_provider")
+            ->assertJsonPath("meta.reason", "provider_inactive");
+    }
+
+    public function test_assign_provider_is_forbidden_for_provider_role(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-ROLE" => "provider",
+            ])
+            ->postJson("/api/properties/101/assign-provider", [
+                "provider_id" => 1,
+            ]);
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
+            ->assertJsonPath("meta.flow", "properties_assign_provider")
+            ->assertJsonPath("meta.reason", "role_scope_forbidden");
     }
 
     private function assertValidDataSource(mixed $source): void
@@ -477,10 +548,5 @@ class PropertyApiTest extends TestCase
             ["database", "in_memory"],
             "meta.source must be either database or in_memory."
         );
-    }
-
-    private function isFormEndpointUnavailable(int $status): bool
-    {
-        return $status === 404 || $status === 405;
     }
 }

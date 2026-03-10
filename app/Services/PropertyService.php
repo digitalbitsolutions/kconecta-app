@@ -320,6 +320,63 @@ class PropertyService
     }
 
     /**
+     * Assign an active provider to a property context for manager handoff flows.
+     */
+    public function assignProvider(
+        int $propertyId,
+        int $providerId,
+        ?string $note = null,
+        ?string $managerId = null
+    ): array
+    {
+        $property = $this->findPropertyById($propertyId);
+        if ($property === null) {
+            return $this->notFoundResult($propertyId);
+        }
+
+        $currentStatus = strtolower((string) ($property["status"] ?? ""));
+        if ($currentStatus === self::STATUS_MAINTENANCE) {
+            return [
+                "ok" => false,
+                "status" => 409,
+                "reason" => "property_in_maintenance",
+                "code" => "ASSIGNMENT_CONFLICT",
+                "message" => "Property in maintenance cannot be assigned.",
+                "retryable" => true,
+            ];
+        }
+
+        $currentProviderId = isset($property["provider_id"]) ? (int) $property["provider_id"] : 0;
+        if ($currentProviderId > 0 && $currentProviderId === $providerId) {
+            return [
+                "ok" => false,
+                "status" => 409,
+                "reason" => "assignment_unchanged",
+                "code" => "ASSIGNMENT_CONFLICT",
+                "message" => "Property is already assigned to this provider.",
+                "retryable" => true,
+            ];
+        }
+
+        $updated = $property;
+        $updated["provider_id"] = $providerId;
+        if ($managerId !== null && trim($managerId) !== "") {
+            $updated["manager_id"] = trim($managerId);
+        }
+        $updated["assigned_at"] = now()->toIso8601String();
+        if ($note !== null && trim($note) !== "") {
+            $updated["handoff_note"] = trim($note);
+        }
+
+        $this->rememberRuntimeOverride($updated);
+        if (array_key_exists($propertyId, self::$runtimeCreated)) {
+            self::$runtimeCreated[$propertyId] = $updated;
+        }
+
+        return $this->successResult($updated, "provider_assigned");
+    }
+
+    /**
      * Load property rows from database first, with in-memory fallback.
      */
     private function loadRows(): array
@@ -443,6 +500,13 @@ class PropertyService
             )
         );
 
+        $providerId = $this->asInt(
+            $this->pickFirst(
+                $row,
+                ["provider_id", "assigned_provider_id", "providerId"]
+            )
+        );
+
         $price = $this->asFloat(
             $this->pickFirst(
                 $row,
@@ -456,6 +520,7 @@ class PropertyService
             "city" => $city !== null && $city !== "" ? $city : "Unknown",
             "status" => $status,
             "manager_id" => $managerId,
+            "provider_id" => $providerId,
             "price" => $price,
         ]);
     }
@@ -539,6 +604,7 @@ class PropertyService
                 "city" => "Madrid",
                 "status" => "available",
                 "manager_id" => "mgr-001",
+                "provider_id" => null,
                 "price" => 235000,
             ],
             [
@@ -547,6 +613,7 @@ class PropertyService
                 "city" => "Barcelona",
                 "status" => "reserved",
                 "manager_id" => "mgr-001",
+                "provider_id" => 2,
                 "price" => 310000,
             ],
             [
@@ -555,6 +622,7 @@ class PropertyService
                 "city" => "Valencia",
                 "status" => "available",
                 "manager_id" => "mgr-002",
+                "provider_id" => null,
                 "price" => 198000,
             ],
         ]);
@@ -668,6 +736,9 @@ class PropertyService
             "city" => $property["city"] ?? "Unknown",
             "status" => $property["status"] ?? self::STATUS_AVAILABLE,
             "manager_id" => $property["manager_id"] ?? null,
+            "provider_id" => $property["provider_id"] ?? null,
+            "assigned_at" => $property["assigned_at"] ?? null,
+            "handoff_note" => $property["handoff_note"] ?? null,
             "price" => $property["price"] ?? null,
         ];
     }
