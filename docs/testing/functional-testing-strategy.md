@@ -214,6 +214,30 @@ Validate end-to-end functional behavior of native app API contracts before relea
 4. `DEV-93` -> Mobile manager property editor flow and API wiring.
 5. `DEV-92` -> Regression matrix and API assertions in `tests/Feature/Api/Wave18RegressionMatrixTest.php`.
 
+## Wave 19 Manager-Provider Handoff Matrix
+
+1. Provider candidate discovery (`DEV-96`, `DEV-97`, `DEV-98`)
+  - `GET /api/properties/{id}/provider-candidates` returns deterministic candidate payload.
+  - Response contract remains `manager-provider-handoff-v1` with stable `flow`/`reason`.
+2. Provider assignment mutation (`DEV-96`, `DEV-97`, `DEV-98`)
+  - `POST /api/properties/{id}/assign-provider` returns deterministic assignment envelope on success.
+  - Validation failures return `422 VALIDATION_ERROR` with `error.fields.provider_id`.
+  - Unknown provider returns `404 PROVIDER_NOT_FOUND`.
+  - Inactive provider returns `409 ASSIGNMENT_CONFLICT` with `reason=provider_inactive`.
+3. Session and role guardrails (`DEV-96`, `DEV-97`, `DEV-98`)
+  - Provider role access to handoff routes returns `403 ROLE_SCOPE_FORBIDDEN`.
+  - Invalid/expired token keeps deterministic `401` auth-session envelope.
+4. Cross-wave safety baseline (`DEV-98`)
+  - Wave 16-18 manager portfolio and mutation/form contracts remain stable after Wave 19 additions.
+
+## Wave 19 Ticket Mapping
+
+1. `DEV-94` -> Wave 19 orchestration epic and rollout tracking.
+2. `DEV-95` -> Manager-provider handoff architecture contract.
+3. `DEV-96` -> Backend candidate + assignment endpoints.
+4. `DEV-97` -> Mobile manager handoff UI/API wiring.
+5. `DEV-98` -> Regression matrix + API assertions in `tests/Feature/Api/Wave19RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -233,6 +257,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 13. Run Wave 16 manager parity regression suite and record auth + portfolio contract evidence.
 14. Run Wave 17 manager mutation regression suite and record reserve/release/update guardrail evidence.
 15. Run Wave 18 manager auth/property-form regression suite and record validation field-map + create/edit evidence.
+16. Run Wave 19 manager-provider handoff regression suite and record candidates/assignment envelope evidence.
 
 ## Entry Criteria
 
