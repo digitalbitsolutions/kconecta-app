@@ -6,25 +6,26 @@
 - Branch: `main` synced with `origin/main`
 - Executor policy: `AI_EXECUTOR=aider` (OpenClaw en observacion)
 - Backend policy: Docker-only (sin XAMPP)
-- Wave cerrada: `Wave 19 - Manager provider handoff and assignment parity`
+- Wave cerrada: `Wave 20 - Manager login-first session parity`
 - Jira open (`statusCategory != Done`): `0`
 - Open PRs: `0`
 
-## Wave 19 Closure Summary
+## Wave 20 Closure Summary
 
 1. PRs merged to `main`:
-   - `#80` architect
-   - `#81` backend
-   - `#82` mobile
-   - `#83` qa
+   - `#84` devops
+   - `#85` architect
+   - `#86` backend
+   - `#87` mobile
+   - `#88` qa
 2. Jira transitioned to `Done`:
-   - `DEV-95`, `DEV-96`, `DEV-97`, `DEV-98`
+   - `DEV-99`, `DEV-100`, `DEV-101`, `DEV-102`, `DEV-103`
 3. Epic closed:
-   - `DEV-94` -> `Done`
-4. Main contains Wave 19 deliverables:
-   - manager provider-candidate and assignment endpoints
-   - manager app handoff screen wired to real API
-   - Wave 19 regression matrix (`Wave19RegressionMatrixTest.php`)
+   - `DEV-99` -> `Done`
+4. Main contains Wave 20 deliverables:
+   - `GET /api/auth/me` backend contract for manager runtime bootstrap
+   - manager login-first startup resolver with deterministic routing to `Login`/`Unauthorized`/`SessionExpired`
+   - Wave 20 regression matrix (`Wave20RegressionMatrixTest.php`)
 
 ## Known Blockers
 
@@ -50,6 +51,6 @@ py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
 
 ## Next Natural Actions
 
-1. Bootstrap `Wave 20` (epic + architect/backend/mobile/qa tasks).
-2. Transition architect/backend Wave 20 tickets to `In Progress` for board visibility.
-3. Start Wave 20 execution in standard order: architect -> backend -> mobile -> qa.
+1. Bootstrap `Wave 21` (epic + architect/backend/mobile/qa tasks).
+2. Transition architect/backend Wave 21 tickets to `In Progress` for board visibility.
+3. Start Wave 21 execution in standard order: architect -> backend -> mobile -> qa.

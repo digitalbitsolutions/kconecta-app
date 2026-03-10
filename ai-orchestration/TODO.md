@@ -1,28 +1,29 @@
-# TODO prioritario - Wave 20
+# TODO prioritario - Wave 21
 
 Fecha: 2026-03-10  
 Repo objetivo: `D:\still\kconecta-app`
 
 ## Estado
 
-- Wave 19: cerrada (PRs `#80-#83` mergeadas, Jira `DEV-94..DEV-98` en `Done`).
-- Siguiente objetivo: abrir y ejecutar Wave 20 con foco en login-first manager y paridad de sesion runtime.
+- Wave 20: cerrada (PRs `#84-#88` mergeadas, Jira `DEV-99..DEV-103` en `Done`).
+- Siguiente objetivo: abrir y ejecutar Wave 21 con foco en contexto de asignacion manager-provider dentro de Property Detail.
 
 ## P0 (inmediato)
 
-- [ ] Crear y registrar Wave 20 en Jira:
+- [ ] Crear y registrar Wave 21 en Jira:
   - epic devops
   - architect contract
-  - backend auth/me endpoint
-  - mobile login-first wiring
+  - backend assignment context endpoint
+  - mobile assignment context UI wiring
   - qa regression
 - [ ] Mover architect/backend a `In Progress` para activar board visible.
-- [ ] Ejecutar primer ciclo Wave 20 (`architect`) y abrir PR draft enlazada a Jira.
+- [ ] Ejecutar ciclo completo Wave 21 (`architect -> backend -> mobile -> qa`) con PR draft por agente.
 
 ## P1
 
-- [ ] Completar ciclo backend -> mobile -> qa de Wave 20.
-- [ ] Validar flujo login-first en emulador Android (manager app).
+- [ ] Validar en emulador Android manager:
+  - tarjeta de contexto de asignacion en Property Detail
+  - refresco de estado tras asignacion desde Handoff
 - [ ] Definir adicion de servicio app/php en Docker Compose para PHPUnit end-to-end completo.
 
 ## Restricciones activas
