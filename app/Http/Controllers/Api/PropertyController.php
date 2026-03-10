@@ -8,6 +8,7 @@ use App\Services\AuthSessionService;
 use App\Services\PropertyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class PropertyController extends Controller
 {
@@ -144,6 +145,27 @@ class PropertyController extends Controller
         return response()->json(["data" => $property], 200);
     }
 
+    public function create(Request $request): JsonResponse
+    {
+        $authFailure = $this->authorizeMutationRequest($request, "properties_create");
+        if ($authFailure !== null) {
+            return $authFailure;
+        }
+
+        $validated = $this->validatePropertyFormPayload($request, "properties_create", true);
+        if ($validated instanceof JsonResponse) {
+            return $validated;
+        }
+
+        $result = $this->propertyService->createProperty(
+            $validated,
+            $this->resolveManagerId($request),
+            $this->resolveRole($request)
+        );
+
+        return $this->formMutationResponse("properties_create", $result);
+    }
+
     public function reserve(Request $request, int $id): JsonResponse
     {
         $authFailure = $this->authorizeMutationRequest($request, "properties_reserve");
@@ -173,25 +195,19 @@ class PropertyController extends Controller
             return $authFailure;
         }
 
-        $validated = $request->validate([
-            "status" => [
-                "required",
-                "string",
-                "in:" . implode(",", [
-                    PropertyService::STATUS_AVAILABLE,
-                    PropertyService::STATUS_RESERVED,
-                    PropertyService::STATUS_MAINTENANCE,
-                ]),
-            ],
-        ]);
+        $validated = $this->validatePropertyFormPayload($request, "properties_update", false);
+        if ($validated instanceof JsonResponse) {
+            return $validated;
+        }
 
-        $result = $this->propertyService->updatePropertyStatus(
+        $result = $this->propertyService->editProperty(
             $id,
-            $validated["status"],
-            $this->resolveManagerId($request)
+            $validated,
+            $this->resolveManagerId($request),
+            $this->resolveRole($request)
         );
 
-        return $this->mutationResponse("properties_update", $result);
+        return $this->formMutationResponse("properties_update", $result);
     }
 
     private function hasAllowedRole(Request $request, array $allowedRoles): bool
@@ -296,6 +312,139 @@ class PropertyController extends Controller
                 ],
             ],
             (int) ($result["status"] ?? 409)
+        );
+    }
+
+    private function formMutationResponse(string $flow, array $result): JsonResponse
+    {
+        if (($result["ok"] ?? false) === true) {
+            return response()->json(
+                [
+                    "data" => $result["data"],
+                    "meta" => [
+                        "contract" => "manager-property-form-v1",
+                        "flow" => $flow,
+                        "reason" => $result["reason"] ?? "ok",
+                    ],
+                ],
+                (int) ($result["status"] ?? 200)
+            );
+        }
+
+        if (($result["status"] ?? 500) === 404) {
+            return response()->json(
+                [
+                    "message" => $result["message"] ?? "Property not found",
+                    "property_id" => $result["property_id"] ?? null,
+                    "error" => [
+                        "code" => $result["code"] ?? "PROPERTY_NOT_FOUND",
+                        "message" => $result["message"] ?? "Property not found",
+                    ],
+                    "meta" => [
+                        "contract" => "manager-property-form-v1",
+                        "flow" => $flow,
+                        "reason" => $result["reason"] ?? "property_not_found",
+                        "retryable" => (bool) ($result["retryable"] ?? false),
+                    ],
+                ],
+                404
+            );
+        }
+
+        return response()->json(
+            [
+                "error" => [
+                    "code" => $result["code"] ?? "PROPERTY_STATE_CONFLICT",
+                    "message" => $result["message"] ?? "Property update conflict",
+                ],
+                "meta" => [
+                    "contract" => "manager-property-form-v1",
+                    "flow" => $flow,
+                    "reason" => $result["reason"] ?? "conflict",
+                    "retryable" => (bool) ($result["retryable"] ?? true),
+                ],
+            ],
+            (int) ($result["status"] ?? 409)
+        );
+    }
+
+    private function validatePropertyFormPayload(
+        Request $request,
+        string $flow,
+        bool $isCreate
+    ): array|JsonResponse
+    {
+        $rules = [
+            "title" => [
+                $isCreate ? "required" : "sometimes",
+                "string",
+                "min:3",
+                "max:160",
+            ],
+            "city" => [
+                $isCreate ? "required" : "sometimes",
+                "string",
+                "min:2",
+                "max:120",
+            ],
+            "status" => [
+                $isCreate ? "required" : "sometimes",
+                "string",
+                "in:" . implode(",", [
+                    PropertyService::STATUS_AVAILABLE,
+                    PropertyService::STATUS_RESERVED,
+                    PropertyService::STATUS_MAINTENANCE,
+                ]),
+            ],
+            "price" => ["sometimes", "numeric", "min:0"],
+            "manager_id" => ["sometimes", "string", "max:120"],
+        ];
+
+        $validator = Validator::make($request->all(), $rules);
+        $validator->after(function ($validator) use ($request, $isCreate): void {
+            if ($isCreate) {
+                return;
+            }
+
+            $editableFields = ["title", "city", "status", "price", "manager_id"];
+            $hasAnyEditableField = false;
+
+            foreach ($editableFields as $field) {
+                if ($request->has($field)) {
+                    $hasAnyEditableField = true;
+                    break;
+                }
+            }
+
+            if (!$hasAnyEditableField) {
+                $validator->errors()->add("payload", "At least one editable field is required.");
+            }
+        });
+
+        if ($validator->fails()) {
+            return $this->propertyFormValidationResponse($flow, $validator->errors()->toArray());
+        }
+
+        return $validator->validated();
+    }
+
+    private function propertyFormValidationResponse(string $flow, array $fields): JsonResponse
+    {
+        return response()->json(
+            [
+                "error" => [
+                    "code" => "VALIDATION_ERROR",
+                    "message" => "Validation failed",
+                    "fields" => $fields,
+                ],
+                "meta" => [
+                    "contract" => "manager-property-form-v1",
+                    "flow" => $flow,
+                    "reason" => "validation_error",
+                    "retryable" => true,
+                ],
+            ],
+            422
         );
     }
 

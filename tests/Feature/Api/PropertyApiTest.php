@@ -206,7 +206,123 @@ class PropertyApiTest extends TestCase
             ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
             ->patchJson("/api/properties/101", ["status" => "invalid"]);
 
-        $response->assertStatus(422)->assertJsonValidationErrors(["status"]);
+        $response
+            ->assertStatus(422)
+            ->assertJsonPath("error.code", "VALIDATION_ERROR")
+            ->assertJsonPath("meta.contract", "manager-property-form-v1")
+            ->assertJsonPath("meta.flow", "properties_update")
+            ->assertJsonPath("meta.reason", "validation_error")
+            ->assertJsonPath("meta.retryable", true)
+            ->assertJsonPath("error.fields.status.0", "The selected status is invalid.");
+    }
+
+    public function test_manager_can_create_property_with_form_contract(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-MANAGER-ID" => "mgr-001",
+            ])
+            ->postJson("/api/properties", [
+                "title" => "Wave 18 Test Property",
+                "city" => "Sevilla",
+                "status" => "available",
+                "price" => 255000,
+            ]);
+
+        $response
+            ->assertStatus(201)
+            ->assertJsonPath("data.title", "Wave 18 Test Property")
+            ->assertJsonPath("data.city", "Sevilla")
+            ->assertJsonPath("data.status", "available")
+            ->assertJsonPath("data.manager_id", "mgr-001")
+            ->assertJsonPath("meta.contract", "manager-property-form-v1")
+            ->assertJsonPath("meta.flow", "properties_create")
+            ->assertJsonPath("meta.reason", "property_created");
+    }
+
+    public function test_create_property_returns_stable_validation_envelope(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties", [
+                "title" => "A",
+                "city" => "",
+                "status" => "invalid",
+            ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonPath("error.code", "VALIDATION_ERROR")
+            ->assertJsonPath("meta.contract", "manager-property-form-v1")
+            ->assertJsonPath("meta.flow", "properties_create")
+            ->assertJsonPath("meta.reason", "validation_error")
+            ->assertJsonPath("meta.retryable", true)
+            ->assertJsonStructure([
+                "error" => [
+                    "fields" => ["title", "city", "status"],
+                ],
+            ]);
+    }
+
+    public function test_manager_can_edit_property_form_fields(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-MANAGER-ID" => "mgr-001",
+            ])
+            ->patchJson("/api/properties/101", [
+                "title" => "Modern Loft Center Updated",
+                "city" => "Malaga",
+                "status" => "maintenance",
+                "price" => 245500,
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("data.id", 101)
+            ->assertJsonPath("data.title", "Modern Loft Center Updated")
+            ->assertJsonPath("data.city", "Malaga")
+            ->assertJsonPath("data.status", "maintenance")
+            ->assertJsonPath("meta.contract", "manager-property-form-v1")
+            ->assertJsonPath("meta.flow", "properties_update")
+            ->assertJsonPath("meta.reason", "property_updated");
+    }
+
+    public function test_property_update_requires_editable_fields(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->patchJson("/api/properties/101", []);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonPath("error.code", "VALIDATION_ERROR")
+            ->assertJsonPath("meta.contract", "manager-property-form-v1")
+            ->assertJsonPath("meta.flow", "properties_update")
+            ->assertJsonPath("error.fields.payload.0", "At least one editable field is required.");
+    }
+
+    public function test_property_form_create_is_forbidden_for_provider_role(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-ROLE" => "provider",
+            ])
+            ->postJson("/api/properties", [
+                "title" => "Forbidden Property",
+                "city" => "Madrid",
+                "status" => "available",
+            ]);
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
+            ->assertJsonPath("meta.flow", "properties_create")
+            ->assertJsonPath("meta.reason", "role_scope_forbidden")
+            ->assertJsonPath("meta.retryable", false);
     }
 
     public function test_manager_can_update_property_status(): void
@@ -219,8 +335,9 @@ class PropertyApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath("data.id", 101)
             ->assertJsonPath("data.status", "maintenance")
-            ->assertJsonPath("meta.contract", "property-mutation-v1")
-            ->assertJsonPath("meta.flow", "properties_update");
+            ->assertJsonPath("meta.contract", "manager-property-form-v1")
+            ->assertJsonPath("meta.flow", "properties_update")
+            ->assertJsonPath("meta.reason", "property_updated");
     }
 
     public function test_reserve_returns_conflict_for_already_reserved_property(): void

@@ -19,6 +19,7 @@ class PropertyService
     private const DATA_SOURCE_SEED = "seed";
     private const MAX_DB_ROWS = 500;
     private static array $runtimeOverrides = [];
+    private static array $runtimeCreated = [];
 
     /**
      * Returns property list payload with DB-first retrieval.
@@ -224,14 +225,110 @@ class PropertyService
     }
 
     /**
+     * Create a manager-scoped property for native form flows.
+     */
+    public function createProperty(array $payload, ?string $managerId = null, string $role = "manager"): array
+    {
+        $rows = $this->loadRows()["rows"];
+        $id = $this->nextPropertyId($rows);
+
+        $property = [
+            "id" => $id,
+            "title" => trim((string) ($payload["title"] ?? "Property {$id}")),
+            "city" => trim((string) ($payload["city"] ?? "Unknown")),
+            "status" => $this->normalizeStatus($payload["status"] ?? self::STATUS_AVAILABLE),
+            "manager_id" => $this->resolveMutationManagerId($payload["manager_id"] ?? null, $managerId, $role),
+            "price" => $this->asFloat($payload["price"] ?? null),
+        ];
+
+        self::$runtimeCreated[$id] = $property;
+
+        return $this->successResult($property, "property_created", 201);
+    }
+
+    /**
+     * Edit manager property fields with conflict-safe semantics.
+     */
+    public function editProperty(
+        int $id,
+        array $payload,
+        ?string $managerId = null,
+        string $role = "manager"
+    ): array
+    {
+        $property = $this->findPropertyById($id);
+        if ($property === null) {
+            return $this->notFoundResult($id);
+        }
+
+        $updated = $property;
+        $changed = false;
+
+        if (array_key_exists("title", $payload)) {
+            $nextTitle = trim((string) $payload["title"]);
+            if ($nextTitle !== (string) $property["title"]) {
+                $updated["title"] = $nextTitle;
+                $changed = true;
+            }
+        }
+
+        if (array_key_exists("city", $payload)) {
+            $nextCity = trim((string) $payload["city"]);
+            if ($nextCity !== (string) $property["city"]) {
+                $updated["city"] = $nextCity;
+                $changed = true;
+            }
+        }
+
+        if (array_key_exists("status", $payload)) {
+            $nextStatus = $this->normalizeStatus($payload["status"]);
+            if ($nextStatus !== strtolower((string) $property["status"])) {
+                $updated["status"] = $nextStatus;
+                $changed = true;
+            }
+        }
+
+        if (array_key_exists("price", $payload)) {
+            $nextPrice = $this->asFloat($payload["price"]);
+            if ($nextPrice !== $property["price"]) {
+                $updated["price"] = $nextPrice;
+                $changed = true;
+            }
+        }
+
+        if (array_key_exists("manager_id", $payload)) {
+            $nextManagerId = $this->resolveMutationManagerId($payload["manager_id"], $managerId, $role);
+            if ($nextManagerId !== $property["manager_id"]) {
+                $updated["manager_id"] = $nextManagerId;
+                $changed = true;
+            }
+        } elseif ($managerId !== null && trim($managerId) !== "" && $role !== "admin" && $managerId !== $property["manager_id"]) {
+            $updated["manager_id"] = trim($managerId);
+            $changed = true;
+        }
+
+        if (!$changed) {
+            return $this->conflictResult("No property changes detected", "no_changes");
+        }
+
+        $this->rememberRuntimeOverride($updated);
+        if (array_key_exists($id, self::$runtimeCreated)) {
+            self::$runtimeCreated[$id] = $updated;
+        }
+
+        return $this->successResult($updated, "property_updated");
+    }
+
+    /**
      * Load property rows from database first, with in-memory fallback.
      */
     private function loadRows(): array
     {
         $mode = $this->resolveDataSourceMode();
         if ($mode === self::DATA_SOURCE_SEED) {
+            $rows = $this->seedRows();
             return [
-                "rows" => $this->seedRows(),
+                "rows" => $this->appendRuntimeCreatedRows($rows),
                 "source" => "in_memory",
             ];
         }
@@ -239,8 +336,9 @@ class PropertyService
         try {
             $table = $this->resolveDatabaseTable();
             if (!Schema::hasTable($table)) {
+                $rows = $this->seedRows();
                 return [
-                    "rows" => $this->seedRows(),
+                    "rows" => $this->appendRuntimeCreatedRows($rows),
                     "source" => "in_memory",
                 ];
             }
@@ -259,19 +357,20 @@ class PropertyService
             }
 
             return [
-                "rows" => $rows,
+                "rows" => $this->appendRuntimeCreatedRows($rows),
                 "source" => "database",
             ];
         } catch (Throwable) {
             if ($mode === self::DATA_SOURCE_DATABASE) {
                 return [
-                    "rows" => [],
+                    "rows" => $this->appendRuntimeCreatedRows([]),
                     "source" => "database",
                 ];
             }
 
+            $rows = $this->seedRows();
             return [
-                "rows" => $this->seedRows(),
+                "rows" => $this->appendRuntimeCreatedRows($rows),
                 "source" => "in_memory",
             ];
         }
@@ -461,11 +560,62 @@ class PropertyService
         ]);
     }
 
-    private function successResult(array $property, string $reason): array
+    private function appendRuntimeCreatedRows(array $rows): array
+    {
+        if (self::$runtimeCreated === []) {
+            return $rows;
+        }
+
+        $existingIds = [];
+        foreach ($rows as $row) {
+            $existingIds[(int) ($row["id"] ?? 0)] = true;
+        }
+
+        foreach (self::$runtimeCreated as $id => $createdRow) {
+            $numericId = (int) $id;
+            if ($numericId <= 0 || isset($existingIds[$numericId])) {
+                continue;
+            }
+
+            $rows[] = $this->applyRuntimeOverrides($createdRow);
+            $existingIds[$numericId] = true;
+        }
+
+        return $rows;
+    }
+
+    private function nextPropertyId(array $rows): int
+    {
+        $maxId = 100;
+        foreach ($rows as $row) {
+            $maxId = max($maxId, (int) ($row["id"] ?? 0));
+        }
+
+        foreach (array_keys(self::$runtimeCreated) as $createdId) {
+            $maxId = max($maxId, (int) $createdId);
+        }
+
+        return $maxId + 1;
+    }
+
+    private function resolveMutationManagerId(mixed $requestedManagerId, ?string $sessionManagerId, string $role): ?string
+    {
+        $normalizedRequested = $this->asString($requestedManagerId);
+        $normalizedSession = $this->asString($sessionManagerId);
+        $normalizedRole = strtolower(trim($role));
+
+        if ($normalizedRole === "admin") {
+            return $normalizedRequested ?? $normalizedSession;
+        }
+
+        return $normalizedSession ?? $normalizedRequested;
+    }
+
+    private function successResult(array $property, string $reason, int $status = 200): array
     {
         return [
             "ok" => true,
-            "status" => 200,
+            "status" => $status,
             "reason" => $reason,
             "data" => $property,
         ];
@@ -514,8 +664,11 @@ class PropertyService
         }
 
         self::$runtimeOverrides[$id] = [
+            "title" => $property["title"] ?? "Property {$id}",
+            "city" => $property["city"] ?? "Unknown",
             "status" => $property["status"] ?? self::STATUS_AVAILABLE,
             "manager_id" => $property["manager_id"] ?? null,
+            "price" => $property["price"] ?? null,
         ];
     }
 }
