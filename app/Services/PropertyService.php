@@ -18,6 +18,7 @@ class PropertyService
     private const DATA_SOURCE_DATABASE = "database";
     private const DATA_SOURCE_SEED = "seed";
     private const MAX_DB_ROWS = 500;
+    private static array $runtimeOverrides = [];
 
     /**
      * Returns property list payload with DB-first retrieval.
@@ -171,6 +172,7 @@ class PropertyService
         if ($managerId !== null && trim($managerId) !== "") {
             $updated["manager_id"] = trim($managerId);
         }
+        $this->rememberRuntimeOverride($updated);
 
         return $this->successResult($updated, "property_reserved");
     }
@@ -191,6 +193,7 @@ class PropertyService
 
         $updated = $property;
         $updated["status"] = self::STATUS_AVAILABLE;
+        $this->rememberRuntimeOverride($updated);
 
         return $this->successResult($updated, "property_released");
     }
@@ -215,6 +218,7 @@ class PropertyService
         if ($managerId !== null && trim($managerId) !== "") {
             $updated["manager_id"] = trim($managerId);
         }
+        $this->rememberRuntimeOverride($updated);
 
         return $this->successResult($updated, "property_status_updated");
     }
@@ -347,14 +351,14 @@ class PropertyService
             )
         );
 
-        return [
+        return $this->applyRuntimeOverrides([
             "id" => $id,
             "title" => $title !== null && $title !== "" ? $title : "Property {$id}",
             "city" => $city !== null && $city !== "" ? $city : "Unknown",
             "status" => $status,
             "manager_id" => $managerId,
             "price" => $price,
-        ];
+        ]);
     }
 
     private function pickFirst(array $row, array $keys): mixed
@@ -427,7 +431,9 @@ class PropertyService
 
     private function seedRows(): array
     {
-        return [
+        return array_map(
+            fn (array $row): array => $this->applyRuntimeOverrides($row),
+            [
             [
                 "id" => 101,
                 "title" => "Modern Loft Center",
@@ -452,7 +458,7 @@ class PropertyService
                 "manager_id" => "mgr-002",
                 "price" => 198000,
             ],
-        ];
+        ]);
     }
 
     private function successResult(array $property, string $reason): array
@@ -487,6 +493,29 @@ class PropertyService
             "code" => "PROPERTY_STATE_CONFLICT",
             "message" => $message,
             "retryable" => true,
+        ];
+    }
+
+    private function applyRuntimeOverrides(array $row): array
+    {
+        $id = (int) ($row["id"] ?? 0);
+        if ($id <= 0 || !isset(self::$runtimeOverrides[$id])) {
+            return $row;
+        }
+
+        return array_merge($row, self::$runtimeOverrides[$id]);
+    }
+
+    private function rememberRuntimeOverride(array $property): void
+    {
+        $id = (int) ($property["id"] ?? 0);
+        if ($id <= 0) {
+            return;
+        }
+
+        self::$runtimeOverrides[$id] = [
+            "status" => $property["status"] ?? self::STATUS_AVAILABLE,
+            "manager_id" => $property["manager_id"] ?? null,
         ];
     }
 }
