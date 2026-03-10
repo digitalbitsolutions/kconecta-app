@@ -465,6 +465,43 @@ Define the minimum environment and auth contract required for native app release
 - Wave 19 adds handoff endpoints; no existing endpoint removals.
 - Wave 16-18 dashboard, property mutation, and property form contracts remain valid.
 
+## Wave 20 Manager Login-First and Session Introspection Contract
+
+### Login-First Bootstrap Rules
+
+- Manager app startup no longer assumes env token as primary session source.
+- Startup decision tree:
+  1. No persisted token -> route to `Login`.
+  2. Persisted token present -> validate with `GET /api/auth/me`.
+  3. `auth/me` success -> enter manager dashboard shell.
+  4. `401 TOKEN_EXPIRED` -> one refresh attempt, then retry `auth/me`.
+  5. `401 TOKEN_INVALID|TOKEN_REVOKED` -> clear session and route to `SessionExpired`.
+  6. `403 ROLE_SCOPE_FORBIDDEN` -> route to `Unauthorized`.
+
+### Session Introspection Contract
+
+- Endpoint:
+  - `GET /api/auth/me`
+- Success response:
+  - `data.role`
+  - `data.scope[]`
+  - `data.subject` (session principal id/email)
+  - `meta.contract = auth-session-v1`
+- Error response:
+  - same deterministic envelope used by auth lifecycle routes:
+    - `error.code`
+    - `error.message`
+    - `meta.contract`
+    - `meta.flow`
+    - `meta.reason`
+    - `meta.retryable`
+
+### Compatibility and Rollout
+
+- Dev diagnostics mode may keep env-token bootstrap as explicit fallback only.
+- Production path must use login + persisted token + auth/me validation.
+- Wave 20 remains additive and backward compatible with Wave 16-19 manager/provider contracts.
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
