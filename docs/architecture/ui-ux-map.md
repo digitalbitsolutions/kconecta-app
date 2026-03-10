@@ -334,3 +334,42 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend create/edit endpoints and validation envelope (`BE-016`).
 3. Manager create/edit property form UI wiring (`MOB-015`).
 4. Regression suite for auth and property forms (`QA-017`).
+
+## Wave 19 Manager Provider Handoff State Map
+
+### Manager Handoff Screen States
+
+- `handoff_loading`
+  - Load provider candidates for current property context.
+- `handoff_ready`
+  - Show provider candidates with deterministic assignment actions.
+- `handoff_empty`
+  - No candidates available for selected property/city/category.
+- `handoff_assigning`
+  - Assignment request in flight; disable duplicate actions.
+- `handoff_success`
+  - Show assignment confirmation and return to property detail/list with refresh.
+- `handoff_validation_error`
+  - Render field-level message for invalid provider selection.
+- `handoff_conflict`
+  - Render conflict copy and offer `Reload candidates` CTA.
+- `handoff_forbidden`
+  - Keep session active and show permission boundary message.
+- `handoff_session_expired`
+  - Route to `SessionExpired` after unrecoverable auth failure.
+
+### Navigation Rules
+
+- Entry points:
+  - `PropertyDetail` -> `ManagerToProviderHandoff` with `propertyId`.
+  - Optional quick access from dashboard if property context is provided.
+- Exit rules:
+  - On success, navigate back to `PropertyDetail` and trigger data refresh.
+  - On hard auth failure, reset stack to auth recovery route.
+
+## Wave 19 Delivery Sequencing
+
+1. Handoff and assignment contract/state map (`ARCH-015`).
+2. Backend provider-candidate + assignment endpoints (`BE-017`).
+3. Manager handoff UI wired to API (`MOB-016`).
+4. Regression matrix for assignment flow and Wave 16-18 baseline (`QA-018`).
