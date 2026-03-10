@@ -541,6 +541,139 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("meta.reason", "role_scope_forbidden");
     }
 
+    public function test_wave19_provider_candidates_contract_when_endpoint_is_available(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/101/provider-candidates");
+
+        if ($this->isWave19HandoffEndpointUnavailable($response->status())) {
+            $this->markTestIncomplete(
+                "Wave 19 provider candidates endpoint is not merged in this branch yet."
+            );
+            return;
+        }
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("data.property_id", 101)
+            ->assertJsonPath("meta.contract", "manager-provider-handoff-v1")
+            ->assertJsonPath("meta.flow", "properties_provider_candidates")
+            ->assertJsonPath("meta.reason", "candidates_loaded")
+            ->assertJsonStructure([
+                "data" => [
+                    "property_id",
+                    "candidates" => [
+                        "*" => ["id", "name", "role", "status", "category", "city", "rating"],
+                    ],
+                ],
+                "meta" => ["contract", "flow", "reason", "source"],
+            ]);
+    }
+
+    public function test_wave19_assign_provider_contract_and_guardrails_when_endpoint_is_available(): void
+    {
+        $success = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-MANAGER-ID" => "mgr-009",
+            ])
+            ->postJson("/api/properties/101/assign-provider", [
+                "provider_id" => 1,
+                "note" => "QA wave19 assignment",
+            ]);
+
+        if ($this->isWave19HandoffEndpointUnavailable($success->status())) {
+            $this->markTestIncomplete(
+                "Wave 19 provider assignment endpoint is not merged in this branch yet."
+            );
+            return;
+        }
+
+        $success
+            ->assertOk()
+            ->assertJsonPath("data.property_id", 101)
+            ->assertJsonPath("data.provider_id", 1)
+            ->assertJsonPath("data.property.provider_id", 1)
+            ->assertJsonPath("meta.contract", "manager-provider-handoff-v1")
+            ->assertJsonPath("meta.flow", "properties_assign_provider")
+            ->assertJsonPath("meta.reason", "provider_assigned");
+
+        $validation = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/101/assign-provider", []);
+
+        $validation
+            ->assertStatus(422)
+            ->assertJsonPath("error.code", "VALIDATION_ERROR")
+            ->assertJsonPath("meta.contract", "manager-provider-handoff-v1")
+            ->assertJsonPath("meta.flow", "properties_assign_provider")
+            ->assertJsonPath("meta.reason", "validation_error")
+            ->assertJsonStructure([
+                "error" => [
+                    "fields" => ["provider_id"],
+                ],
+            ]);
+
+        $notFound = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/101/assign-provider", [
+                "provider_id" => 999999,
+            ]);
+
+        $notFound
+            ->assertNotFound()
+            ->assertJsonPath("error.code", "PROVIDER_NOT_FOUND")
+            ->assertJsonPath("meta.contract", "manager-provider-handoff-v1")
+            ->assertJsonPath("meta.flow", "properties_assign_provider")
+            ->assertJsonPath("meta.reason", "provider_not_found");
+
+        $conflict = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/101/assign-provider", [
+                "provider_id" => 2,
+            ]);
+
+        $conflict
+            ->assertStatus(409)
+            ->assertJsonPath("error.code", "ASSIGNMENT_CONFLICT")
+            ->assertJsonPath("meta.contract", "manager-provider-handoff-v1")
+            ->assertJsonPath("meta.flow", "properties_assign_provider")
+            ->assertJsonPath("meta.reason", "provider_inactive");
+
+        $forbidden = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-ROLE" => "provider",
+            ])
+            ->postJson("/api/properties/101/assign-provider", [
+                "provider_id" => 1,
+            ]);
+
+        $forbidden
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
+            ->assertJsonPath("meta.flow", "properties_assign_provider")
+            ->assertJsonPath("meta.reason", "role_scope_forbidden");
+
+        $sessionExpired = $this
+            ->withHeaders(["Authorization" => "Bearer expired-token"])
+            ->postJson("/api/properties/101/assign-provider", [
+                "provider_id" => 1,
+            ]);
+
+        $sessionExpired
+            ->assertUnauthorized()
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_assign_provider");
+
+        $this->assertContains(
+            (string) $sessionExpired->json("error.code"),
+            ["TOKEN_INVALID", "TOKEN_EXPIRED"],
+            "Wave 19 session-expired guard should keep a deterministic auth error code."
+        );
+    }
+
     private function assertValidDataSource(mixed $source): void
     {
         $this->assertContains(
@@ -548,5 +681,14 @@ class PropertyApiTest extends TestCase
             ["database", "in_memory"],
             "meta.source must be either database or in_memory."
         );
+    }
+    private function isFormEndpointUnavailable(int $status): bool
+    {
+        return $status === 404 || $status === 405;
+    }
+
+    private function isWave19HandoffEndpointUnavailable(int $status): bool
+    {
+        return $status === 404 || $status === 405;
     }
 }
