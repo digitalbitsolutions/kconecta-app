@@ -541,6 +541,100 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("meta.reason", "role_scope_forbidden");
     }
 
+    public function test_manager_can_fetch_assignment_context_for_unassigned_property(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/101/assignment-context");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("data.property_id", 101)
+            ->assertJsonPath("data.assignment.assigned", false)
+            ->assertJsonPath("data.assignment.state", "unassigned")
+            ->assertJsonPath("data.assignment.provider", null)
+            ->assertJsonPath("meta.contract", "manager-provider-context-v1")
+            ->assertJsonPath("meta.flow", "properties_assignment_context")
+            ->assertJsonPath("meta.reason", "assignment_context_loaded");
+    }
+
+    public function test_manager_can_fetch_assignment_context_for_assigned_property(): void
+    {
+        $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-MANAGER-ID" => "mgr-009",
+            ])
+            ->postJson("/api/properties/101/assign-provider", [
+                "provider_id" => 1,
+                "note" => "Wave 21 context validation",
+            ])
+            ->assertOk();
+
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/101/assignment-context");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("data.property_id", 101)
+            ->assertJsonPath("data.assignment.assigned", true)
+            ->assertJsonPath("data.assignment.state", "assigned")
+            ->assertJsonPath("data.assignment.provider.id", 1)
+            ->assertJsonPath("data.assignment.provider.name", "CleanHome Pro")
+            ->assertJsonPath("data.assignment.note", "Wave 21 context validation")
+            ->assertJsonPath("meta.contract", "manager-provider-context-v1")
+            ->assertJsonPath("meta.flow", "properties_assignment_context")
+            ->assertJsonPath("meta.reason", "assignment_context_loaded");
+    }
+
+    public function test_assignment_context_endpoint_is_forbidden_for_provider_role(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-ROLE" => "provider",
+            ])
+            ->getJson("/api/properties/101/assignment-context");
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_assignment_context")
+            ->assertJsonPath("meta.reason", "role_scope_forbidden");
+    }
+
+    public function test_invalid_bearer_token_returns_unauthorized_for_assignment_context_endpoint(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer invalid-token"])
+            ->getJson("/api/properties/101/assignment-context");
+
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("error.code", "TOKEN_INVALID")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_assignment_context")
+            ->assertJsonPath("meta.reason", "token_invalid");
+    }
+
+    public function test_assignment_context_returns_not_found_for_unknown_property(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/999999/assignment-context");
+
+        $response
+            ->assertNotFound()
+            ->assertJsonPath("error.code", "PROPERTY_NOT_FOUND")
+            ->assertJsonPath("meta.contract", "manager-provider-context-v1")
+            ->assertJsonPath("meta.flow", "properties_assignment_context")
+            ->assertJsonPath("meta.reason", "property_not_found")
+            ->assertJsonPath("meta.retryable", false)
+            ->assertJsonPath("property_id", 999999);
+    }
+
     public function test_wave19_provider_candidates_contract_when_endpoint_is_available(): void
     {
         $response = $this

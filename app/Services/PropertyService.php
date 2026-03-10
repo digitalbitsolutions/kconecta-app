@@ -377,6 +377,49 @@ class PropertyService
     }
 
     /**
+     * Build deterministic assignment context payload for manager property detail flows.
+     */
+    public function buildAssignmentContextPayload(int $propertyId, array $property, ?array $provider): array
+    {
+        $providerId = isset($property["provider_id"]) ? (int) $property["provider_id"] : 0;
+        $hasProviderReference = $providerId > 0;
+
+        $assignmentState = "unassigned";
+        $assigned = false;
+        if ($hasProviderReference && $provider !== null) {
+            $assignmentState = "assigned";
+            $assigned = true;
+        } elseif ($hasProviderReference && $provider === null) {
+            $assignmentState = "provider_missing";
+        }
+
+        return [
+            "data" => [
+                "property_id" => $propertyId,
+                "assignment" => [
+                    "assigned" => $assigned,
+                    "provider" => $provider !== null ? [
+                        "id" => (int) ($provider["id"] ?? 0),
+                        "name" => (string) ($provider["name"] ?? ""),
+                        "category" => $provider["category"] ?? null,
+                        "city" => $provider["city"] ?? null,
+                        "status" => $provider["status"] ?? null,
+                        "rating" => $provider["rating"] ?? null,
+                    ] : null,
+                    "assigned_at" => $property["assigned_at"] ?? null,
+                    "note" => $property["handoff_note"] ?? null,
+                    "state" => $assignmentState,
+                ],
+            ],
+            "meta" => [
+                "contract" => "manager-provider-context-v1",
+                "flow" => "properties_assignment_context",
+                "reason" => "assignment_context_loaded",
+            ],
+        ];
+    }
+
+    /**
      * Load property rows from database first, with in-memory fallback.
      */
     private function loadRows(): array
