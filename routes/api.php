@@ -20,4 +20,6 @@ Route::post("/properties", [PropertyController::class, "create"]);
 Route::get("/properties/{id}", [PropertyController::class, "show"]);
 Route::post("/properties/{id}/reserve", [PropertyController::class, "reserve"]);
 Route::post("/properties/{id}/release", [PropertyController::class, "release"]);
+Route::get("/properties/{id}/provider-candidates", [PropertyController::class, "providerCandidates"]);
+Route::post("/properties/{id}/assign-provider", [PropertyController::class, "assignProvider"]);
 Route::patch("/properties/{id}", [PropertyController::class, "update"]);

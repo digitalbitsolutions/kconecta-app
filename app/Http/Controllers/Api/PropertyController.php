@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Services\ApiAccessService;
 use App\Services\AuthSessionService;
+use App\Services\ProviderService;
 use App\Services\PropertyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,7 @@ class PropertyController extends Controller
 {
     public function __construct(
         private readonly PropertyService $propertyService,
+        private readonly ProviderService $providerService,
         private readonly ApiAccessService $apiAccessService,
         private readonly AuthSessionService $authSessionService
     )
@@ -208,6 +210,161 @@ class PropertyController extends Controller
         );
 
         return $this->formMutationResponse("properties_update", $result);
+    }
+
+    public function providerCandidates(Request $request, int $id): JsonResponse
+    {
+        if (!$this->apiAccessService->isAuthorized($request)) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_TOKEN_INVALID,
+                    "Unauthorized",
+                    "properties_provider_candidates",
+                    "token_invalid",
+                    false
+                ),
+                401
+            );
+        }
+
+        if (!$this->hasAllowedRole($request, ["manager", "admin"])) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_ROLE_SCOPE_FORBIDDEN,
+                    "Forbidden",
+                    "properties_provider_candidates",
+                    "role_scope_forbidden",
+                    false
+                ),
+                403
+            );
+        }
+
+        $property = $this->propertyService->findPropertyById($id);
+        if ($property === null) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => "PROPERTY_NOT_FOUND",
+                        "message" => "Property not found",
+                    ],
+                    "meta" => [
+                        "contract" => "manager-provider-handoff-v1",
+                        "flow" => "properties_provider_candidates",
+                        "reason" => "property_not_found",
+                        "retryable" => false,
+                    ],
+                    "property_id" => $id,
+                ],
+                404
+            );
+        }
+
+        $providersPayload = $this->providerService->listProviders([
+            "status" => "active",
+            "role" => "service_provider",
+        ]);
+
+        return response()->json(
+            [
+                "data" => [
+                    "property_id" => $id,
+                    "candidates" => array_values($providersPayload["data"] ?? []),
+                ],
+                "meta" => [
+                    "contract" => "manager-provider-handoff-v1",
+                    "flow" => "properties_provider_candidates",
+                    "reason" => "candidates_loaded",
+                    "source" => data_get($providersPayload, "meta.source", "unknown"),
+                ],
+            ],
+            200
+        );
+    }
+
+    public function assignProvider(Request $request, int $id): JsonResponse
+    {
+        $authFailure = $this->authorizeMutationRequest($request, "properties_assign_provider");
+        if ($authFailure !== null) {
+            return $authFailure;
+        }
+
+        $validator = Validator::make(
+            $request->all(),
+            [
+                "provider_id" => ["required", "integer", "min:1"],
+                "note" => ["sometimes", "string", "max:300"],
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => "VALIDATION_ERROR",
+                        "message" => "Validation failed",
+                        "fields" => $validator->errors()->toArray(),
+                    ],
+                    "meta" => [
+                        "contract" => "manager-provider-handoff-v1",
+                        "flow" => "properties_assign_provider",
+                        "reason" => "validation_error",
+                        "retryable" => true,
+                    ],
+                ],
+                422
+            );
+        }
+
+        $validated = $validator->validated();
+        $providerId = (int) ($validated["provider_id"] ?? 0);
+        $provider = $this->providerService->findProviderById($providerId);
+        if ($provider === null) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => "PROVIDER_NOT_FOUND",
+                        "message" => "Provider not found",
+                    ],
+                    "meta" => [
+                        "contract" => "manager-provider-handoff-v1",
+                        "flow" => "properties_assign_provider",
+                        "reason" => "provider_not_found",
+                        "retryable" => false,
+                    ],
+                    "provider_id" => $providerId,
+                ],
+                404
+            );
+        }
+
+        $providerStatus = strtolower((string) ($provider["status"] ?? ""));
+        if ($providerStatus !== "active") {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => "ASSIGNMENT_CONFLICT",
+                        "message" => "Provider is not active for assignment",
+                    ],
+                    "meta" => [
+                        "contract" => "manager-provider-handoff-v1",
+                        "flow" => "properties_assign_provider",
+                        "reason" => "provider_inactive",
+                        "retryable" => true,
+                    ],
+                ],
+                409
+            );
+        }
+
+        $result = $this->propertyService->assignProvider(
+            $id,
+            $providerId,
+            isset($validated["note"]) ? (string) $validated["note"] : null,
+            $this->resolveManagerId($request)
+        );
+
+        return $this->handoffMutationResponse("properties_assign_provider", $result, $providerId);
     }
 
     private function hasAllowedRole(Request $request, array $allowedRoles): bool
@@ -457,5 +614,66 @@ class PropertyController extends Controller
 
         $header = trim((string) $request->header("X-KCONECTA-MANAGER-ID", ""));
         return $header !== "" ? $header : null;
+    }
+
+    private function handoffMutationResponse(
+        string $flow,
+        array $result,
+        ?int $providerId = null
+    ): JsonResponse
+    {
+        if (($result["ok"] ?? false) === true) {
+            return response()->json(
+                [
+                    "data" => [
+                        "property" => $result["data"],
+                        "property_id" => (int) ($result["data"]["id"] ?? 0),
+                        "provider_id" => (int) (($result["data"]["provider_id"] ?? $providerId) ?? 0),
+                        "assigned_at" => $result["data"]["assigned_at"] ?? now()->toIso8601String(),
+                    ],
+                    "meta" => [
+                        "contract" => "manager-provider-handoff-v1",
+                        "flow" => $flow,
+                        "reason" => $result["reason"] ?? "provider_assigned",
+                    ],
+                ],
+                200
+            );
+        }
+
+        if (($result["status"] ?? 500) === 404) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => $result["code"] ?? "PROPERTY_NOT_FOUND",
+                        "message" => $result["message"] ?? "Property not found",
+                    ],
+                    "meta" => [
+                        "contract" => "manager-provider-handoff-v1",
+                        "flow" => $flow,
+                        "reason" => $result["reason"] ?? "property_not_found",
+                        "retryable" => (bool) ($result["retryable"] ?? false),
+                    ],
+                    "property_id" => $result["property_id"] ?? null,
+                ],
+                404
+            );
+        }
+
+        return response()->json(
+            [
+                "error" => [
+                    "code" => $result["code"] ?? "ASSIGNMENT_CONFLICT",
+                    "message" => $result["message"] ?? "Provider assignment conflict",
+                ],
+                "meta" => [
+                    "contract" => "manager-provider-handoff-v1",
+                    "flow" => $flow,
+                    "reason" => $result["reason"] ?? "assignment_conflict",
+                    "retryable" => (bool) ($result["retryable"] ?? true),
+                ],
+            ],
+            (int) ($result["status"] ?? 409)
+        );
     }
 }
