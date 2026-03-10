@@ -2,6 +2,11 @@ import { managerEnv } from "../config/env";
 import { tokenStore, type UnauthorizedResetHandler } from "./tokenStore";
 
 export type SessionTokenSource = "env" | "runtime";
+export type SessionBootstrapResult =
+  | "authorized"
+  | "login_required"
+  | "unauthorized"
+  | "session_expired";
 
 type SessionClaims = {
   role: string | null;
@@ -27,6 +32,13 @@ type RefreshApiPayload = {
   data?: {
     access_token?: string;
     refresh_token?: string;
+    role?: string | null;
+    provider_id?: number | string | null;
+  };
+};
+
+type MeApiPayload = {
+  data?: {
     role?: string | null;
     provider_id?: number | string | null;
   };
@@ -67,6 +79,13 @@ function normalizeString(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function asStringOrNull(value: unknown): string | null {
+  if (typeof value === "number") {
+    return String(value);
+  }
+  return normalizeString(value);
+}
+
 function decodeBase64Url(value: string): string | null {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
   const padding = normalized.length % 4;
@@ -97,11 +116,8 @@ function claimsFromToken(token: string): SessionClaims {
   try {
     const payload = JSON.parse(decoded) as Record<string, unknown>;
     const role = normalizeString(payload.role) ?? "manager";
-    const providerRaw = payload.provider_id;
-    const providerId =
-      typeof providerRaw === "number"
-        ? String(providerRaw)
-        : normalizeString(providerRaw);
+    const providerId = asStringOrNull(payload.provider_id);
+
     return {
       role,
       providerId,
@@ -151,10 +167,7 @@ function persistRefreshToken(token: string | null): void {
 function resolveClaims(input: RuntimeSessionInput): SessionClaims {
   const tokenClaims = claimsFromToken(input.accessToken);
   const role = normalizeString(input.role) ?? tokenClaims.role;
-  const providerId =
-    normalizeString(input.providerId) ??
-    (typeof input.providerId === "number" ? String(input.providerId) : null) ??
-    tokenClaims.providerId;
+  const providerId = asStringOrNull(input.providerId) ?? tokenClaims.providerId;
 
   return {
     role,
@@ -162,17 +175,13 @@ function resolveClaims(input: RuntimeSessionInput): SessionClaims {
   };
 }
 
-const bootstrapToken = managerEnv.mobileApiToken.trim();
-if (bootstrapToken !== "" && tokenStore.getToken() === null) {
-  tokenStore.setToken(bootstrapToken);
-}
-
+const persistedToken = tokenStore.getToken();
 const bootstrapRefreshToken = readRefreshToken();
-let currentSession: SessionState | null = bootstrapToken
+let currentSession: SessionState | null = persistedToken
   ? {
-      source: "env",
+      source: "runtime",
       initializedAt: new Date().toISOString(),
-      claims: claimsFromToken(bootstrapToken),
+      claims: claimsFromToken(persistedToken),
       refreshToken: bootstrapRefreshToken,
     }
   : null;
@@ -248,16 +257,90 @@ export async function refreshSessionTokens(): Promise<boolean> {
       accessToken: nextAccessToken,
       refreshToken: normalizeString(data.refresh_token) ?? refreshToken,
       role: normalizeString(data.role) ?? currentSession?.claims.role,
-      providerId:
-        typeof data.provider_id === "number"
-          ? String(data.provider_id)
-          : normalizeString(data.provider_id) ?? currentSession?.claims.providerId,
+      providerId: asStringOrNull(data.provider_id) ?? currentSession?.claims.providerId,
       source: "runtime",
     });
     return true;
   } catch {
     return false;
   }
+}
+
+async function requestSessionMe(accessToken: string): Promise<{ status: number; payload: MeApiPayload }> {
+  const response = await fetch(`${managerEnv.apiBaseUrl}/auth/me`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as MeApiPayload;
+  return {
+    status: response.status,
+    payload,
+  };
+}
+
+export async function resolveManagerBootstrapState(): Promise<SessionBootstrapResult> {
+  const accessToken = getAccessToken();
+  if (!accessToken) {
+    return "login_required";
+  }
+
+  const evaluate = async (allowRefresh: boolean): Promise<SessionBootstrapResult> => {
+    try {
+      const { status, payload } = await requestSessionMe(getAccessToken() ?? accessToken);
+
+      if (status === 401) {
+        if (!allowRefresh) {
+          clearSession();
+          return "session_expired";
+        }
+
+        const refreshed = await refreshSessionTokens();
+        if (!refreshed) {
+          clearSession();
+          return "session_expired";
+        }
+
+        return evaluate(false);
+      }
+
+      if (status === 403) {
+        return "unauthorized";
+      }
+
+      if (status < 200 || status >= 300) {
+        clearSession();
+        return "login_required";
+      }
+
+      const role = normalizeString(payload?.data?.role) ?? currentSession?.claims.role ?? "manager";
+      if (role !== "manager" && role !== "admin") {
+        return "unauthorized";
+      }
+
+      const activeToken = getAccessToken();
+      if (!activeToken) {
+        return "login_required";
+      }
+
+      setRuntimeSession({
+        accessToken: activeToken,
+        refreshToken: getRefreshToken(),
+        role,
+        providerId: asStringOrNull(payload?.data?.provider_id),
+        source: "runtime",
+      });
+
+      return "authorized";
+    } catch {
+      return "login_required";
+    }
+  };
+
+  return evaluate(true);
 }
 
 export function clearSession(): void {
@@ -292,7 +375,7 @@ export function getSessionSnapshot(): {
       hasToken,
       source: hasToken ? "runtime" : "none",
       initializedAt: null,
-      role: hasToken ? "manager" : null,
+      role: null,
       providerId: null,
     };
   }

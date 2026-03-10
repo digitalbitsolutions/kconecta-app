@@ -405,7 +405,7 @@ class AuthSessionService
         return $configured > 0 ? $configured : self::DEFAULT_PROVIDER_ID;
     }
 
-    private function scopesForRole(string $role): array
+    public function scopesForRole(string $role): array
     {
         return match ($role) {
             "admin" => ["admin:*", "properties:*", "providers:*"],

@@ -218,8 +218,35 @@
   - Resolve candidate providers from provider module data source with deterministic filters.
   - Keep source metadata explicit (`database` or `in_memory`) for diagnostics.
 - Ownership notes:
-  - Candidate discovery is manager/admin read scope only.
-  - Provider role remains restricted from manager assignment surfaces.
+- Candidate discovery is manager/admin read scope only.
+- Provider role remains restricted from manager assignment surfaces.
+
+## Wave 20 Manager Session Introspection Boundary
+
+### Auth Session Introspection Layer
+
+- Responsibilities:
+  - Expose session identity and role/scope claims for persisted token validation.
+  - Keep auth/session envelope parity across login/refresh/logout/introspection routes.
+- Main contracts:
+  - `GET /api/auth/me`
+  - `POST /api/auth/login`
+  - `POST /api/auth/refresh`
+  - `POST /api/auth/logout`
+- Error semantics:
+  - `401 TOKEN_EXPIRED` (refresh path)
+  - `401 TOKEN_INVALID|TOKEN_REVOKED` (hard reset path)
+  - `403 ROLE_SCOPE_FORBIDDEN` for non-manager scopes in manager runtime
+
+### Manager App Bootstrap Layer
+
+- Responsibilities:
+  - Resolve startup route based on persisted token + `auth/me` validation.
+  - Prevent dashboard mount until role/scope is validated.
+  - Preserve deterministic transition to `Login`, `Unauthorized`, or `SessionExpired`.
+- Ownership notes:
+  - Session module owns token lifecycle.
+  - Manager module consumes validated session context only.
 
 ## Compatibility Rules
 

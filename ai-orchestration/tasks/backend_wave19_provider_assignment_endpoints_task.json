@@ -1,0 +1,31 @@
+{
+  "id": "BE-017",
+  "title": "Implement manager provider-candidate and assignment endpoints",
+  "description": "Add backend endpoints for manager handoff flow: fetch provider candidates for a property and assign provider with deterministic role/session/validation handling.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "routes/api.php",
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "app/Services/ProviderService.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "API exposes manager-scoped provider candidate listing and provider assignment mutation for property context",
+    "Validation and conflict responses use stable envelopes suitable for mobile handoff UX",
+    "Feature tests cover success, no-candidates/invalid-provider, forbidden role, and session-invalid paths"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave19",
+    "executor_model": "ollama_chat/deepseek-coder:6.7b",
+    "skills": [
+      "backend-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

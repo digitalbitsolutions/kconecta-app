@@ -144,14 +144,9 @@ class AuthSessionApiTest extends TestCase
             ->assertJsonPath("data.revoked", true);
     }
 
-    public function test_auth_me_requires_authorization_with_contract_meta_when_endpoint_is_available(): void
+    public function test_auth_me_requires_authorization_with_contract_meta(): void
     {
         $response = $this->getJson("/api/auth/me");
-
-        if ($this->isAuthMeEndpointUnavailable($response->status())) {
-            $this->markTestIncomplete("Wave 20 auth/me endpoint is not merged in this branch yet.");
-            return;
-        }
 
         $response
             ->assertUnauthorized()
@@ -163,7 +158,7 @@ class AuthSessionApiTest extends TestCase
             ->assertJsonPath("meta.retryable", false);
     }
 
-    public function test_auth_me_returns_session_payload_for_valid_manager_token_when_endpoint_is_available(): void
+    public function test_auth_me_returns_session_payload_for_valid_manager_token(): void
     {
         $login = $this->postJson("/api/auth/login", [
             "email" => "manager@kconecta.local",
@@ -175,11 +170,6 @@ class AuthSessionApiTest extends TestCase
         $response = $this->withHeaders([
             "Authorization" => "Bearer " . $token,
         ])->getJson("/api/auth/me");
-
-        if ($this->isAuthMeEndpointUnavailable($response->status())) {
-            $this->markTestIncomplete("Wave 20 auth/me endpoint is not merged in this branch yet.");
-            return;
-        }
 
         $response
             ->assertOk()
@@ -204,7 +194,7 @@ class AuthSessionApiTest extends TestCase
         $this->assertContains("properties:*", $scope);
     }
 
-    public function test_auth_me_rejects_provider_scope_for_manager_runtime_when_endpoint_is_available(): void
+    public function test_auth_me_rejects_provider_scope_for_manager_runtime(): void
     {
         $login = $this->postJson("/api/auth/login", [
             "email" => "provider1@provider.local",
@@ -216,11 +206,6 @@ class AuthSessionApiTest extends TestCase
         $response = $this->withHeaders([
             "Authorization" => "Bearer " . $token,
         ])->getJson("/api/auth/me");
-
-        if ($this->isAuthMeEndpointUnavailable($response->status())) {
-            $this->markTestIncomplete("Wave 20 auth/me endpoint is not merged in this branch yet.");
-            return;
-        }
 
         $response
             ->assertForbidden()
@@ -239,10 +224,5 @@ class AuthSessionApiTest extends TestCase
             ["TOKEN_INVALID", "TOKEN_EXPIRED"],
             "Expected TOKEN_INVALID or TOKEN_EXPIRED error code for unauthorized token flow."
         );
-    }
-
-    private function isAuthMeEndpointUnavailable(int $status): bool
-    {
-        return $status === 404 || $status === 405;
     }
 }

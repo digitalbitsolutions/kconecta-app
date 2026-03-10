@@ -1,39 +1,29 @@
-# TODO prioritario - Wave 18
+# TODO prioritario - Wave 20
 
-Fecha: 2026-03-10
+Fecha: 2026-03-10  
 Repo objetivo: `D:\still\kconecta-app`
 
 ## Estado
 
-- Wave activa: `Wave 18 - Manager auth hardening and property form parity`.
-- Jira abierto: `DEV-89`, `DEV-90`, `DEV-91`, `DEV-92`, `DEV-93` (todos `In Progress`).
-- PRs draft abiertos:
-  - `#76` architect
-  - `#77` backend
-  - `#78` mobile
-  - `#79` qa (CONFLICTING)
+- Wave 19: cerrada (PRs `#80-#83` mergeadas, Jira `DEV-94..DEV-98` en `Done`).
+- Siguiente objetivo: abrir y ejecutar Wave 20 con foco en login-first manager y paridad de sesion runtime.
 
 ## P0 (inmediato)
 
-- [ ] Resolver conflicto de `#79` (`agent/qa` vs `main`).
-- [ ] Revisar y aprobar `#76`.
-- [ ] Ejecutar `approve-merge` + `merge-pr` para `#76`.
-- [ ] Revisar y aprobar `#77`.
-- [ ] Ejecutar `approve-merge` + `merge-pr` para `#77`.
-- [ ] Revisar y aprobar `#78`.
-- [ ] Ejecutar `approve-merge` + `merge-pr` para `#78`.
-- [ ] Revalidar `#79` tras rebase/merge de `main`, luego aprobar y merge.
-- [ ] Transicionar Jira a `Done` (`DEV-90/91/93/92`) y cerrar epic `DEV-89`.
+- [ ] Crear y registrar Wave 20 en Jira:
+  - epic devops
+  - architect contract
+  - backend auth/me endpoint
+  - mobile login-first wiring
+  - qa regression
+- [ ] Mover architect/backend a `In Progress` para activar board visible.
+- [ ] Ejecutar primer ciclo Wave 20 (`architect`) y abrir PR draft enlazada a Jira.
 
 ## P1
 
-- [ ] Smoke test manager en emulador con `main` mergeado:
-  - login manager
-  - listado de propiedades
-  - crear propiedad
-  - editar propiedad
-  - validar refresco list/detail
-- [ ] Definir Wave 19 con foco en paridad de acciones avanzadas del CRM manager.
+- [ ] Completar ciclo backend -> mobile -> qa de Wave 20.
+- [ ] Validar flujo login-first en emulador Android (manager app).
+- [ ] Definir adicion de servicio app/php en Docker Compose para PHPUnit end-to-end completo.
 
 ## Restricciones activas
 
@@ -51,5 +41,5 @@ $env:AIDER_EDIT_FORMAT='diff'
 $env:AIDER_EXEC_TIMEOUT_SECONDS='600'
 py ai-orchestration/orchestrator.py preflight
 gh pr list --state open --limit 20
-py ai-orchestration/orchestrator.py jira-list --max-results 20
+py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
 ```

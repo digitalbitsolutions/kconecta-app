@@ -1,0 +1,29 @@
+{
+  "id": "EPIC-W19",
+  "title": "Wave 19 - Manager provider handoff and assignment parity",
+  "description": "Coordinate Wave 19 to replace static manager->provider handoff states with real candidate discovery and assignment operations aligned with CRM behavior.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/wave19-manager-provider-handoff-plan.md",
+    "ai-orchestration/tasks",
+    "docs/testing/functional-testing-strategy.md"
+  ],
+  "acceptance_criteria": [
+    "Wave 19 tickets are defined for architect/backend/mobile/qa with dependency order",
+    "Execution plan includes PR/Jira traceability and rollback checkpoints for provider assignment flow",
+    "Risk log covers stale UI state, role guard regressions, and candidate list consistency"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave19",
+    "stack": "React Native with TypeScript",
+    "skills": [
+      "devops-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}
