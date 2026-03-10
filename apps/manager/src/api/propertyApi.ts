@@ -1,4 +1,6 @@
-﻿import { requestJson } from "./client";
+import { getAccessToken } from "../auth/session";
+import { managerEnv } from "../config/env";
+import { ApiError, getApiBaseUrl, requestJson } from "./client";
 
 export type PropertyStatus = "available" | "reserved" | "maintenance";
 
@@ -8,6 +10,7 @@ export type PropertyRecord = {
   city: string;
   status: PropertyStatus;
   manager_id: string;
+  provider_id?: number | null;
   price: number;
 };
 
@@ -47,6 +50,53 @@ type PropertyMutationPayload = {
   };
 };
 
+type PropertyFormErrorPayload = {
+  error?: {
+    code?: string;
+    message?: string;
+    fields?: Record<string, string[]>;
+  };
+  meta?: {
+    retryable?: boolean;
+  };
+  message?: string;
+};
+
+type ProviderCandidatesPayload = {
+  data: {
+    property_id: number;
+    candidates: Array<{
+      id: number;
+      name: string;
+      role: string;
+      status: string;
+      category: string | null;
+      city: string | null;
+      rating: number | null;
+    }>;
+  };
+  meta: {
+    contract: string;
+    flow: string;
+    reason: string;
+    source?: "database" | "in_memory" | "unknown";
+  };
+};
+
+type AssignProviderPayload = {
+  data: {
+    property_id: number;
+    provider_id: number;
+    assigned_at: string;
+    property: PropertyRecord;
+  };
+  meta: {
+    contract: string;
+    flow: string;
+    reason: string;
+  };
+};
+
 export type PropertyViewModel = {
   id: string;
   title: string;
@@ -55,6 +105,54 @@ export type PropertyViewModel = {
   price: string;
   managerId: string;
 };
+
+export type ProviderCandidate = {
+  id: string;
+  name: string;
+  category: string;
+  city: string;
+  status: string;
+  rating: string;
+};
+
+export type ProviderAssignmentResult = {
+  propertyId: string;
+  providerId: string;
+  assignedAt: string;
+  property: PropertyViewModel;
+};
+
+export type PropertyFormInput = {
+  title: string;
+  city: string;
+  status: PropertyStatus;
+  price?: number | null;
+  managerId?: string;
+};
+
+export type PropertyFormFields = Record<string, string[]>;
+
+export class PropertyFormError extends Error {
+  status: number;
+  code: string;
+  fields: PropertyFormFields;
+  retryable: boolean;
+
+  constructor(
+    message: string,
+    status: number,
+    code: string,
+    fields: PropertyFormFields = {},
+    retryable = true
+  ) {
+    super(message);
+    this.name = "PropertyFormError";
+    this.status = status;
+    this.code = code;
+    this.fields = fields;
+    this.retryable = retryable;
+  }
+}
 
 export type PortfolioKpis = {
   activeProperties: number;
@@ -107,6 +205,20 @@ function toViewModel(record: PropertyRecord): PropertyViewModel {
   };
 }
 
+function toProviderCandidateViewModel(
+  candidate: ProviderCandidatesPayload["data"]["candidates"][number]
+): ProviderCandidate {
+  const ratingValue = typeof candidate.rating === "number" ? candidate.rating.toFixed(1) : "n/a";
+  return {
+    id: String(candidate.id),
+    name: candidate.name,
+    category: candidate.category ?? "General",
+    city: candidate.city ?? "Unknown",
+    status: candidate.status,
+    rating: ratingValue,
+  };
+}
+
 function buildQueryString(query: PropertyListQuery = {}): string {
   const params = new URLSearchParams();
   if (query.status) {
@@ -139,6 +251,16 @@ function mapKpis(payload: PropertyListPayload): PortfolioKpis {
     avgTimeToCloseDays: payload.meta.kpis.avg_time_to_close_days,
     providerMatchesPending: payload.meta.kpis.provider_matches_pending,
   };
+}
+
+function toMessage(payload: PropertyFormErrorPayload, status: number): string {
+  if (typeof payload.error?.message === "string" && payload.error.message.trim().length > 0) {
+    return payload.error.message;
+  }
+  if (typeof payload.message === "string" && payload.message.trim().length > 0) {
+    return payload.message;
+  }
+  return `HTTP ${status}`;
 }
 
 export async function fetchPropertyPortfolio(
@@ -199,4 +321,124 @@ export async function updatePropertyStatus(
     body: { status },
   });
   return toViewModel(payload.data);
+}
+
+async function executePropertyFormMutation(
+  path: string,
+  method: "POST" | "PATCH",
+  body: Record<string, unknown>
+): Promise<PropertyViewModel> {
+  const token = getAccessToken();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), managerEnv.requestTimeoutMs);
+
+  try {
+    const response = await fetch(`${getApiBaseUrl()}${path}`, {
+      method,
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as
+      | PropertyMutationPayload
+      | PropertyFormErrorPayload;
+
+    if (!response.ok) {
+      const errorPayload = payload as PropertyFormErrorPayload;
+      if (response.status === 422 && errorPayload.error?.code === "VALIDATION_ERROR") {
+        throw new PropertyFormError(
+          toMessage(errorPayload, response.status),
+          response.status,
+          errorPayload.error.code,
+          errorPayload.error.fields ?? {},
+          Boolean(errorPayload.meta?.retryable ?? true)
+        );
+      }
+
+      throw new ApiError(toMessage(errorPayload, response.status), response.status);
+    }
+
+    return toViewModel((payload as PropertyMutationPayload).data);
+  } catch (error) {
+    if (error instanceof PropertyFormError || error instanceof ApiError) {
+      throw error;
+    }
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new ApiError(`Request timed out after ${managerEnv.requestTimeoutMs}ms`, 408);
+    }
+    const message = error instanceof Error ? error.message : "Network request failed";
+    throw new ApiError(message, 0);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+export async function createProperty(input: PropertyFormInput): Promise<PropertyViewModel> {
+  return executePropertyFormMutation("/properties", "POST", {
+    title: input.title,
+    city: input.city,
+    status: input.status,
+    price: input.price ?? null,
+    ...(input.managerId ? { manager_id: input.managerId } : {}),
+  });
+}
+
+export async function updatePropertyForm(
+  id: string,
+  input: Partial<PropertyFormInput>
+): Promise<PropertyViewModel> {
+  const payload: Record<string, unknown> = {};
+  if (typeof input.title === "string") {
+    payload.title = input.title;
+  }
+  if (typeof input.city === "string") {
+    payload.city = input.city;
+  }
+  if (typeof input.status === "string") {
+    payload.status = input.status;
+  }
+  if (typeof input.price === "number" || input.price === null) {
+    payload.price = input.price;
+  }
+  if (typeof input.managerId === "string" && input.managerId.trim().length > 0) {
+    payload.manager_id = input.managerId.trim();
+  }
+
+  return executePropertyFormMutation(`/properties/${id}`, "PATCH", payload);
+}
+
+export async function fetchProviderCandidates(propertyId: string): Promise<ProviderCandidate[]> {
+  const payload = await requestJson<ProviderCandidatesPayload>(
+    `/properties/${propertyId}/provider-candidates`
+  );
+  return payload.data.candidates.map(toProviderCandidateViewModel);
+}
+
+export async function assignProviderToProperty(
+  propertyId: string,
+  providerId: string,
+  note?: string
+): Promise<ProviderAssignmentResult> {
+  const payload = await requestJson<AssignProviderPayload>(
+    `/properties/${propertyId}/assign-provider`,
+    {
+      method: "POST",
+      body: {
+        provider_id: Number(providerId),
+        ...(note && note.trim().length > 0 ? { note: note.trim() } : {}),
+      },
+    }
+  );
+
+  return {
+    propertyId: String(payload.data.property_id),
+    providerId: String(payload.data.provider_id),
+    assignedAt: payload.data.assigned_at,
+    property: toViewModel(payload.data.property),
+  };
 }

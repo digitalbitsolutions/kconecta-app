@@ -5,6 +5,7 @@ import { getSessionSnapshot, registerUnauthorizedResetHandler } from "../auth/se
 import ManagerDashboardScreen from "../screens/ManagerDashboardScreen";
 import ManagerToProviderHandoffScreen from "../screens/ManagerToProviderHandoffScreen";
 import PropertyDetailScreen from "../screens/PropertyDetailScreen";
+import PropertyEditorScreen from "../screens/PropertyEditorScreen";
 import PropertyListScreen from "../screens/PropertyListScreen";
 import RoleMismatchScreen from "../screens/RoleMismatchScreen";
 import LoginScreen from "../screens/auth/LoginScreen";
@@ -15,8 +16,9 @@ export type ManagerStackParamList = {
   Login: undefined;
   ManagerDashboard: undefined;
   ManagerToProviderHandoff: {
-    providerId?: string;
-    propertyId?: string;
+    propertyId: string;
+    propertyTitle?: string;
+    preselectedProviderId?: string;
   };
   RoleMismatch: {
     expectedRole: "manager" | "provider" | "admin";
@@ -25,6 +27,12 @@ export type ManagerStackParamList = {
   };
   PropertyList: undefined;
   PropertyDetail: { propertyId: string; propertyTitle: string };
+  PropertyEditor:
+    | { mode: "create" }
+    | {
+        mode: "edit";
+        propertyId: string;
+      };
   Unauthorized: undefined;
   SessionExpired: undefined;
 };
@@ -89,6 +97,11 @@ const ManagerStack = () => {
         name="PropertyDetail"
         component={PropertyDetailScreen}
         options={{ title: "Property Detail" }}
+      />
+      <Stack.Screen
+        name="PropertyEditor"
+        component={PropertyEditorScreen}
+        options={{ title: "Property Editor" }}
       />
     </Stack.Navigator>
   );

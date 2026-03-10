@@ -273,6 +273,47 @@ Define the first production-shaped mobile information architecture for manager a
   - Show field/action-level validation feedback (`422 VALIDATION_ERROR`).
   - Keep screen context and allow corrective retry.
 
+## Wave 18 Manager Auth + Property Form State Map
+
+### Manager Auth Hardening States
+
+- `auth_refresh_singleflight`
+  - Multiple `401 TOKEN_EXPIRED` responses collapse into one refresh operation.
+  - Pending requests wait for refresh result, then retry once.
+- `auth_refresh_failed_hard`
+  - Triggered by `TOKEN_INVALID` or `TOKEN_REVOKED` after refresh attempt.
+  - Clear local session and route to `SessionExpired` with deterministic re-login CTA.
+- `auth_logout_confirmed`
+  - Triggered after successful logout response (or idempotent fallback).
+  - Navigation resets to `Login` and no protected stack remains mounted.
+
+### Manager Property Form States
+
+- `property_form_idle`
+  - Form rendered for create or edit mode with initial values.
+- `property_form_dirty`
+  - At least one field changed locally.
+- `property_form_submitting`
+  - Submit action in progress; submit button disabled.
+- `property_form_submit_success`
+  - Show success feedback and return to detail/list with refetch trigger.
+- `property_form_validation_error`
+  - Map `error.fields` messages to field hints.
+  - Keep user input to allow corrections.
+- `property_form_forbidden`
+  - On `403 ROLE_SCOPE_FORBIDDEN`, disable submit and show permission message.
+- `property_form_session_expired`
+  - On unrecoverable `401`, route to `SessionExpired`.
+
+### Property List/Detail Sync Rules
+
+- After create success:
+  - Return to list and trigger deterministic reload.
+- After edit success:
+  - Refresh both detail and list cache/snapshot.
+- After validation or conflict failure:
+  - Keep current editor context and avoid silent navigation.
+
 ## Wave 16 Delivery Sequencing
 
 1. Manager contract hardening and state map (`ARCH-012`).
@@ -286,3 +327,49 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend manager mutation endpoints and guards (`BE-015`).
 3. Manager mutation controls wired to API (`MOB-014`).
 4. Mutation regression matrix and baseline verification (`QA-016`).
+
+## Wave 18 Delivery Sequencing
+
+1. Auth hardening + property form contracts (`ARCH-014`).
+2. Backend create/edit endpoints and validation envelope (`BE-016`).
+3. Manager create/edit property form UI wiring (`MOB-015`).
+4. Regression suite for auth and property forms (`QA-017`).
+
+## Wave 19 Manager Provider Handoff State Map
+
+### Manager Handoff Screen States
+
+- `handoff_loading`
+  - Load provider candidates for current property context.
+- `handoff_ready`
+  - Show provider candidates with deterministic assignment actions.
+- `handoff_empty`
+  - No candidates available for selected property/city/category.
+- `handoff_assigning`
+  - Assignment request in flight; disable duplicate actions.
+- `handoff_success`
+  - Show assignment confirmation and return to property detail/list with refresh.
+- `handoff_validation_error`
+  - Render field-level message for invalid provider selection.
+- `handoff_conflict`
+  - Render conflict copy and offer `Reload candidates` CTA.
+- `handoff_forbidden`
+  - Keep session active and show permission boundary message.
+- `handoff_session_expired`
+  - Route to `SessionExpired` after unrecoverable auth failure.
+
+### Navigation Rules
+
+- Entry points:
+  - `PropertyDetail` -> `ManagerToProviderHandoff` with `propertyId`.
+  - Optional quick access from dashboard if property context is provided.
+- Exit rules:
+  - On success, navigate back to `PropertyDetail` and trigger data refresh.
+  - On hard auth failure, reset stack to auth recovery route.
+
+## Wave 19 Delivery Sequencing
+
+1. Handoff and assignment contract/state map (`ARCH-015`).
+2. Backend provider-candidate + assignment endpoints (`BE-017`).
+3. Manager handoff UI wired to API (`MOB-016`).
+4. Regression matrix for assignment flow and Wave 16-18 baseline (`QA-018`).
