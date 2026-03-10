@@ -1,0 +1,25 @@
+{
+  "id": "MOB-017",
+  "title": "Implement manager login-first bootstrap and session restore flow",
+  "description": "Wire manager app startup to login-first auth state resolver using auth/me verification, remove dependency on static env-token bootstrap for normal path, and preserve deterministic auth fallback screens.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/auth/session.ts",
+    "apps/manager/src/api/client.ts",
+    "apps/manager/src/navigation/index.tsx",
+    "apps/manager/src/screens/auth/LoginScreen.tsx",
+    "apps/manager/src/screens/ManagerDashboardScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Manager app starts at login when no valid session exists",
+    "Persisted token path validates with backend auth/me before entering dashboard",
+    "Unauthorized/session-expired transitions remain deterministic and user-recoverable"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave20",
+    "executor_model": "ollama_chat/deepseek-coder:6.7b",
+    "stack": "react-native-with-typescript"
+  }
+}

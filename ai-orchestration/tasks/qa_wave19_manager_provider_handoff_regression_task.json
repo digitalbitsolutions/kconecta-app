@@ -1,0 +1,29 @@
+{
+  "id": "QA-018",
+  "title": "Add Wave 19 manager provider handoff regression matrix",
+  "description": "Expand regression coverage for provider candidate retrieval and assignment mutations in manager flow while preserving Wave 16-18 stability.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/Wave19RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix includes candidate list, assignment success, invalid provider, conflict, forbidden, and session-expired cases",
+    "API tests assert response contract stability for assignment mutation errors and success payloads",
+    "Wave 16-18 manager baseline remains green after Wave 19 additions"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave19",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "skills": [
+      "qa-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

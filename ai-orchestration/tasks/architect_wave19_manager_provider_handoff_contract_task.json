@@ -1,0 +1,30 @@
+{
+  "id": "ARCH-015",
+  "title": "Define Wave 19 manager provider handoff and assignment contract",
+  "description": "Extend architecture docs with manager provider-candidate discovery, assignment mutation contract, and UI state map for handoff flow.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Contract specifies provider candidate list payload and assignment mutation request/response envelopes",
+    "Role and session boundaries are explicit for manager/provider/admin actors",
+    "UI state map includes loading, empty candidates, assignment success, conflict, forbidden, and session-expired states"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave19",
+    "stack": "React Native with TypeScript",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "skills": [
+      "architect-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

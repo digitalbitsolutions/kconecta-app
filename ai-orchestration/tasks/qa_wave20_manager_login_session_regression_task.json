@@ -1,0 +1,23 @@
+{
+  "id": "QA-019",
+  "title": "Add Wave 20 manager login/session regression matrix",
+  "description": "Expand QA coverage for login-first bootstrap, auth/me introspection, and manager auth guard transitions while preserving Wave 16-19 manager baselines.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/AuthSessionApiTest.php",
+    "tests/Feature/Api/Wave20RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix includes login success/failure, auth/me success, and expired/invalid token cases",
+    "API tests assert auth-session-v1 contract stability for auth/me and related errors",
+    "Wave 16-19 manager regressions remain stable after Wave 20 additions"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave20",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "stack": "qa-core"
+  }
+}
