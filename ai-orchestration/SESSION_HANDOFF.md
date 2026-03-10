@@ -3,49 +3,35 @@
 ## Current State
 
 - Repository: `D:\still\kconecta-app`
+- Branch: `main` synced with `origin/main`
 - Executor policy: `AI_EXECUTOR=aider` (OpenClaw en observacion)
 - Backend policy: Docker-only (sin XAMPP)
-- Active wave: `Wave 18 - Manager auth hardening and property form parity`
-- Jira open (`In Progress`): `DEV-89`, `DEV-90`, `DEV-91`, `DEV-92`, `DEV-93`
-- Open draft PRs:
-  - `#76` architect
-  - `#77` backend
-  - `#78` mobile
-  - `#79` qa (CONFLICTING)
+- Wave cerrada: `Wave 19 - Manager provider handoff and assignment parity`
+- Jira open (`statusCategory != Done`): `0`
+- Open PRs: `0`
 
-## Delivered This Session
+## Wave 19 Closure Summary
 
-1. Wave 18 artifacts created and committed:
-   - `ai-orchestration/tasks/wave18_*`
-   - `docs/roadmap/wave18-manager-auth-property-forms-plan.md`
-2. Architect completed in `agent/architect`:
-   - contracts/state maps for auth hardening + property forms.
-   - PR: `#76` linked to `DEV-90`.
-3. Backend completed in `agent/backend`:
-   - `POST /api/properties` added.
-   - `PATCH /api/properties/{id}` extended for form edits.
-   - deterministic `VALIDATION_ERROR` + `error.fields` envelope.
-   - API tests extended in backend branch.
-   - PR: `#77` linked to `DEV-91`.
-4. Mobile completed in `agent/mobile`:
-   - new `PropertyEditorScreen` (create/edit).
-   - manager navigation route `PropertyEditor`.
-   - list/detail wiring to editor flow.
-   - property form API helpers + field error mapping.
-   - manager typecheck passed.
-   - PR: `#78` linked to `DEV-93`.
-5. QA completed in `agent/qa`:
-   - Wave 18 section in functional testing strategy.
-   - `Wave18RegressionMatrixTest.php` added.
-   - `PropertyApiTest.php` extended with Wave 18 assertions.
-   - PR: `#79` linked to `DEV-92` (currently conflicting with main).
+1. PRs merged to `main`:
+   - `#80` architect
+   - `#81` backend
+   - `#82` mobile
+   - `#83` qa
+2. Jira transitioned to `Done`:
+   - `DEV-95`, `DEV-96`, `DEV-97`, `DEV-98`
+3. Epic closed:
+   - `DEV-94` -> `Done`
+4. Main contains Wave 19 deliverables:
+   - manager provider-candidate and assignment endpoints
+   - manager app handoff screen wired to real API
+   - Wave 19 regression matrix (`Wave19RegressionMatrixTest.php`)
 
 ## Known Blockers
 
-- Aider apply mode remains unstable for long tasks (timeouts / no-diff).
-  - Workaround used: `run-task --dry-run` + deterministic manual edits in agent worktrees.
-- Full PHPUnit in this repo still blocked by missing app/php runtime in `docker-compose.yml`.
-  - Docker syntax checks were run with `php:8.2-cli`.
+- Aider apply mode can still timeout on long edits.
+  - Current workaround: deterministic manual fallback in agent worktrees.
+- Full Laravel PHPUnit end-to-end in this repo remains limited by `docker-compose.yml` (no app/php service).
+  - Current workaround: Docker `php:8.2-cli` lint/smoke checks + CI gates on PR.
 
 ## Resume Commands
 
@@ -59,13 +45,11 @@ $env:AIDER_EDIT_FORMAT='diff'
 $env:AIDER_EXEC_TIMEOUT_SECONDS='600'
 py ai-orchestration/orchestrator.py preflight
 gh pr list --state open --limit 20
-py ai-orchestration/orchestrator.py jira-list --max-results 20
+py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
 ```
 
 ## Next Natural Actions
 
-1. Resolve PR `#79` conflicts after syncing `agent/qa` with latest `main`.
-2. Review + merge order:
-   - `#76` -> `#77` -> `#78` -> `#79`.
-3. Transition Jira to `Done` as each PR merges (`DEV-90/91/93/92` then `DEV-89`).
-4. Run manager emulator smoke on merged `main` for create/edit property flow.
+1. Bootstrap `Wave 20` (epic + architect/backend/mobile/qa tasks).
+2. Transition architect/backend Wave 20 tickets to `In Progress` for board visibility.
+3. Start Wave 20 execution in standard order: architect -> backend -> mobile -> qa.

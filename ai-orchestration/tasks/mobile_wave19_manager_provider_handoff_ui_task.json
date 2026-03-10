@@ -1,0 +1,32 @@
+{
+  "id": "MOB-016",
+  "title": "Implement manager provider handoff UI wired to assignment API",
+  "description": "Replace static handoff placeholder with candidate list and assignment actions connected to backend contracts from property detail flow.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/navigation/index.tsx",
+    "apps/manager/src/screens/PropertyDetailScreen.tsx",
+    "apps/manager/src/screens/ManagerToProviderHandoffScreen.tsx",
+    "apps/manager/src/screens/ManagerDashboardScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Manager can open handoff flow with property context and view provider candidates",
+    "Assignment action handles success/conflict/forbidden/session errors with deterministic feedback",
+    "After assignment, property detail and list state stay synchronized without stale provider context"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave19",
+    "stack": "React Native with TypeScript",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "skills": [
+      "mobile-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

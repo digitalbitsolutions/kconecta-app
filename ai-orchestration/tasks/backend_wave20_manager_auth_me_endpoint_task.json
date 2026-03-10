@@ -1,0 +1,24 @@
+{
+  "id": "BE-018",
+  "title": "Implement manager auth/session introspection endpoint for mobile runtime",
+  "description": "Add backend auth/me endpoint and supporting service wiring so manager app can validate persisted access tokens and resolve deterministic role/scope session state.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "routes/api.php",
+    "app/Http/Controllers/Api/AuthController.php",
+    "app/Services/AuthSessionService.php",
+    "tests/Feature/Api/AuthSessionApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "GET /api/auth/me returns stable session payload for valid manager token",
+    "Invalid/expired token paths return deterministic auth-session-v1 envelope",
+    "Role/scope claims in auth/me align with login payload contract"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave20",
+    "executor_model": "ollama_chat/deepseek-coder:6.7b",
+    "stack": "laravel-api"
+  }
+}

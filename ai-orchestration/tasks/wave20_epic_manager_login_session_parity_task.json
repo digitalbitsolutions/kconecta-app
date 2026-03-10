@@ -1,0 +1,22 @@
+{
+  "id": "EPIC-W20",
+  "title": "Wave 20 - Manager login-first session parity",
+  "description": "Establish manager login-first bootstrap and backend session introspection parity so manager runtime no longer depends on static env token bootstrap.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/wave20-manager-login-session-parity-plan.md",
+    "ai-orchestration/tasks/"
+  ],
+  "acceptance_criteria": [
+    "Wave plan defines architect, backend, mobile, and qa sequencing with rollback checkpoints",
+    "Execution plan keeps Docker-only backend policy and AI executor policy",
+    "Execution plan includes PR/Jira traceability and merge gating"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave20",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript"
+  }
+}
