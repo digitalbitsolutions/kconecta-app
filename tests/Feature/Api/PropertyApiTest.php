@@ -150,7 +150,26 @@ class PropertyApiTest extends TestCase
 
         $response
             ->assertForbidden()
-            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN");
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_index")
+            ->assertJsonPath("meta.reason", "role_scope_forbidden")
+            ->assertJsonPath("meta.retryable", false);
+    }
+
+    public function test_invalid_bearer_token_returns_unauthorized_error_envelope_for_properties_endpoint(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer invalid-token"])
+            ->getJson("/api/properties");
+
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("error.code", "TOKEN_INVALID")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_index")
+            ->assertJsonPath("meta.reason", "token_invalid")
+            ->assertJsonPath("meta.retryable", false);
     }
 
     private function assertValidDataSource(mixed $source): void
