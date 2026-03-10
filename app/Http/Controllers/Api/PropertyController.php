@@ -144,6 +144,56 @@ class PropertyController extends Controller
         return response()->json(["data" => $property], 200);
     }
 
+    public function reserve(Request $request, int $id): JsonResponse
+    {
+        $authFailure = $this->authorizeMutationRequest($request, "properties_reserve");
+        if ($authFailure !== null) {
+            return $authFailure;
+        }
+
+        $result = $this->propertyService->reserveProperty($id, $this->resolveManagerId($request));
+        return $this->mutationResponse("properties_reserve", $result);
+    }
+
+    public function release(Request $request, int $id): JsonResponse
+    {
+        $authFailure = $this->authorizeMutationRequest($request, "properties_release");
+        if ($authFailure !== null) {
+            return $authFailure;
+        }
+
+        $result = $this->propertyService->releaseProperty($id);
+        return $this->mutationResponse("properties_release", $result);
+    }
+
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $authFailure = $this->authorizeMutationRequest($request, "properties_update");
+        if ($authFailure !== null) {
+            return $authFailure;
+        }
+
+        $validated = $request->validate([
+            "status" => [
+                "required",
+                "string",
+                "in:" . implode(",", [
+                    PropertyService::STATUS_AVAILABLE,
+                    PropertyService::STATUS_RESERVED,
+                    PropertyService::STATUS_MAINTENANCE,
+                ]),
+            ],
+        ]);
+
+        $result = $this->propertyService->updatePropertyStatus(
+            $id,
+            $validated["status"],
+            $this->resolveManagerId($request)
+        );
+
+        return $this->mutationResponse("properties_update", $result);
+    }
+
     private function hasAllowedRole(Request $request, array $allowedRoles): bool
     {
         $resolvedRole = $this->resolveRole($request);
@@ -163,5 +213,100 @@ class PropertyController extends Controller
         }
 
         return "manager";
+    }
+
+    private function authorizeMutationRequest(Request $request, string $flow): ?JsonResponse
+    {
+        if (!$this->apiAccessService->isAuthorized($request)) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_TOKEN_INVALID,
+                    "Unauthorized",
+                    $flow,
+                    "token_invalid",
+                    false
+                ),
+                401
+            );
+        }
+
+        if (!$this->hasAllowedRole($request, ["manager", "admin"])) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_ROLE_SCOPE_FORBIDDEN,
+                    "Forbidden",
+                    $flow,
+                    "role_scope_forbidden",
+                    false
+                ),
+                403
+            );
+        }
+
+        return null;
+    }
+
+    private function mutationResponse(string $flow, array $result): JsonResponse
+    {
+        if (($result["ok"] ?? false) === true) {
+            return response()->json(
+                [
+                    "data" => $result["data"],
+                    "meta" => [
+                        "contract" => "property-mutation-v1",
+                        "flow" => $flow,
+                        "reason" => $result["reason"] ?? "ok",
+                    ],
+                ],
+                200
+            );
+        }
+
+        if (($result["status"] ?? 500) === 404) {
+            return response()->json(
+                [
+                    "message" => $result["message"] ?? "Property not found",
+                    "property_id" => $result["property_id"] ?? null,
+                    "error" => [
+                        "code" => $result["code"] ?? "PROPERTY_NOT_FOUND",
+                        "message" => $result["message"] ?? "Property not found",
+                    ],
+                    "meta" => [
+                        "contract" => "property-mutation-v1",
+                        "flow" => $flow,
+                        "reason" => $result["reason"] ?? "property_not_found",
+                        "retryable" => (bool) ($result["retryable"] ?? false),
+                    ],
+                ],
+                404
+            );
+        }
+
+        return response()->json(
+            [
+                "error" => [
+                    "code" => $result["code"] ?? "PROPERTY_STATE_CONFLICT",
+                    "message" => $result["message"] ?? "Property mutation conflict",
+                ],
+                "meta" => [
+                    "contract" => "property-mutation-v1",
+                    "flow" => $flow,
+                    "reason" => $result["reason"] ?? "conflict",
+                    "retryable" => (bool) ($result["retryable"] ?? true),
+                ],
+            ],
+            (int) ($result["status"] ?? 409)
+        );
+    }
+
+    private function resolveManagerId(Request $request): ?string
+    {
+        $managerId = trim((string) data_get($request->user(), "id", ""));
+        if ($managerId !== "") {
+            return $managerId;
+        }
+
+        $header = trim((string) $request->header("X-KCONECTA-MANAGER-ID", ""));
+        return $header !== "" ? $header : null;
     }
 }

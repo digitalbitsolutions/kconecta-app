@@ -8,6 +8,10 @@ use Throwable;
 
 class PropertyService
 {
+    public const STATUS_AVAILABLE = "available";
+    public const STATUS_RESERVED = "reserved";
+    public const STATUS_MAINTENANCE = "maintenance";
+
     private const DEFAULT_PROPERTY_TABLE = "properties";
     private const FALLBACK_PROPERTY_TABLE = "real_estate_properties";
     private const DATA_SOURCE_AUTO = "auto";
@@ -146,6 +150,73 @@ class PropertyService
         }
 
         return null;
+    }
+
+    /**
+     * Reserve a property when current status is not already reserved.
+     */
+    public function reserveProperty(int $id, ?string $managerId = null): array
+    {
+        $property = $this->findPropertyById($id);
+        if ($property === null) {
+            return $this->notFoundResult($id);
+        }
+
+        if ($property["status"] === self::STATUS_RESERVED) {
+            return $this->conflictResult("Property is already reserved", "already_reserved");
+        }
+
+        $updated = $property;
+        $updated["status"] = self::STATUS_RESERVED;
+        if ($managerId !== null && trim($managerId) !== "") {
+            $updated["manager_id"] = trim($managerId);
+        }
+
+        return $this->successResult($updated, "property_reserved");
+    }
+
+    /**
+     * Release a reservation when property is currently reserved.
+     */
+    public function releaseProperty(int $id): array
+    {
+        $property = $this->findPropertyById($id);
+        if ($property === null) {
+            return $this->notFoundResult($id);
+        }
+
+        if ($property["status"] !== self::STATUS_RESERVED) {
+            return $this->conflictResult("Property is not reserved", "not_reserved");
+        }
+
+        $updated = $property;
+        $updated["status"] = self::STATUS_AVAILABLE;
+
+        return $this->successResult($updated, "property_released");
+    }
+
+    /**
+     * Update status with deterministic conflict semantics.
+     */
+    public function updatePropertyStatus(int $id, string $status, ?string $managerId = null): array
+    {
+        $property = $this->findPropertyById($id);
+        if ($property === null) {
+            return $this->notFoundResult($id);
+        }
+
+        $normalizedStatus = strtolower(trim($status));
+        if ($normalizedStatus === strtolower((string) $property["status"])) {
+            return $this->conflictResult("Property already has the requested status", "status_unchanged");
+        }
+
+        $updated = $property;
+        $updated["status"] = $normalizedStatus;
+        if ($managerId !== null && trim($managerId) !== "") {
+            $updated["manager_id"] = trim($managerId);
+        }
+
+        return $this->successResult($updated, "property_status_updated");
     }
 
     /**
@@ -381,6 +452,41 @@ class PropertyService
                 "manager_id" => "mgr-002",
                 "price" => 198000,
             ],
+        ];
+    }
+
+    private function successResult(array $property, string $reason): array
+    {
+        return [
+            "ok" => true,
+            "status" => 200,
+            "reason" => $reason,
+            "data" => $property,
+        ];
+    }
+
+    private function notFoundResult(int $id): array
+    {
+        return [
+            "ok" => false,
+            "status" => 404,
+            "reason" => "property_not_found",
+            "code" => "PROPERTY_NOT_FOUND",
+            "message" => "Property not found",
+            "property_id" => $id,
+            "retryable" => false,
+        ];
+    }
+
+    private function conflictResult(string $message, string $reason): array
+    {
+        return [
+            "ok" => false,
+            "status" => 409,
+            "reason" => $reason,
+            "code" => "PROPERTY_STATE_CONFLICT",
+            "message" => $message,
+            "retryable" => true,
         ];
     }
 }
