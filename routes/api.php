@@ -16,6 +16,7 @@ Route::get("/providers/{id}", [ProviderController::class, "show"]);
 Route::get("/providers/{id}/availability", [ProviderController::class, "availability"]);
 Route::patch("/providers/{id}/availability", [ProviderController::class, "updateAvailability"]);
 Route::get("/properties", [PropertyController::class, "index"]);
+Route::post("/properties", [PropertyController::class, "create"]);
 Route::get("/properties/{id}", [PropertyController::class, "show"]);
 Route::post("/properties/{id}/reserve", [PropertyController::class, "reserve"]);
 Route::post("/properties/{id}/release", [PropertyController::class, "release"]);
