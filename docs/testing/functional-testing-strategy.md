@@ -145,6 +145,27 @@ Validate end-to-end functional behavior of native app API contracts before relea
 3. `DEV-76` -> Mobile conflict UX and revision-aware save flow.
 4. `DEV-78` -> Regression matrix and API assertions for Wave 15.
 
+## Wave 16 Manager Parity Matrix
+
+1. Manager auth/session parity (`DEV-80`, `DEV-83`)
+  - `/api/auth/login` returns manager role + deterministic scope for manager app.
+  - Invalid/expired auth contexts keep returning stable `auth-session-v1` envelope.
+2. Manager portfolio parity (`DEV-81`, `DEV-82`, `DEV-83`)
+  - `/api/properties` returns pagination metadata (`page`, `per_page`, `total`) and KPI block for dashboard consumption.
+  - Property list accepts contract filters (`status`, `city`, `manager_id`, `search`) with deterministic meta echo.
+  - Invalid pagination returns deterministic `422` validation envelope.
+3. Cross-wave safety baseline (`DEV-83`)
+  - Wave 14 provider ownership guard remains active (`PROVIDER_IDENTITY_MISMATCH` path).
+  - Wave 15 availability revision conflict remains active (`AVAILABILITY_REVISION_CONFLICT` path).
+
+## Wave 16 Ticket Mapping
+
+1. `DEV-79` -> Wave 16 orchestration epic and rollout tracking.
+2. `DEV-80` -> Manager auth/session + portfolio architecture contract.
+3. `DEV-81` -> Backend manager portfolio summary/filter contract implementation.
+4. `DEV-82` -> Mobile manager dashboard/property screens wired to real API data.
+5. `DEV-83` -> Regression matrix + API assertions in `tests/Feature/Api/Wave16RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -161,6 +182,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 10. Run Wave 13 availability regression suite and record endpoint readiness (`404` pre-merge vs contract-asserted post-merge).
 11. Run Wave 14 provider identity regression suite and record ownership guard behavior (`PROVIDER_IDENTITY_MISMATCH` + admin override path).
 12. Run Wave 15 revision conflict suite and record stale-write behavior (`AVAILABILITY_REVISION_CONFLICT` + reload path).
+13. Run Wave 16 manager parity regression suite and record auth + portfolio contract evidence.
 
 ## Entry Criteria
 
