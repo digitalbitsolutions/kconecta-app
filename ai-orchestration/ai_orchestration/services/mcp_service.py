@@ -151,39 +151,82 @@ class LocalMcpService:
         raise ValueError(f"Unsupported docker MCP action '{action}'.")
 
     def _run_backend_tests(self, params: dict[str, Any]) -> dict[str, Any]:
-        backend_root = self._resolve_backend_root(str(params.get("backend_root", "")).strip())
+        requested_backend_root = self._resolve_backend_root(str(params.get("backend_root", "")).strip())
+        backend_root = requested_backend_root
         compose_file = backend_root / "docker-compose.yml"
         if not compose_file.exists():
             raise ValueError(f"docker-compose.yml not found in backend root: {backend_root}")
 
-        services_result = self.runner.run(
-            ["docker", "compose", "-f", str(compose_file), "config", "--services"],
-            cwd=backend_root,
-            check=False,
-            timeout=120,
-        )
-        if services_result.returncode != 0:
+        fallback_applied = False
+        fallback_reason: str | None = None
+        fallback_backend_root: str | None = None
+        try:
+            available_services = self._inspect_compose_services(
+                compose_file=compose_file,
+                backend_root=backend_root,
+            )
+            app_service = self._select_service(
+                available=available_services,
+                explicit=str(params.get("app_service", "")).strip() or None,
+                candidates=["app", "php", "backend"],
+            )
+            if not app_service:
+                raise ValueError(
+                    "No PHP app service found in compose file. "
+                    f"Available services: {sorted(available_services)}"
+                )
+        except ValueError as exc:
+            if "No PHP app service found in compose file." not in str(exc):
+                raise
+            fallback_candidate = self._find_backend_root_with_php_service(
+                exclude={backend_root.resolve()},
+            )
+            if fallback_candidate is None:
+                return {
+                    "success": False,
+                    "requested_backend_root": str(requested_backend_root),
+                    "backend_root": str(backend_root),
+                    "error": str(exc),
+                    "hint": "Set CRM_BACKEND_ROOT or pass backend_root pointing to your Laravel backend.",
+                }
+
+            fallback_applied = True
+            fallback_reason = str(exc)
+            fallback_backend_root = str(fallback_candidate)
+            backend_root = fallback_candidate
+            compose_file = backend_root / "docker-compose.yml"
+            available_services = self._inspect_compose_services(
+                compose_file=compose_file,
+                backend_root=backend_root,
+            )
+            app_service = self._select_service(
+                available=available_services,
+                explicit=str(params.get("app_service", "")).strip() or None,
+                candidates=["app", "php", "backend"],
+            )
+            if not app_service:
+                return {
+                    "success": False,
+                    "requested_backend_root": str(requested_backend_root),
+                    "backend_root": str(backend_root),
+                    "fallback_applied": True,
+                    "fallback_reason": fallback_reason,
+                    "fallback_backend_root": fallback_backend_root,
+                    "error": "Fallback backend root also does not expose a PHP app service.",
+                    "available_services": sorted(available_services),
+                }
+
+        if not app_service:
             return {
                 "success": False,
+                "requested_backend_root": str(requested_backend_root),
                 "backend_root": str(backend_root),
-                "error": services_result.stderr or services_result.stdout,
+                "fallback_applied": fallback_applied,
+                "fallback_reason": fallback_reason,
+                "fallback_backend_root": fallback_backend_root,
+                "error": "No PHP app service could be resolved for backend test run.",
+                "available_services": sorted(available_services),
             }
-
-        available_services = {
-            line.strip()
-            for line in services_result.stdout.splitlines()
-            if line.strip()
-        }
-        app_service = self._select_service(
-            available=available_services,
-            explicit=str(params.get("app_service", "")).strip() or None,
-            candidates=["app", "php", "backend"],
-        )
-        if not app_service:
-            raise ValueError(
-                "No PHP app service found in compose file. "
-                f"Available services: {sorted(available_services)}"
-            )
 
         db_service = self._select_service(
             available=available_services,
@@ -277,7 +320,11 @@ class LocalMcpService:
         )
         return {
             "success": test_result.returncode == 0,
+            "requested_backend_root": str(requested_backend_root),
             "backend_root": str(backend_root),
+            "fallback_applied": fallback_applied,
+            "fallback_reason": fallback_reason,
+            "fallback_backend_root": fallback_backend_root,
             "compose_file": str(compose_file),
             "app_service": app_service,
             "db_service": db_service,
@@ -290,6 +337,26 @@ class LocalMcpService:
             "env_prepare_returncode": (
                 env_prepare_result.returncode if env_prepare_result else None
             ),
+        }
+
+    def _inspect_compose_services(
+        self,
+        *,
+        compose_file: Path,
+        backend_root: Path,
+    ) -> set[str]:
+        services_result = self.runner.run(
+            ["docker", "compose", "-f", str(compose_file), "config", "--services"],
+            cwd=backend_root,
+            check=False,
+            timeout=120,
+        )
+        if services_result.returncode != 0:
+            raise ValueError(services_result.stderr or services_result.stdout)
+        return {
+            line.strip()
+            for line in services_result.stdout.splitlines()
+            if line.strip()
         }
 
     def _select_service(
@@ -308,16 +375,7 @@ class LocalMcpService:
         return None
 
     def _resolve_backend_root(self, explicit: str) -> Path:
-        candidates: list[Path] = []
-        if explicit:
-            candidates.append(Path(explicit))
-
-        env_path = os.environ.get("CRM_BACKEND_ROOT", "").strip()
-        if env_path:
-            candidates.append(Path(env_path))
-
-        candidates.append(self.repo_root.parent / "kconecta.com" / "web")
-        candidates.append(Path(r"D:\still\kconecta.com\web"))
+        candidates = self._candidate_backend_roots(explicit)
 
         for candidate in candidates:
             root = candidate.expanduser()
@@ -329,6 +387,48 @@ class LocalMcpService:
             "Could not resolve backend root for docker tests. "
             f"Checked: {checked}. Set CRM_BACKEND_ROOT or pass backend_root param."
         )
+
+    def _candidate_backend_roots(self, explicit: str) -> list[Path]:
+        candidates: list[Path] = []
+        if explicit:
+            candidates.append(Path(explicit))
+
+        env_path = os.environ.get("CRM_BACKEND_ROOT", "").strip()
+        if env_path:
+            candidates.append(Path(env_path))
+
+        candidates.append(self.repo_root.parent / "kconecta.com" / "web")
+        candidates.append(Path(r"D:\still\kconecta.com\web"))
+        return candidates
+
+    def _find_backend_root_with_php_service(
+        self,
+        *,
+        exclude: set[Path] | None = None,
+    ) -> Path | None:
+        excluded = {path.resolve() for path in (exclude or set())}
+        for candidate in self._candidate_backend_roots(""):
+            root = candidate.expanduser()
+            if root.resolve() in excluded:
+                continue
+            compose_file = root / "docker-compose.yml"
+            if not compose_file.exists():
+                continue
+            try:
+                available = self._inspect_compose_services(
+                    compose_file=compose_file,
+                    backend_root=root,
+                )
+            except ValueError:
+                continue
+            app_service = self._select_service(
+                available=available,
+                explicit=None,
+                candidates=["app", "php", "backend"],
+            )
+            if app_service:
+                return root
+        return None
 
     def _resolve_repo_path(self, raw_path: str) -> Path:
         candidate = (self.repo_root / raw_path).resolve()

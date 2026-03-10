@@ -8,12 +8,17 @@ use Throwable;
 
 class PropertyService
 {
+    public const STATUS_AVAILABLE = "available";
+    public const STATUS_RESERVED = "reserved";
+    public const STATUS_MAINTENANCE = "maintenance";
+
     private const DEFAULT_PROPERTY_TABLE = "properties";
     private const FALLBACK_PROPERTY_TABLE = "real_estate_properties";
     private const DATA_SOURCE_AUTO = "auto";
     private const DATA_SOURCE_DATABASE = "database";
     private const DATA_SOURCE_SEED = "seed";
     private const MAX_DB_ROWS = 500;
+    private static array $runtimeOverrides = [];
 
     /**
      * Returns property list payload with DB-first retrieval.
@@ -149,6 +154,76 @@ class PropertyService
     }
 
     /**
+     * Reserve a property when current status is not already reserved.
+     */
+    public function reserveProperty(int $id, ?string $managerId = null): array
+    {
+        $property = $this->findPropertyById($id);
+        if ($property === null) {
+            return $this->notFoundResult($id);
+        }
+
+        if ($property["status"] === self::STATUS_RESERVED) {
+            return $this->conflictResult("Property is already reserved", "already_reserved");
+        }
+
+        $updated = $property;
+        $updated["status"] = self::STATUS_RESERVED;
+        if ($managerId !== null && trim($managerId) !== "") {
+            $updated["manager_id"] = trim($managerId);
+        }
+        $this->rememberRuntimeOverride($updated);
+
+        return $this->successResult($updated, "property_reserved");
+    }
+
+    /**
+     * Release a reservation when property is currently reserved.
+     */
+    public function releaseProperty(int $id): array
+    {
+        $property = $this->findPropertyById($id);
+        if ($property === null) {
+            return $this->notFoundResult($id);
+        }
+
+        if ($property["status"] !== self::STATUS_RESERVED) {
+            return $this->conflictResult("Property is not reserved", "not_reserved");
+        }
+
+        $updated = $property;
+        $updated["status"] = self::STATUS_AVAILABLE;
+        $this->rememberRuntimeOverride($updated);
+
+        return $this->successResult($updated, "property_released");
+    }
+
+    /**
+     * Update status with deterministic conflict semantics.
+     */
+    public function updatePropertyStatus(int $id, string $status, ?string $managerId = null): array
+    {
+        $property = $this->findPropertyById($id);
+        if ($property === null) {
+            return $this->notFoundResult($id);
+        }
+
+        $normalizedStatus = strtolower(trim($status));
+        if ($normalizedStatus === strtolower((string) $property["status"])) {
+            return $this->conflictResult("Property already has the requested status", "status_unchanged");
+        }
+
+        $updated = $property;
+        $updated["status"] = $normalizedStatus;
+        if ($managerId !== null && trim($managerId) !== "") {
+            $updated["manager_id"] = trim($managerId);
+        }
+        $this->rememberRuntimeOverride($updated);
+
+        return $this->successResult($updated, "property_status_updated");
+    }
+
+    /**
      * Load property rows from database first, with in-memory fallback.
      */
     private function loadRows(): array
@@ -276,14 +351,14 @@ class PropertyService
             )
         );
 
-        return [
+        return $this->applyRuntimeOverrides([
             "id" => $id,
             "title" => $title !== null && $title !== "" ? $title : "Property {$id}",
             "city" => $city !== null && $city !== "" ? $city : "Unknown",
             "status" => $status,
             "manager_id" => $managerId,
             "price" => $price,
-        ];
+        ]);
     }
 
     private function pickFirst(array $row, array $keys): mixed
@@ -356,7 +431,9 @@ class PropertyService
 
     private function seedRows(): array
     {
-        return [
+        return array_map(
+            fn (array $row): array => $this->applyRuntimeOverrides($row),
+            [
             [
                 "id" => 101,
                 "title" => "Modern Loft Center",
@@ -381,6 +458,64 @@ class PropertyService
                 "manager_id" => "mgr-002",
                 "price" => 198000,
             ],
+        ]);
+    }
+
+    private function successResult(array $property, string $reason): array
+    {
+        return [
+            "ok" => true,
+            "status" => 200,
+            "reason" => $reason,
+            "data" => $property,
+        ];
+    }
+
+    private function notFoundResult(int $id): array
+    {
+        return [
+            "ok" => false,
+            "status" => 404,
+            "reason" => "property_not_found",
+            "code" => "PROPERTY_NOT_FOUND",
+            "message" => "Property not found",
+            "property_id" => $id,
+            "retryable" => false,
+        ];
+    }
+
+    private function conflictResult(string $message, string $reason): array
+    {
+        return [
+            "ok" => false,
+            "status" => 409,
+            "reason" => $reason,
+            "code" => "PROPERTY_STATE_CONFLICT",
+            "message" => $message,
+            "retryable" => true,
+        ];
+    }
+
+    private function applyRuntimeOverrides(array $row): array
+    {
+        $id = (int) ($row["id"] ?? 0);
+        if ($id <= 0 || !isset(self::$runtimeOverrides[$id])) {
+            return $row;
+        }
+
+        return array_merge($row, self::$runtimeOverrides[$id]);
+    }
+
+    private function rememberRuntimeOverride(array $property): void
+    {
+        $id = (int) ($property["id"] ?? 0);
+        if ($id <= 0) {
+            return;
+        }
+
+        self::$runtimeOverrides[$id] = [
+            "status" => $property["status"] ?? self::STATUS_AVAILABLE,
+            "manager_id" => $property["manager_id"] ?? null,
         ];
     }
 }

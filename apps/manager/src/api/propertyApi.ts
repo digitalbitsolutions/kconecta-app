@@ -38,6 +38,15 @@ type PropertyDetailPayload = {
   data: PropertyRecord;
 };
 
+type PropertyMutationPayload = {
+  data: PropertyRecord;
+  meta: {
+    contract: string;
+    flow: string;
+    reason: string;
+  };
+};
+
 export type PropertyViewModel = {
   id: string;
   title: string;
@@ -164,5 +173,30 @@ export async function fetchProperties(query: PropertyListQuery = {}): Promise<Pr
 
 export async function fetchPropertyById(id: string): Promise<PropertyViewModel> {
   const payload = await requestJson<PropertyDetailPayload>(`/properties/${id}`);
+  return toViewModel(payload.data);
+}
+
+export async function reserveProperty(id: string): Promise<PropertyViewModel> {
+  const payload = await requestJson<PropertyMutationPayload>(`/properties/${id}/reserve`, {
+    method: "POST",
+  });
+  return toViewModel(payload.data);
+}
+
+export async function releaseProperty(id: string): Promise<PropertyViewModel> {
+  const payload = await requestJson<PropertyMutationPayload>(`/properties/${id}/release`, {
+    method: "POST",
+  });
+  return toViewModel(payload.data);
+}
+
+export async function updatePropertyStatus(
+  id: string,
+  status: PropertyStatus
+): Promise<PropertyViewModel> {
+  const payload = await requestJson<PropertyMutationPayload>(`/properties/${id}`, {
+    method: "PATCH",
+    body: { status },
+  });
   return toViewModel(payload.data);
 }

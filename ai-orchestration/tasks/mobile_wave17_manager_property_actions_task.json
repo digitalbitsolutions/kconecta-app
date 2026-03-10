@@ -1,0 +1,31 @@
+{
+  "id": "MOB-014",
+  "title": "Wire manager property detail/list actions to mutation API",
+  "description": "Implement manager-side reserve/release/status action controls in property screens and connect them to backend mutation endpoints with deterministic UX states.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/screens/PropertyDetailScreen.tsx",
+    "apps/manager/src/screens/PropertyListScreen.tsx",
+    "apps/manager/src/screens/ManagerDashboardScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Property detail exposes reserve/release/status actions and reflects pending/success/error states",
+    "List and dashboard refresh consistently after mutation success",
+    "Conflict, forbidden, and session-expired responses route to the correct screens without stale UI state"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave17",
+    "stack": "React Native with TypeScript",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "skills": [
+      "mobile-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

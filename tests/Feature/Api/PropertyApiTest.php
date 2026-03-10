@@ -172,6 +172,128 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("meta.retryable", false);
     }
 
+    public function test_manager_can_reserve_available_property(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/101/reserve");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("data.id", 101)
+            ->assertJsonPath("data.status", "reserved")
+            ->assertJsonPath("meta.contract", "property-mutation-v1")
+            ->assertJsonPath("meta.flow", "properties_reserve");
+    }
+
+    public function test_manager_can_release_reserved_property(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/102/release");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("data.id", 102)
+            ->assertJsonPath("data.status", "available")
+            ->assertJsonPath("meta.contract", "property-mutation-v1")
+            ->assertJsonPath("meta.flow", "properties_release");
+    }
+
+    public function test_status_update_returns_validation_error_for_invalid_value(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->patchJson("/api/properties/101", ["status" => "invalid"]);
+
+        $response->assertStatus(422)->assertJsonValidationErrors(["status"]);
+    }
+
+    public function test_manager_can_update_property_status(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->patchJson("/api/properties/101", ["status" => "maintenance"]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("data.id", 101)
+            ->assertJsonPath("data.status", "maintenance")
+            ->assertJsonPath("meta.contract", "property-mutation-v1")
+            ->assertJsonPath("meta.flow", "properties_update");
+    }
+
+    public function test_reserve_returns_conflict_for_already_reserved_property(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/102/reserve");
+
+        $response
+            ->assertStatus(409)
+            ->assertJsonPath("error.code", "PROPERTY_STATE_CONFLICT")
+            ->assertJsonPath("meta.contract", "property-mutation-v1")
+            ->assertJsonPath("meta.flow", "properties_reserve")
+            ->assertJsonPath("meta.reason", "already_reserved")
+            ->assertJsonPath("meta.retryable", true);
+    }
+
+    public function test_status_update_returns_conflict_when_status_is_unchanged(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->patchJson("/api/properties/101", ["status" => "available"]);
+
+        $response
+            ->assertStatus(409)
+            ->assertJsonPath("error.code", "PROPERTY_STATE_CONFLICT")
+            ->assertJsonPath("meta.flow", "properties_update")
+            ->assertJsonPath("meta.reason", "status_unchanged");
+    }
+
+    public function test_release_returns_conflict_for_non_reserved_property(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/101/release");
+
+        $response
+            ->assertStatus(409)
+            ->assertJsonPath("error.code", "PROPERTY_STATE_CONFLICT")
+            ->assertJsonPath("meta.flow", "properties_release")
+            ->assertJsonPath("meta.reason", "not_reserved");
+    }
+
+    public function test_mutations_forbidden_for_provider_role(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-ROLE" => "provider",
+            ])
+            ->postJson("/api/properties/101/reserve");
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
+            ->assertJsonPath("meta.flow", "properties_reserve")
+            ->assertJsonPath("meta.reason", "role_scope_forbidden")
+            ->assertJsonPath("meta.retryable", false);
+    }
+
+    public function test_mutations_require_valid_token(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer invalid-token"])
+            ->postJson("/api/properties/101/reserve");
+
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("error.code", "TOKEN_INVALID")
+            ->assertJsonPath("meta.flow", "properties_reserve")
+            ->assertJsonPath("meta.reason", "token_invalid");
+    }
+
     public function test_wave18_create_property_validation_envelope_when_endpoint_is_available(): void
     {
         $response = $this

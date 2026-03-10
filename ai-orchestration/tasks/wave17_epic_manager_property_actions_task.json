@@ -1,0 +1,29 @@
+{
+  "id": "EPIC-W17",
+  "title": "Wave 17 - Manager property actions (reserve/release/status transitions)",
+  "description": "Coordinate Wave 17 to implement manager operational property actions with deterministic API contracts, mobile UI wiring, and QA regression safeguards.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/wave17-manager-property-actions-plan.md",
+    "ai-orchestration/tasks",
+    "docs/testing/functional-testing-strategy.md"
+  ],
+  "acceptance_criteria": [
+    "Wave 17 tickets are defined for architect/backend/mobile/qa with dependency order",
+    "Execution plan includes PR/Jira traceability and rollback checkpoints for property state mutations",
+    "Risk log covers concurrency collisions, role-scope enforcement, and stale UI state handling"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave17",
+    "stack": "React Native with TypeScript",
+    "skills": [
+      "devops-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

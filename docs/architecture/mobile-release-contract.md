@@ -310,6 +310,48 @@ Define the minimum environment and auth contract required for native app release
   - No breaking field removals for existing clients.
   - New summary endpoint and list metadata are backward-compatible additions.
 
+## Wave 17 Manager Property Mutation Contract
+
+### Mutation Endpoints
+
+- Reserve property:
+  - `POST /api/properties/{id}/reserve`
+- Release reservation:
+  - `POST /api/properties/{id}/release`
+- Update operational status:
+  - `PATCH /api/properties/{id}`
+  - Payload includes `status` (`available|reserved|maintenance`) and optional mutation metadata.
+
+### Authorization and Ownership Rules
+
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Forbidden roles:
+  - `provider` -> `403 ROLE_SCOPE_FORBIDDEN`
+- Ownership baseline:
+  - `manager` mutates manager-scoped properties.
+  - `admin` may mutate across manager scopes.
+
+### Deterministic Error Envelope (Mutations)
+
+- `401 TOKEN_EXPIRED`
+  - Client performs one refresh attempt.
+- `401 TOKEN_INVALID` or `TOKEN_REVOKED`
+  - Client resets session and routes to auth entry.
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - Keep session active; show unauthorized manager action state.
+- `409 PROPERTY_STATE_CONFLICT`
+  - Keep session active; show stale/conflict action state and prompt data reload.
+- `422 VALIDATION_ERROR`
+  - Keep current screen and show action-level validation feedback.
+
+### Backward Compatibility
+
+- Wave 17 is additive:
+  - Existing read contracts remain unchanged (`GET /api/properties`, `GET /api/properties/{id}`, `GET /api/properties/summary`).
+  - Mutation contracts are new manager-facing capabilities and do not remove prior fields.
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):

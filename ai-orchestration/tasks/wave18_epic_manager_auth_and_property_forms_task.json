@@ -1,0 +1,29 @@
+{
+  "id": "EPIC-W18",
+  "title": "Wave 18 - Manager auth hardening and property form parity",
+  "description": "Coordinate Wave 18 to harden manager auth/session behavior and deliver native create/edit property form flows aligned with CRM contracts.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/wave18-manager-auth-property-forms-plan.md",
+    "ai-orchestration/tasks",
+    "docs/testing/functional-testing-strategy.md"
+  ],
+  "acceptance_criteria": [
+    "Wave 18 tickets are defined for architect/backend/mobile/qa with dependency order",
+    "Execution plan includes PR/Jira traceability and rollback checkpoints for auth and property form mutations",
+    "Risk log covers session drift, validation mismatch, and stale list synchronization"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave18",
+    "stack": "React Native with TypeScript",
+    "skills": [
+      "devops-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": "BE-015",
+  "title": "Implement manager property reserve/release/status mutation endpoints",
+  "description": "Add backend endpoints and service operations so manager app can execute reserve, release, and status transitions with role guardrails and deterministic responses.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "routes/api.php",
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "API exposes manager-scoped mutation endpoints for reserve, release, and status update",
+    "Mutations enforce auth/role validation and return conflict-safe error payloads",
+    "Feature tests cover success, forbidden role, session invalid, and conflict/validation scenarios"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave17",
+    "executor_model": "ollama_chat/deepseek-coder:6.7b",
+    "skills": [
+      "backend-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}
