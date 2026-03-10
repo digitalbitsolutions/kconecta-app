@@ -1,5 +1,5 @@
-﻿import React, { useCallback, useEffect, useState } from "react";
-import { useNavigation } from "@react-navigation/native";
+import React, { useCallback, useState } from "react";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ApiError } from "../api/client";
@@ -54,9 +54,12 @@ const ManagerDashboardScreen = () => {
     }
   }, [navigation]);
 
-  useEffect(() => {
-    loadDashboard();
-  }, [loadDashboard]);
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboard();
+      return undefined;
+    }, [loadDashboard])
+  );
 
   const onLogout = () => {
     clearSession();
@@ -285,3 +288,4 @@ const styles = StyleSheet.create({
 });
 
 export default ManagerDashboardScreen;
+

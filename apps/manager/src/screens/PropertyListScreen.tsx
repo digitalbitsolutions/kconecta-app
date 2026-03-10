@@ -1,5 +1,5 @@
 ﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
   ActivityIndicator,
@@ -75,6 +75,13 @@ const PropertyListScreen = () => {
 
     return () => clearTimeout(timer);
   }, [normalizedSearch, loadProperties]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadProperties(normalizedSearch);
+      return undefined;
+    }, [loadProperties, normalizedSearch])
+  );
 
   return (
     <SafeAreaView style={styles.container}>
