@@ -110,12 +110,13 @@ const ManagerDashboardScreen = () => {
           style={styles.secondaryAction}
           onPress={() =>
             navigation.navigate("ManagerToProviderHandoff", {
-              providerId: "1",
               propertyId: "101",
+              propertyTitle: "Modern Loft Center",
+              preselectedProviderId: "1",
             })
           }
         >
-          <Text style={styles.secondaryActionText}>Open Provider Handoff State</Text>
+          <Text style={styles.secondaryActionText}>Open Provider Handoff</Text>
         </Pressable>
 
         {managerEnv.diagnosticsEnabled ? (

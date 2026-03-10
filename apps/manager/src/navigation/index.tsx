@@ -16,8 +16,9 @@ export type ManagerStackParamList = {
   Login: undefined;
   ManagerDashboard: undefined;
   ManagerToProviderHandoff: {
-    providerId?: string;
-    propertyId?: string;
+    propertyId: string;
+    propertyTitle?: string;
+    preselectedProviderId?: string;
   };
   RoleMismatch: {
     expectedRole: "manager" | "provider" | "admin";
