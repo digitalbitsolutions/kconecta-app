@@ -409,6 +409,62 @@ Define the minimum environment and auth contract required for native app release
 - `PATCH /api/properties/{id}` remains backward compatible for status-only clients.
 - New create endpoint and additive validation metadata are non-breaking additions.
 
+## Wave 19 Manager Provider Handoff and Assignment Contract
+
+### Provider Candidate Discovery Contract
+
+- Endpoint:
+  - `GET /api/properties/{id}/provider-candidates`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Response shape:
+  - `data.property_id`
+  - `data.candidates[]` with:
+    - `id`
+    - `name`
+    - `category`
+    - `city`
+    - `status`
+    - `rating`
+  - `meta.contract = manager-provider-handoff-v1`
+  - `meta.source = database|in_memory`
+
+### Provider Assignment Mutation Contract
+
+- Endpoint:
+  - `POST /api/properties/{id}/assign-provider`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Request payload:
+  - `provider_id` (required integer)
+  - `note` (optional string)
+- Success response:
+  - `data.property_id`
+  - `data.provider_id`
+  - `data.assigned_at` (ISO-8601)
+  - `meta.contract = manager-provider-handoff-v1`
+  - `meta.reason = provider_assigned`
+- Conflict/validation/error responses:
+  - `422 VALIDATION_ERROR` with deterministic field map
+  - `404 PROPERTY_NOT_FOUND` or `PROVIDER_NOT_FOUND`
+  - `409 ASSIGNMENT_CONFLICT` for stale or incompatible state
+  - `403 ROLE_SCOPE_FORBIDDEN` for unauthorized roles
+
+### Handoff Session and Security Rules
+
+- Assignment flow inherits Wave 18 auth hardening:
+  - one refresh retry on `TOKEN_EXPIRED`
+  - forced re-auth on `TOKEN_INVALID`/`TOKEN_REVOKED`
+- Manager app must not embed hardcoded provider ids in handoff requests.
+- Provider role cannot call manager assignment endpoints.
+
+### Wave 19 Backward Compatibility
+
+- Wave 19 adds handoff endpoints; no existing endpoint removals.
+- Wave 16-18 dashboard, property mutation, and property form contracts remain valid.
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
