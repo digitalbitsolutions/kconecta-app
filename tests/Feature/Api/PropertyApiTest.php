@@ -411,6 +411,65 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("meta.reason", "token_invalid");
     }
 
+    public function test_wave18_create_property_validation_envelope_when_endpoint_is_available(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties", [
+                "title" => "A",
+                "city" => "",
+                "status" => "invalid",
+            ]);
+
+        if ($this->isFormEndpointUnavailable($response->status())) {
+            $this->markTestIncomplete(
+                "Wave 18 manager property form endpoint is not merged in this branch yet."
+            );
+            return;
+        }
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonPath("error.code", "VALIDATION_ERROR")
+            ->assertJsonPath("meta.contract", "manager-property-form-v1")
+            ->assertJsonPath("meta.flow", "properties_create")
+            ->assertJsonPath("meta.reason", "validation_error")
+            ->assertJsonPath("meta.retryable", true)
+            ->assertJsonStructure([
+                "error" => [
+                    "fields" => ["title", "city", "status"],
+                ],
+            ]);
+    }
+
+    public function test_wave18_form_endpoints_require_manager_scope_when_available(): void
+    {
+        $forbidden = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-ROLE" => "provider",
+            ])
+            ->postJson("/api/properties", [
+                "title" => "Scope check",
+                "city" => "Madrid",
+                "status" => "available",
+            ]);
+
+        if ($this->isFormEndpointUnavailable($forbidden->status())) {
+            $this->markTestIncomplete(
+                "Wave 18 manager property form endpoint is not merged in this branch yet."
+            );
+            return;
+        }
+
+        $forbidden
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
+            ->assertJsonPath("meta.flow", "properties_create")
+            ->assertJsonPath("meta.reason", "role_scope_forbidden")
+            ->assertJsonPath("meta.retryable", false);
+    }
+
     private function assertValidDataSource(mixed $source): void
     {
         $this->assertContains(
@@ -418,5 +477,10 @@ class PropertyApiTest extends TestCase
             ["database", "in_memory"],
             "meta.source must be either database or in_memory."
         );
+    }
+
+    private function isFormEndpointUnavailable(int $status): bool
+    {
+        return $status === 404 || $status === 405;
     }
 }
