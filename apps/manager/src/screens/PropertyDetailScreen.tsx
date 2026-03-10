@@ -178,6 +178,18 @@ const PropertyDetailScreen = () => {
               <Text style={styles.secondaryActionText}>Edit Property Form</Text>
             </Pressable>
 
+            <Pressable
+              style={styles.handoffAction}
+              onPress={() =>
+                navigation.navigate("ManagerToProviderHandoff", {
+                  propertyId: property.id,
+                  propertyTitle: property.title,
+                })
+              }
+            >
+              <Text style={styles.handoffActionText}>Open Provider Handoff</Text>
+            </Pressable>
+
             <View style={styles.statusActionRow}>
               {statusActionOptions.map((status) => (
                 <Pressable
@@ -349,6 +361,18 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: fontSizes.sm,
     fontWeight: "600",
+  },
+  handoffAction: {
+    alignItems: "center",
+    backgroundColor: colors.warning,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  handoffActionText: {
+    color: colors.surface,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
   },
   statusActionRow: {
     flexDirection: "row",

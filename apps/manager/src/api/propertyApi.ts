@@ -10,6 +10,7 @@ export type PropertyRecord = {
   city: string;
   status: PropertyStatus;
   manager_id: string;
+  provider_id?: number | null;
   price: number;
 };
 
@@ -61,6 +62,41 @@ type PropertyFormErrorPayload = {
   message?: string;
 };
 
+type ProviderCandidatesPayload = {
+  data: {
+    property_id: number;
+    candidates: Array<{
+      id: number;
+      name: string;
+      role: string;
+      status: string;
+      category: string | null;
+      city: string | null;
+      rating: number | null;
+    }>;
+  };
+  meta: {
+    contract: string;
+    flow: string;
+    reason: string;
+    source?: "database" | "in_memory" | "unknown";
+  };
+};
+
+type AssignProviderPayload = {
+  data: {
+    property_id: number;
+    provider_id: number;
+    assigned_at: string;
+    property: PropertyRecord;
+  };
+  meta: {
+    contract: string;
+    flow: string;
+    reason: string;
+  };
+};
+
 export type PropertyViewModel = {
   id: string;
   title: string;
@@ -68,6 +104,22 @@ export type PropertyViewModel = {
   status: PropertyStatus;
   price: string;
   managerId: string;
+};
+
+export type ProviderCandidate = {
+  id: string;
+  name: string;
+  category: string;
+  city: string;
+  status: string;
+  rating: string;
+};
+
+export type ProviderAssignmentResult = {
+  propertyId: string;
+  providerId: string;
+  assignedAt: string;
+  property: PropertyViewModel;
 };
 
 export type PropertyFormInput = {
@@ -150,6 +202,20 @@ function toViewModel(record: PropertyRecord): PropertyViewModel {
     status: record.status,
     managerId: record.manager_id,
     price: currencyFormatter.format(record.price),
+  };
+}
+
+function toProviderCandidateViewModel(
+  candidate: ProviderCandidatesPayload["data"]["candidates"][number]
+): ProviderCandidate {
+  const ratingValue = typeof candidate.rating === "number" ? candidate.rating.toFixed(1) : "n/a";
+  return {
+    id: String(candidate.id),
+    name: candidate.name,
+    category: candidate.category ?? "General",
+    city: candidate.city ?? "Unknown",
+    status: candidate.status,
+    rating: ratingValue,
   };
 }
 
@@ -344,4 +410,35 @@ export async function updatePropertyForm(
   }
 
   return executePropertyFormMutation(`/properties/${id}`, "PATCH", payload);
+}
+
+export async function fetchProviderCandidates(propertyId: string): Promise<ProviderCandidate[]> {
+  const payload = await requestJson<ProviderCandidatesPayload>(
+    `/properties/${propertyId}/provider-candidates`
+  );
+  return payload.data.candidates.map(toProviderCandidateViewModel);
+}
+
+export async function assignProviderToProperty(
+  propertyId: string,
+  providerId: string,
+  note?: string
+): Promise<ProviderAssignmentResult> {
+  const payload = await requestJson<AssignProviderPayload>(
+    `/properties/${propertyId}/assign-provider`,
+    {
+      method: "POST",
+      body: {
+        provider_id: Number(providerId),
+        ...(note && note.trim().length > 0 ? { note: note.trim() } : {}),
+      },
+    }
+  );
+
+  return {
+    propertyId: String(payload.data.property_id),
+    providerId: String(payload.data.provider_id),
+    assignedAt: payload.data.assigned_at,
+    property: toViewModel(payload.data.property),
+  };
 }
