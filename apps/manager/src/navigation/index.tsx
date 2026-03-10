@@ -1,7 +1,12 @@
 import React from "react";
 import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { getSessionSnapshot, registerUnauthorizedResetHandler } from "../auth/session";
+import { ActivityIndicator, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import {
+  registerUnauthorizedResetHandler,
+  resolveManagerBootstrapState,
+  type SessionBootstrapResult,
+} from "../auth/session";
 import ManagerDashboardScreen from "../screens/ManagerDashboardScreen";
 import ManagerToProviderHandoffScreen from "../screens/ManagerToProviderHandoffScreen";
 import PropertyDetailScreen from "../screens/PropertyDetailScreen";
@@ -11,8 +16,10 @@ import RoleMismatchScreen from "../screens/RoleMismatchScreen";
 import LoginScreen from "../screens/auth/LoginScreen";
 import SessionExpiredScreen from "../screens/auth/SessionExpiredScreen";
 import UnauthorizedScreen from "../screens/auth/UnauthorizedScreen";
+import { colors, fontSizes, spacing } from "../theme/tokens";
 
 export type ManagerStackParamList = {
+  Bootstrap: undefined;
   Login: undefined;
   ManagerDashboard: undefined;
   ManagerToProviderHandoff: {
@@ -40,9 +47,60 @@ export type ManagerStackParamList = {
 const Stack = createNativeStackNavigator<ManagerStackParamList>();
 const navigationRef = createNavigationContainerRef<ManagerStackParamList>();
 
-const ManagerStack = () => {
-  const initialRoute = getSessionSnapshot().hasToken ? "ManagerDashboard" : "Login";
+const bootstrapRoutes: Record<SessionBootstrapResult, keyof ManagerStackParamList> = {
+  authorized: "ManagerDashboard",
+  login_required: "Login",
+  unauthorized: "Unauthorized",
+  session_expired: "SessionExpired",
+};
 
+const BootstrapScreen = () => {
+  const [statusText, setStatusText] = React.useState("Checking session...");
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const resolveRoute = async () => {
+      setStatusText("Validating manager session...");
+      const result = await resolveManagerBootstrapState();
+
+      if (cancelled) {
+        return;
+      }
+
+      const nextRoute = bootstrapRoutes[result] ?? "Login";
+      navigationRef.reset({
+        index: 0,
+        routes: [{ name: nextRoute }],
+      });
+    };
+
+    resolveRoute().catch(() => {
+      if (cancelled) {
+        return;
+      }
+      navigationRef.reset({
+        index: 0,
+        routes: [{ name: "Login" }],
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <SafeAreaView style={styles.bootstrapContainer}>
+      <View style={styles.bootstrapContent}>
+        <ActivityIndicator color={colors.brand} />
+        <Text style={styles.bootstrapText}>{statusText}</Text>
+      </View>
+    </SafeAreaView>
+  );
+};
+
+const ManagerStack = () => {
   React.useEffect(() => {
     registerUnauthorizedResetHandler(() => {
       if (!navigationRef.isReady()) {
@@ -57,7 +115,12 @@ const ManagerStack = () => {
   }, []);
 
   return (
-    <Stack.Navigator initialRouteName={initialRoute}>
+    <Stack.Navigator initialRouteName="Bootstrap">
+      <Stack.Screen
+        name="Bootstrap"
+        component={BootstrapScreen}
+        options={{ title: "Starting", headerShown: false }}
+      />
       <Stack.Screen
         name="Login"
         component={LoginScreen}
@@ -114,3 +177,20 @@ export default function ManagerNavigator() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  bootstrapContainer: {
+    backgroundColor: colors.background,
+    flex: 1,
+    justifyContent: "center",
+    padding: spacing.lg,
+  },
+  bootstrapContent: {
+    alignItems: "center",
+  },
+  bootstrapText: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+    marginTop: spacing.sm,
+  },
+});
