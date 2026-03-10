@@ -88,6 +88,13 @@ const PropertyListScreen = () => {
       <Text style={styles.title}>Property Portfolio</Text>
       <Text style={styles.subtitle}>Monitor status, pricing and city distribution.</Text>
 
+      <Pressable
+        style={styles.createButton}
+        onPress={() => navigation.navigate("PropertyEditor", { mode: "create" })}
+      >
+        <Text style={styles.createButtonText}>Create Property</Text>
+      </Pressable>
+
       <TextInput
         value={search}
         onChangeText={setSearch}
@@ -162,6 +169,19 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSizes.sm,
     marginTop: spacing.xs,
+  },
+  createButton: {
+    alignItems: "center",
+    backgroundColor: colors.brand,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  createButtonText: {
+    color: colors.surface,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
   },
   search: {
     backgroundColor: colors.surface,

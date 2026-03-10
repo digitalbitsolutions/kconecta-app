@@ -166,6 +166,18 @@ const PropertyDetailScreen = () => {
               </Text>
             </Pressable>
 
+            <Pressable
+              style={styles.secondaryAction}
+              onPress={() =>
+                navigation.navigate("PropertyEditor", {
+                  mode: "edit",
+                  propertyId: property.id,
+                })
+              }
+            >
+              <Text style={styles.secondaryActionText}>Edit Property Form</Text>
+            </Pressable>
+
             <View style={styles.statusActionRow}>
               {statusActionOptions.map((status) => (
                 <Pressable
@@ -324,6 +336,19 @@ const styles = StyleSheet.create({
     color: colors.surface,
     fontSize: fontSizes.sm,
     fontWeight: "700",
+  },
+  secondaryAction: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  secondaryActionText: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.sm,
+    fontWeight: "600",
   },
   statusActionRow: {
     flexDirection: "row",
