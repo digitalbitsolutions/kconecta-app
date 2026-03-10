@@ -352,6 +352,63 @@ Define the minimum environment and auth contract required for native app release
   - Existing read contracts remain unchanged (`GET /api/properties`, `GET /api/properties/{id}`, `GET /api/properties/summary`).
   - Mutation contracts are new manager-facing capabilities and do not remove prior fields.
 
+## Wave 18 Manager Auth Hardening and Property Form Contract
+
+### Manager Auth Session Hardening Rules
+
+- Login endpoint remains:
+  - `POST /api/auth/login`
+- Refresh endpoint remains:
+  - `POST /api/auth/refresh`
+- Logout endpoint remains:
+  - `POST /api/auth/logout`
+- Hardening expectations:
+  - Client performs at most one refresh retry per failed request chain.
+  - Parallel API calls must not trigger concurrent refresh storms; one refresh operation owns token rotation.
+  - Refresh failure (`TOKEN_INVALID`, `TOKEN_REVOKED`) forces deterministic re-auth state and local credential wipe.
+  - Successful logout invalidates local access + refresh tokens and resets manager navigation stack to auth entry.
+
+### Manager Property Create/Edit Contract
+
+- Create property:
+  - `POST /api/properties`
+  - Required payload:
+    - `title` (string, 3..160)
+    - `city` (string, 2..120)
+    - `status` (`available|reserved|maintenance`)
+  - Optional payload:
+    - `price` (number >= 0)
+    - `manager_id` (string; ignored for manager role unless admin scope allows explicit override)
+- Edit property:
+  - `PATCH /api/properties/{id}`
+  - Allowed mutable fields in Wave 18:
+    - `title`
+    - `city`
+    - `status`
+    - `price`
+  - `id` remains immutable.
+
+### Validation/Error Envelope for Native Forms
+
+- Validation failures must return:
+  - `422`
+  - `error.code = VALIDATION_ERROR`
+  - `error.message`
+  - `error.fields` map keyed by field name (array of messages)
+  - `meta.contract = manager-property-form-v1`
+  - `meta.retryable = true`
+- Role violations:
+  - `403 ROLE_SCOPE_FORBIDDEN`
+- Session invalidation:
+  - `401 TOKEN_EXPIRED` (refresh path)
+  - `401 TOKEN_INVALID|TOKEN_REVOKED` (forced re-auth)
+
+### Backward Compatibility
+
+- Wave 18 keeps existing Wave 16/17 read and mutation endpoints operational.
+- `PATCH /api/properties/{id}` remains backward compatible for status-only clients.
+- New create endpoint and additive validation metadata are non-breaking additions.
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):

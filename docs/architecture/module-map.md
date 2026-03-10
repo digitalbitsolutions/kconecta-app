@@ -166,6 +166,35 @@
   - `409 PROPERTY_STATE_CONFLICT` for stale or invalid state transitions.
   - `422 VALIDATION_ERROR` for malformed mutation payloads.
 
+## Wave 18 Manager Property Form Boundary
+
+### Manager Property Form Contract Layer
+
+- Responsibilities:
+  - Expose manager-scoped create/edit property operations for native forms.
+  - Keep Wave 17 mutation compatibility while extending editable fields.
+  - Return deterministic field-level validation feedback for mobile UI mapping.
+- Main contracts:
+  - `POST /api/properties` (create)
+  - `PATCH /api/properties/{id}` (edit + status mutation compatibility)
+- Error semantics:
+  - `422 VALIDATION_ERROR` with `error.fields` map.
+  - `403 ROLE_SCOPE_FORBIDDEN` for role violations.
+  - `404 PROPERTY_NOT_FOUND` for edit on missing ids.
+
+### Auth Refresh Coordination Layer (Manager App)
+
+- Responsibilities:
+  - Centralize refresh ownership to prevent duplicate refresh requests.
+  - Guarantee one retry boundary after token refresh.
+  - Trigger deterministic session teardown when refresh is not recoverable.
+- Main contracts:
+  - `POST /api/auth/refresh` (singleflight consumer path)
+  - `POST /api/auth/logout` (terminal cleanup path)
+- UX mapping dependencies:
+  - `SessionExpired` for hard auth failures.
+  - Property form screens consume validation and auth boundary outcomes without silent fallbacks.
+
 ## Compatibility Rules
 
 - Existing CRM contracts remain valid while native apps are onboarded.
