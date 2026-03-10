@@ -502,6 +502,57 @@ Define the minimum environment and auth contract required for native app release
 - Production path must use login + persisted token + auth/me validation.
 - Wave 20 remains additive and backward compatible with Wave 16-19 manager/provider contracts.
 
+## Wave 21 Manager Assignment Context Contract
+
+### Assignment Context Endpoint
+
+- Endpoint:
+  - `GET /api/properties/{id}/assignment-context`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Forbidden roles:
+  - `provider` -> `403 ROLE_SCOPE_FORBIDDEN`
+- Unauthorized session:
+  - Deterministic `401` envelope using `auth-session-v1` contract.
+
+### Success Payload Contract
+
+- `data.property_id`
+- `data.assignment.assigned` (`true|false`)
+- `data.assignment.provider`:
+  - `id`
+  - `name`
+  - `category`
+  - `city`
+  - `status`
+  - `rating`
+- `data.assignment.assigned_at` (nullable ISO-8601)
+- `data.assignment.note` (nullable string)
+- `data.assignment.state`:
+  - `unassigned`
+  - `assigned`
+  - `provider_missing`
+- `meta.contract = manager-provider-context-v1`
+- `meta.flow = properties_assignment_context`
+- `meta.reason`:
+  - `assignment_context_loaded`
+  - `property_not_found`
+
+### Mobile Consumption Rules
+
+- Manager property detail must render assignment context as an additive card.
+- Handoff success should trigger context refresh to avoid stale provider ownership display.
+- If `state=provider_missing`, UI must keep manager session active and show deterministic warning copy (no silent fallback).
+
+### Backward Compatibility
+
+- Wave 21 is additive:
+  - Existing Wave 19 endpoints remain unchanged:
+    - `GET /api/properties/{id}/provider-candidates`
+    - `POST /api/properties/{id}/assign-provider`
+  - Existing Wave 16-20 payload fields are untouched.
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
