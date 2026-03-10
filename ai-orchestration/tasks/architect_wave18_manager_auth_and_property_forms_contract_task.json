@@ -1,0 +1,30 @@
+{
+  "id": "ARCH-014",
+  "title": "Define Wave 18 manager auth/session hardening and property form contract",
+  "description": "Extend architecture docs with manager login/refresh/logout lifecycle decisions and create/edit property form payload contracts for native clients.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Auth/session contract documents login, refresh retry boundaries, and forced re-auth behavior",
+    "Property form contract specifies create/edit request payload, validation rules, and error envelope",
+    "UI state map covers loading, success, validation errors, forbidden, and session-expired transitions"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave18",
+    "stack": "React Native with TypeScript",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "skills": [
+      "architect-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

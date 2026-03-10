@@ -1,0 +1,30 @@
+{
+  "id": "ARCH-013",
+  "title": "Define Wave 17 manager property mutation contract and state map",
+  "description": "Extend architecture docs with manager property action contracts (reserve/release/status change), role constraints, and deterministic mobile state transitions.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Mutation API contract is explicit for reserve, release, and status update actions",
+    "Role scope and ownership rules are documented for manager/admin mutation flows",
+    "UI state map defines pending/success/conflict/forbidden/session-expired transitions for manager actions"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave17",
+    "stack": "React Native with TypeScript",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "skills": [
+      "architect-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

@@ -335,6 +335,8 @@ What it does:
 - starts `app` and `mysql` in Docker (`docker compose up -d app mysql`)
 - ensures `.env` exists inside the `app` container (unless skipped)
 - runs `php artisan test` with `testing` env overrides (`sqlite :memory:` and array drivers)
+- if the selected backend root has no PHP app service (for example infra-only compose files),
+  it automatically falls back to a detected CRM backend root with `app|php|backend`.
 
 ## Task contract
 
@@ -419,6 +421,14 @@ The orchestration scaffold itself does not modify database data.
   - Keep fallback executor (`aider`) until the coding-agent OpenClaw distribution is installed.
 - `Aider not found`:
   - Install `aider-chat` or use `py -m aider.main` fallback path.
+- `Aider timed out on long tasks`:
+  - The runner now applies prompt compaction, timeout budget control, and optional file batching.
+  - Tune with env vars:
+    - `AIDER_EXEC_TIMEOUT_SECONDS` (per attempt, default `420`)
+    - `AIDER_TOTAL_TIMEOUT_SECONDS` (overall budget across model variants)
+    - `AIDER_BATCH_MODE=true|false` (default `true`)
+    - `AIDER_BATCH_SIZE` (default `2`)
+    - `AIDER_PROMPT_MAX_CHARS` (default `3200`)
 - `Host PHP or XAMPP command blocked`:
   - This is intentional policy.
   - Use `backend-test-docker` or MCP `docker.run_backend_tests`.

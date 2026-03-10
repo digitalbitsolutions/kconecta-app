@@ -310,6 +310,105 @@ Define the minimum environment and auth contract required for native app release
   - No breaking field removals for existing clients.
   - New summary endpoint and list metadata are backward-compatible additions.
 
+## Wave 17 Manager Property Mutation Contract
+
+### Mutation Endpoints
+
+- Reserve property:
+  - `POST /api/properties/{id}/reserve`
+- Release reservation:
+  - `POST /api/properties/{id}/release`
+- Update operational status:
+  - `PATCH /api/properties/{id}`
+  - Payload includes `status` (`available|reserved|maintenance`) and optional mutation metadata.
+
+### Authorization and Ownership Rules
+
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Forbidden roles:
+  - `provider` -> `403 ROLE_SCOPE_FORBIDDEN`
+- Ownership baseline:
+  - `manager` mutates manager-scoped properties.
+  - `admin` may mutate across manager scopes.
+
+### Deterministic Error Envelope (Mutations)
+
+- `401 TOKEN_EXPIRED`
+  - Client performs one refresh attempt.
+- `401 TOKEN_INVALID` or `TOKEN_REVOKED`
+  - Client resets session and routes to auth entry.
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - Keep session active; show unauthorized manager action state.
+- `409 PROPERTY_STATE_CONFLICT`
+  - Keep session active; show stale/conflict action state and prompt data reload.
+- `422 VALIDATION_ERROR`
+  - Keep current screen and show action-level validation feedback.
+
+### Backward Compatibility
+
+- Wave 17 is additive:
+  - Existing read contracts remain unchanged (`GET /api/properties`, `GET /api/properties/{id}`, `GET /api/properties/summary`).
+  - Mutation contracts are new manager-facing capabilities and do not remove prior fields.
+
+## Wave 18 Manager Auth Hardening and Property Form Contract
+
+### Manager Auth Session Hardening Rules
+
+- Login endpoint remains:
+  - `POST /api/auth/login`
+- Refresh endpoint remains:
+  - `POST /api/auth/refresh`
+- Logout endpoint remains:
+  - `POST /api/auth/logout`
+- Hardening expectations:
+  - Client performs at most one refresh retry per failed request chain.
+  - Parallel API calls must not trigger concurrent refresh storms; one refresh operation owns token rotation.
+  - Refresh failure (`TOKEN_INVALID`, `TOKEN_REVOKED`) forces deterministic re-auth state and local credential wipe.
+  - Successful logout invalidates local access + refresh tokens and resets manager navigation stack to auth entry.
+
+### Manager Property Create/Edit Contract
+
+- Create property:
+  - `POST /api/properties`
+  - Required payload:
+    - `title` (string, 3..160)
+    - `city` (string, 2..120)
+    - `status` (`available|reserved|maintenance`)
+  - Optional payload:
+    - `price` (number >= 0)
+    - `manager_id` (string; ignored for manager role unless admin scope allows explicit override)
+- Edit property:
+  - `PATCH /api/properties/{id}`
+  - Allowed mutable fields in Wave 18:
+    - `title`
+    - `city`
+    - `status`
+    - `price`
+  - `id` remains immutable.
+
+### Validation/Error Envelope for Native Forms
+
+- Validation failures must return:
+  - `422`
+  - `error.code = VALIDATION_ERROR`
+  - `error.message`
+  - `error.fields` map keyed by field name (array of messages)
+  - `meta.contract = manager-property-form-v1`
+  - `meta.retryable = true`
+- Role violations:
+  - `403 ROLE_SCOPE_FORBIDDEN`
+- Session invalidation:
+  - `401 TOKEN_EXPIRED` (refresh path)
+  - `401 TOKEN_INVALID|TOKEN_REVOKED` (forced re-auth)
+
+### Backward Compatibility
+
+- Wave 18 keeps existing Wave 16/17 read and mutation endpoints operational.
+- `PATCH /api/properties/{id}` remains backward compatible for status-only clients.
+- New create endpoint and additive validation metadata are non-breaking additions.
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):

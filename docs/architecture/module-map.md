@@ -8,6 +8,7 @@
 
 ## Backend Modules
 
+
 ### Property Module
 
 - Responsibilities:
@@ -15,9 +16,13 @@
   - Ownership and manager assignment.
   - Property metrics feeding manager dashboards.
   - Manager portfolio summary and filter contract for native app parity.
+  - Manager property mutation contract for reserve, release, and status update actions.
 - Main contracts:
   - `/api/properties*`
   - `/api/properties/summary`
+  - `/api/properties/{id}/reserve`
+  - `/api/properties/{id}/release`
+  - `/api/properties/{id}` (`PATCH` status mutation)
 
 ### Provider Module
 
@@ -143,6 +148,52 @@
   - `401 TOKEN_EXPIRED` / `TOKEN_INVALID` handled by Auth Session Module.
   - `403 ROLE_SCOPE_FORBIDDEN` for non-manager/non-admin access.
   - Validation errors return deterministic envelope for filter parameters.
+
+## Wave 17 Manager Property Mutation Boundary
+
+### Manager Mutation Guard Layer
+
+- Responsibilities:
+  - Enforce manager/admin role scope on property mutation endpoints.
+  - Normalize conflict and validation outcomes for mobile consumers.
+  - Guarantee deterministic response envelopes for reserve/release/status transitions.
+- Main contracts:
+  - `POST /api/properties/{id}/reserve`
+  - `POST /api/properties/{id}/release`
+  - `PATCH /api/properties/{id}`
+- Error semantics:
+  - `403 ROLE_SCOPE_FORBIDDEN` for unauthorized roles.
+  - `409 PROPERTY_STATE_CONFLICT` for stale or invalid state transitions.
+  - `422 VALIDATION_ERROR` for malformed mutation payloads.
+
+## Wave 18 Manager Property Form Boundary
+
+### Manager Property Form Contract Layer
+
+- Responsibilities:
+  - Expose manager-scoped create/edit property operations for native forms.
+  - Keep Wave 17 mutation compatibility while extending editable fields.
+  - Return deterministic field-level validation feedback for mobile UI mapping.
+- Main contracts:
+  - `POST /api/properties` (create)
+  - `PATCH /api/properties/{id}` (edit + status mutation compatibility)
+- Error semantics:
+  - `422 VALIDATION_ERROR` with `error.fields` map.
+  - `403 ROLE_SCOPE_FORBIDDEN` for role violations.
+  - `404 PROPERTY_NOT_FOUND` for edit on missing ids.
+
+### Auth Refresh Coordination Layer (Manager App)
+
+- Responsibilities:
+  - Centralize refresh ownership to prevent duplicate refresh requests.
+  - Guarantee one retry boundary after token refresh.
+  - Trigger deterministic session teardown when refresh is not recoverable.
+- Main contracts:
+  - `POST /api/auth/refresh` (singleflight consumer path)
+  - `POST /api/auth/logout` (terminal cleanup path)
+- UX mapping dependencies:
+  - `SessionExpired` for hard auth failures.
+  - Property form screens consume validation and auth boundary outcomes without silent fallbacks.
 
 ## Compatibility Rules
 

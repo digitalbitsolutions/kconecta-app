@@ -1,56 +1,51 @@
-﻿# Session Handoff (2026-03-09)
+# Session Handoff (2026-03-10)
 
 ## Current State
 
 - Repository: `D:\still\kconecta-app`
 - Executor policy: `AI_EXECUTOR=aider` (OpenClaw en observacion)
-- Mobile runtime: manager app validada en emulador Android con Expo Go
-- Backend test policy: Docker-only (sin XAMPP)
-- Jira/GitHub: enlace de repositorio ya completado en Atlassian (backfill finalizado)
-- Wave activa: `Wave 16 - Manager parity foundation`
-- Jira abierto:
-  - `DEV-79` (epic/devops) To Do
-  - `DEV-80` (architect/ARCH-012) In Progress
-  - `DEV-81` (backend/BE-014) To Do
-  - `DEV-82` (mobile/MOB-013) To Do
-  - `DEV-83` (qa/QA-015) To Do
+- Backend policy: Docker-only (sin XAMPP)
+- Active wave: `Wave 18 - Manager auth hardening and property form parity`
+- Jira open (`In Progress`): `DEV-89`, `DEV-90`, `DEV-91`, `DEV-92`, `DEV-93`
+- Open draft PRs:
+  - `#76` architect
+  - `#77` backend
+  - `#78` mobile
+  - `#79` qa (CONFLICTING)
 
-## Important Runtime Notes
+## Delivered This Session
 
-- Politica de ejecucion reforzada: el runner de orquestacion bloquea comandos con `xampp` y `php` local.
-  - Ruta permitida: `py ai-orchestration/orchestrator.py backend-test-docker`
-  - MCP permitido: `docker.run_backend_tests`
+1. Wave 18 artifacts created and committed:
+   - `ai-orchestration/tasks/wave18_*`
+   - `docs/roadmap/wave18-manager-auth-property-forms-plan.md`
+2. Architect completed in `agent/architect`:
+   - contracts/state maps for auth hardening + property forms.
+   - PR: `#76` linked to `DEV-90`.
+3. Backend completed in `agent/backend`:
+   - `POST /api/properties` added.
+   - `PATCH /api/properties/{id}` extended for form edits.
+   - deterministic `VALIDATION_ERROR` + `error.fields` envelope.
+   - API tests extended in backend branch.
+   - PR: `#77` linked to `DEV-91`.
+4. Mobile completed in `agent/mobile`:
+   - new `PropertyEditorScreen` (create/edit).
+   - manager navigation route `PropertyEditor`.
+   - list/detail wiring to editor flow.
+   - property form API helpers + field error mapping.
+   - manager typecheck passed.
+   - PR: `#78` linked to `DEV-93`.
+5. QA completed in `agent/qa`:
+   - Wave 18 section in functional testing strategy.
+   - `Wave18RegressionMatrixTest.php` added.
+   - `PropertyApiTest.php` extended with Wave 18 assertions.
+   - PR: `#79` linked to `DEV-92` (currently conflicting with main).
 
-- El error recurrente de Expo (`Something went wrong` / `Failed to download remote update`) fue por flujo de arranque inestable (`localhost` IPv6 y sesiones previas de Expo Go).
-- Flujo estable recomendado para emulador:
+## Known Blockers
 
-```powershell
-cd D:\still\kconecta-app\apps\manager
-npx expo start --go --lan --port 8088 --clear
-```
-
-En otra terminal:
-
-```powershell
-adb -s emulator-5554 shell pm clear host.exp.exponent
-adb -s emulator-5554 reverse --remove-all
-adb -s emulator-5554 reverse tcp:8088 tcp:8088
-adb -s emulator-5554 shell am start -a android.intent.action.VIEW -d exp://127.0.0.1:8088
-```
-
-- Si Metro muestra IP LAN (por ejemplo `exp://192.168.x.x:8088`), abrir con esa URL tambien es valido:
-
-```powershell
-adb -s emulator-5554 shell am start -a android.intent.action.VIEW -d exp://192.168.1.144:8088
-```
-
-## Delivery Snapshot
-
-- Manager/Providers scaffold RN+TS creado y arrancable con Expo.
-- Login UI y session plumbing implementados en ambas apps.
-- Theming base y branding (`logo-clean`) integrados.
-- Archivos de tareas Wave 14 y Wave 15 presentes en `ai-orchestration/tasks/`.
-- Contexto operativo actualizado para reanudar sin friccion.
+- Aider apply mode remains unstable for long tasks (timeouts / no-diff).
+  - Workaround used: `run-task --dry-run` + deterministic manual edits in agent worktrees.
+- Full PHPUnit in this repo still blocked by missing app/php runtime in `docker-compose.yml`.
+  - Docker syntax checks were run with `php:8.2-cli`.
 
 ## Resume Commands
 
@@ -63,17 +58,14 @@ $env:AI_EXECUTOR='aider'
 $env:AIDER_EDIT_FORMAT='diff'
 $env:AIDER_EXEC_TIMEOUT_SECONDS='600'
 py ai-orchestration/orchestrator.py preflight
-py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
 gh pr list --state open --limit 20
+py ai-orchestration/orchestrator.py jira-list --max-results 20
 ```
 
-## Resume Prompt (copy/paste)
+## Next Natural Actions
 
-```text
-Continuemos en kconecta-app desde el estado actual.
-1) Manten AI_EXECUTOR=aider.
-2) Revisa Jira abierto en Wave activa y PRs abiertos.
-3) Ejecuta el siguiente ciclo architect -> backend -> mobile -> qa con PRs y actualizacion Jira.
-4) No uses comandos destructivos.
-5) Reporta avances y bloqueos brevemente.
-```
+1. Resolve PR `#79` conflicts after syncing `agent/qa` with latest `main`.
+2. Review + merge order:
+   - `#76` -> `#77` -> `#78` -> `#79`.
+3. Transition Jira to `Done` as each PR merges (`DEV-90/91/93/92` then `DEV-89`).
+4. Run manager emulator smoke on merged `main` for create/edit property flow.

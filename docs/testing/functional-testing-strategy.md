@@ -166,6 +166,54 @@ Validate end-to-end functional behavior of native app API contracts before relea
 4. `DEV-82` -> Mobile manager dashboard/property screens wired to real API data.
 5. `DEV-83` -> Regression matrix + API assertions in `tests/Feature/Api/Wave16RegressionMatrixTest.php`.
 
+## Wave 17 Manager Property Actions Matrix
+
+1. Manager mutation contract (`DEV-88`, `DEV-86`, `DEV-87`)
+  - `/api/properties/{id}/reserve` returns `meta.contract=property-mutation-v1` and `meta.flow=properties_reserve`.
+  - `/api/properties/{id}/release` returns `meta.contract=property-mutation-v1` and `meta.flow=properties_release`.
+  - `PATCH /api/properties/{id}` returns `meta.contract=property-mutation-v1` and `meta.flow=properties_update`.
+2. Conflict and guardrail behavior (`DEV-88`, `DEV-87`)
+  - Reserving an already reserved property returns `409 PROPERTY_STATE_CONFLICT` with deterministic `meta.reason`.
+  - Updating with unchanged status returns `409 PROPERTY_STATE_CONFLICT`.
+  - Provider role access to manager mutations returns `403 ROLE_SCOPE_FORBIDDEN`.
+  - Invalid/missing token on manager mutation routes returns `401 TOKEN_INVALID`.
+3. Baseline safety (`DEV-87`)
+  - Wave 16 manager portfolio list/detail contract remains stable while mutation routes are introduced.
+  - Wave 14/15 provider availability ownership/revision behavior remains unchanged.
+
+## Wave 17 Ticket Mapping
+
+1. `DEV-84` -> Wave 17 orchestration epic and rollout tracking.
+2. `DEV-85` -> Manager property mutation architecture contract/state map.
+3. `DEV-88` -> Backend reserve/release/status mutation endpoints and deterministic envelope.
+4. `DEV-86` -> Mobile manager property actions wired to mutation API and UX feedback states.
+5. `DEV-87` -> Regression matrix and API assertions in `tests/Feature/Api/Wave17RegressionMatrixTest.php`.
+
+## Wave 18 Manager Auth + Property Form Matrix
+
+1. Manager auth/session hardening (`DEV-90`, `DEV-92`)
+  - `401 TOKEN_EXPIRED` still routes through refresh-first semantics.
+  - `TOKEN_INVALID` and `TOKEN_REVOKED` remain deterministic hard-reset auth outcomes.
+  - Logout keeps deterministic teardown semantics (credentials removed, auth entry route).
+2. Manager property create/edit form contract (`DEV-91`, `DEV-93`, `DEV-92`)
+  - `POST /api/properties` returns `meta.contract=manager-property-form-v1` and `meta.flow=properties_create`.
+  - `PATCH /api/properties/{id}` accepts form payload fields (`title`, `city`, `status`, `price`) and returns deterministic mutation payload.
+  - Validation failures return `422 VALIDATION_ERROR` with `error.fields` map for field-level UI feedback.
+3. Role and session guardrails (`DEV-91`, `DEV-92`)
+  - Provider role attempting manager property form mutations returns `403 ROLE_SCOPE_FORBIDDEN`.
+  - Invalid token on create/edit endpoints returns deterministic `401 TOKEN_INVALID` envelope.
+4. Cross-wave baseline safety (`DEV-92`)
+  - Wave 16 manager portfolio read contract remains stable.
+  - Wave 17 reserve/release/status mutation contract remains stable while Wave 18 form endpoints are introduced.
+
+## Wave 18 Ticket Mapping
+
+1. `DEV-89` -> Wave 18 orchestration epic and rollout tracking.
+2. `DEV-90` -> Manager auth/session hardening + property form architecture contract.
+3. `DEV-91` -> Backend create/edit endpoints and validation envelope implementation.
+4. `DEV-93` -> Mobile manager property editor flow and API wiring.
+5. `DEV-92` -> Regression matrix and API assertions in `tests/Feature/Api/Wave18RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -183,6 +231,8 @@ Validate end-to-end functional behavior of native app API contracts before relea
 11. Run Wave 14 provider identity regression suite and record ownership guard behavior (`PROVIDER_IDENTITY_MISMATCH` + admin override path).
 12. Run Wave 15 revision conflict suite and record stale-write behavior (`AVAILABILITY_REVISION_CONFLICT` + reload path).
 13. Run Wave 16 manager parity regression suite and record auth + portfolio contract evidence.
+14. Run Wave 17 manager mutation regression suite and record reserve/release/update guardrail evidence.
+15. Run Wave 18 manager auth/property-form regression suite and record validation field-map + create/edit evidence.
 
 ## Entry Criteria
 

@@ -1,0 +1,32 @@
+{
+  "id": "MOB-015",
+  "title": "Implement manager property create/edit form flow wired to API",
+  "description": "Add manager native property editor screens and connect create/edit mutations to backend contracts with deterministic success and error handling.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/navigation/index.tsx",
+    "apps/manager/src/screens/PropertyDetailScreen.tsx",
+    "apps/manager/src/screens/PropertyListScreen.tsx",
+    "apps/manager/src/screens/PropertyEditorScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Manager can open create and edit property forms from list/detail flows",
+    "Form submissions map backend validation errors to visible field and form feedback",
+    "After success, list/detail state refreshes consistently without stale values"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave18",
+    "stack": "React Native with TypeScript",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "skills": [
+      "mobile-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

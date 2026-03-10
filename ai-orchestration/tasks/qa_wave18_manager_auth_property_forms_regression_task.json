@@ -1,0 +1,29 @@
+{
+  "id": "QA-017",
+  "title": "Add Wave 18 regression matrix for manager auth and property forms",
+  "description": "Expand regression coverage for manager auth/session boundaries and create/edit property form operations across backend and mobile contracts.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/Wave18RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix includes login/refresh/session-expired and create/edit property scenarios",
+    "API tests assert validation payload shape and role/session guardrails",
+    "Wave 16-17 manager baseline remains green after Wave 18 changes"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave18",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "skills": [
+      "qa-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}

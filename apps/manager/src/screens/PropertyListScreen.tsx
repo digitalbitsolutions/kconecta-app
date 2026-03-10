@@ -1,5 +1,5 @@
 ﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
   ActivityIndicator,
@@ -76,10 +76,24 @@ const PropertyListScreen = () => {
     return () => clearTimeout(timer);
   }, [normalizedSearch, loadProperties]);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadProperties(normalizedSearch);
+      return undefined;
+    }, [loadProperties, normalizedSearch])
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Property Portfolio</Text>
       <Text style={styles.subtitle}>Monitor status, pricing and city distribution.</Text>
+
+      <Pressable
+        style={styles.createButton}
+        onPress={() => navigation.navigate("PropertyEditor", { mode: "create" })}
+      >
+        <Text style={styles.createButtonText}>Create Property</Text>
+      </Pressable>
 
       <TextInput
         value={search}
@@ -155,6 +169,19 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSizes.sm,
     marginTop: spacing.xs,
+  },
+  createButton: {
+    alignItems: "center",
+    backgroundColor: colors.brand,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  createButtonText: {
+    color: colors.surface,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
   },
   search: {
     backgroundColor: colors.surface,

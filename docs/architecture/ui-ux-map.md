@@ -252,9 +252,85 @@ Define the first production-shaped mobile information architecture for manager a
 - `list_error`
   - Deterministic error state with `Retry` CTA and preserved filter inputs.
 
+## Wave 17 Manager Property Mutation State Map
+
+- `property_mutation_pending`
+  - Show loading indicator and pending state.
+  - Disable duplicate mutation actions.
+- `property_mutation_success`
+  - Show success message and updated property state.
+  - Trigger deterministic dashboard/list refresh.
+- `property_mutation_conflict`
+  - Show conflict state (`409 PROPERTY_STATE_CONFLICT`) with reload CTA.
+  - Preserve user draft intent if action can be retried.
+- `property_mutation_forbidden`
+  - Show forbidden state for `403 ROLE_SCOPE_FORBIDDEN`.
+  - Keep session active and disable forbidden controls.
+- `property_mutation_session_expired`
+  - Trigger on unrecoverable `401 TOKEN_INVALID`/`TOKEN_REVOKED`.
+  - Route to `SessionExpired` with deterministic recovery CTA.
+- `property_mutation_validation_error`
+  - Show field/action-level validation feedback (`422 VALIDATION_ERROR`).
+  - Keep screen context and allow corrective retry.
+
+## Wave 18 Manager Auth + Property Form State Map
+
+### Manager Auth Hardening States
+
+- `auth_refresh_singleflight`
+  - Multiple `401 TOKEN_EXPIRED` responses collapse into one refresh operation.
+  - Pending requests wait for refresh result, then retry once.
+- `auth_refresh_failed_hard`
+  - Triggered by `TOKEN_INVALID` or `TOKEN_REVOKED` after refresh attempt.
+  - Clear local session and route to `SessionExpired` with deterministic re-login CTA.
+- `auth_logout_confirmed`
+  - Triggered after successful logout response (or idempotent fallback).
+  - Navigation resets to `Login` and no protected stack remains mounted.
+
+### Manager Property Form States
+
+- `property_form_idle`
+  - Form rendered for create or edit mode with initial values.
+- `property_form_dirty`
+  - At least one field changed locally.
+- `property_form_submitting`
+  - Submit action in progress; submit button disabled.
+- `property_form_submit_success`
+  - Show success feedback and return to detail/list with refetch trigger.
+- `property_form_validation_error`
+  - Map `error.fields` messages to field hints.
+  - Keep user input to allow corrections.
+- `property_form_forbidden`
+  - On `403 ROLE_SCOPE_FORBIDDEN`, disable submit and show permission message.
+- `property_form_session_expired`
+  - On unrecoverable `401`, route to `SessionExpired`.
+
+### Property List/Detail Sync Rules
+
+- After create success:
+  - Return to list and trigger deterministic reload.
+- After edit success:
+  - Refresh both detail and list cache/snapshot.
+- After validation or conflict failure:
+  - Keep current editor context and avoid silent navigation.
+
 ## Wave 16 Delivery Sequencing
 
 1. Manager contract hardening and state map (`ARCH-012`).
 2. Portfolio summary/filter backend contract (`BE-014`).
 3. Manager real-data wiring and session UX alignment (`MOB-013`).
 4. Manager parity regression suite (`QA-015`).
+
+## Wave 17 Delivery Sequencing
+
+1. Property mutation contract and state map (`ARCH-013`).
+2. Backend manager mutation endpoints and guards (`BE-015`).
+3. Manager mutation controls wired to API (`MOB-014`).
+4. Mutation regression matrix and baseline verification (`QA-016`).
+
+## Wave 18 Delivery Sequencing
+
+1. Auth hardening + property form contracts (`ARCH-014`).
+2. Backend create/edit endpoints and validation envelope (`BE-016`).
+3. Manager create/edit property form UI wiring (`MOB-015`).
+4. Regression suite for auth and property forms (`QA-017`).

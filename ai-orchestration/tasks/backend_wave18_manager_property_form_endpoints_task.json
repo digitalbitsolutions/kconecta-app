@@ -1,0 +1,30 @@
+{
+  "id": "BE-016",
+  "title": "Implement manager property create/edit endpoints and validation contract",
+  "description": "Add backend endpoints for manager property create/edit with validation parity, role guardrails, and deterministic error payloads for native form consumption.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "routes/api.php",
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "API exposes manager-scoped create and edit property operations with documented request/response shapes",
+    "Validation errors use a stable envelope suitable for field-level form feedback",
+    "Feature tests cover success, validation failure, forbidden role, and session-invalid paths"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave18",
+    "executor_model": "ollama_chat/deepseek-coder:6.7b",
+    "skills": [
+      "backend-core"
+    ],
+    "rag": {
+      "enabled": true,
+      "top_k": 4
+    }
+  }
+}
