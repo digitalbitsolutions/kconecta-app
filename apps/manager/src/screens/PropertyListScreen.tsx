@@ -12,75 +12,136 @@ import {
   View,
 } from "react-native";
 import { ApiError } from "../api/client";
-import { fetchPropertyPortfolio, type PropertyViewModel } from "../api/propertyApi";
+import { fetchPropertyPortfolio, type PropertyStatus, type PropertyViewModel } from "../api/propertyApi";
 import PropertyListItem from "../components/PropertyListItem";
 import type { ManagerStackParamList } from "../navigation";
 import { borderRadius, colors, fontSizes, spacing } from "../theme/tokens";
 
 type PropertyListNavigation = NativeStackNavigationProp<ManagerStackParamList, "PropertyList">;
+type StatusFilter = "all" | PropertyStatus;
+
+const STATUS_FILTERS: Array<{ label: string; value: StatusFilter }> = [
+  { label: "All", value: "all" },
+  { label: "Available", value: "available" },
+  { label: "Reserved", value: "reserved" },
+  { label: "Maintenance", value: "maintenance" },
+];
+const PAGE_SIZE = 10;
 
 const PropertyListScreen = () => {
   const navigation = useNavigation<PropertyListNavigation>();
   const [search, setSearch] = useState("");
+  const [city, setCity] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [properties, setProperties] = useState<PropertyViewModel[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [total, setTotal] = useState<number>(0);
-  const [source, setSource] = useState<"database" | "in_memory" | "unknown">("unknown");
+  const [meta, setMeta] = useState({
+    total: 0,
+    page: 1,
+    totalPages: 0,
+    hasNextPage: false,
+    source: "unknown" as "database" | "in_memory" | "unknown",
+  });
 
   const normalizedSearch = useMemo(() => search.trim(), [search]);
+  const normalizedCity = useMemo(() => city.trim(), [city]);
+  const hasActiveFilters = normalizedSearch.length > 0 || normalizedCity.length > 0 || statusFilter !== "all";
 
-  const loadProperties = useCallback(
-    async (searchTerm: string) => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const payload = await fetchPropertyPortfolio({
-          search: searchTerm || undefined,
-          page: 1,
-          perPage: 50,
-        });
-
-        setProperties(payload.properties);
-        setTotal(payload.meta.total);
-        setSource(payload.meta.source);
-      } catch (fetchError) {
-        if (fetchError instanceof ApiError) {
-          if (fetchError.status === 401) {
-            navigation.reset({ index: 0, routes: [{ name: "SessionExpired" }] });
-            return;
-          }
-          if (fetchError.status === 403) {
-            navigation.reset({ index: 0, routes: [{ name: "Unauthorized" }] });
-            return;
-          }
-        }
-
-        const message = fetchError instanceof Error ? fetchError.message : "Unable to load properties.";
-        setError(message);
-        setProperties([]);
-        setTotal(0);
-      } finally {
-        setLoading(false);
+  const handleAuthError = useCallback(
+    (fetchError: unknown): boolean => {
+      if (!(fetchError instanceof ApiError)) {
+        return false;
       }
+      if (fetchError.status === 401) {
+        navigation.reset({ index: 0, routes: [{ name: "SessionExpired" }] });
+        return true;
+      }
+      if (fetchError.status === 403) {
+        navigation.reset({ index: 0, routes: [{ name: "Unauthorized" }] });
+        return true;
+      }
+      return false;
     },
     [navigation]
   );
 
+  const fetchPage = useCallback(
+    async (nextPage: number, append: boolean): Promise<void> => {
+      try {
+        const payload = await fetchPropertyPortfolio({
+          status: statusFilter === "all" ? undefined : statusFilter,
+          city: normalizedCity || undefined,
+          search: normalizedSearch || undefined,
+          page: nextPage,
+          perPage: PAGE_SIZE,
+        });
+
+        setProperties((current) =>
+          append ? [...current, ...payload.properties] : payload.properties
+        );
+        setMeta({
+          total: payload.meta.total,
+          page: payload.meta.page,
+          totalPages: payload.meta.totalPages,
+          hasNextPage: payload.meta.hasNextPage,
+          source: payload.meta.source,
+        });
+      } catch (fetchError) {
+        if (handleAuthError(fetchError)) {
+          return;
+        }
+
+        const message =
+          fetchError instanceof Error ? fetchError.message : "Unable to load properties.";
+        setError(message);
+        if (!append) {
+          setProperties([]);
+          setMeta((current) => ({
+            ...current,
+            total: 0,
+            page: 1,
+            totalPages: 0,
+            hasNextPage: false,
+          }));
+        }
+      }
+    },
+    [handleAuthError, normalizedCity, normalizedSearch, statusFilter]
+  );
+
+  const loadFirstPage = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    await fetchPage(1, false);
+    setLoading(false);
+  }, [fetchPage]);
+
+  const loadNextPage = useCallback(async (): Promise<void> => {
+    if (loading || loadingMore || !meta.hasNextPage) {
+      return;
+    }
+
+    setLoadingMore(true);
+    setError(null);
+    await fetchPage(meta.page + 1, true);
+    setLoadingMore(false);
+  }, [fetchPage, loading, loadingMore, meta.hasNextPage, meta.page]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
-      loadProperties(normalizedSearch);
-    }, 250);
+      void loadFirstPage();
+    }, 280);
 
     return () => clearTimeout(timer);
-  }, [normalizedSearch, loadProperties]);
+  }, [loadFirstPage]);
 
   useFocusEffect(
     useCallback(() => {
-      loadProperties(normalizedSearch);
+      void loadFirstPage();
       return undefined;
-    }, [loadProperties, normalizedSearch])
+    }, [loadFirstPage])
   );
 
   return (
@@ -98,13 +159,57 @@ const PropertyListScreen = () => {
       <TextInput
         value={search}
         onChangeText={setSearch}
-        placeholder="Search by title, city, manager or status"
+        placeholder="Search by title, manager or status"
         placeholderTextColor={colors.textMuted}
         style={styles.search}
       />
+      <TextInput
+        value={city}
+        onChangeText={setCity}
+        placeholder="Filter by city"
+        placeholderTextColor={colors.textMuted}
+        style={styles.city}
+      />
+
+      <View style={styles.statusRow}>
+        {STATUS_FILTERS.map((option) => (
+          <Pressable
+            key={option.value}
+            onPress={() => setStatusFilter(option.value)}
+            style={[
+              styles.statusChip,
+              statusFilter === option.value ? styles.statusChipActive : styles.statusChipInactive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusChipText,
+                statusFilter === option.value ? styles.statusChipTextActive : styles.statusChipTextInactive,
+              ]}
+            >
+              {option.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {hasActiveFilters ? (
+        <Pressable
+          style={styles.clearFiltersButton}
+          onPress={() => {
+            setSearch("");
+            setCity("");
+            setStatusFilter("all");
+          }}
+        >
+          <Text style={styles.clearFiltersText}>Clear filters</Text>
+        </Pressable>
+      ) : null}
 
       {!loading && !error ? (
-        <Text style={styles.metaText}>Showing {properties.length} of {total} properties ({source})</Text>
+        <Text style={styles.metaText}>
+          Page {meta.page}/{Math.max(meta.totalPages, 1)} • Showing {properties.length} of {meta.total} ({meta.source})
+        </Text>
       ) : null}
 
       {loading ? (
@@ -114,11 +219,11 @@ const PropertyListScreen = () => {
         </View>
       ) : null}
 
-      {!loading && error ? (
+      {!loading && error && properties.length === 0 ? (
         <View style={styles.errorWrap}>
           <Text style={styles.errorTitle}>Unable to load properties</Text>
           <Text style={styles.errorBody}>{error}</Text>
-          <Pressable style={styles.retryButton} onPress={() => loadProperties(normalizedSearch)}>
+          <Pressable style={styles.retryButton} onPress={() => void loadFirstPage()}>
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
         </View>
@@ -127,11 +232,11 @@ const PropertyListScreen = () => {
       {!loading && !error && properties.length === 0 ? (
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyTitle}>No properties found</Text>
-          <Text style={styles.emptyBody}>Try another keyword or clear the search.</Text>
+          <Text style={styles.emptyBody}>Try another keyword, city or status filter.</Text>
         </View>
       ) : null}
 
-      {!loading && !error && properties.length > 0 ? (
+      {!loading && properties.length > 0 ? (
         <FlatList
           data={properties}
           keyExtractor={(item) => item.id}
@@ -146,6 +251,16 @@ const PropertyListScreen = () => {
               }
             />
           )}
+          onEndReached={() => void loadNextPage()}
+          onEndReachedThreshold={0.35}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator color={colors.brand} />
+                <Text style={styles.loadingText}>Loading next page...</Text>
+              </View>
+            ) : null
+          }
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
         />
@@ -195,6 +310,62 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
+  city: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    color: colors.textPrimary,
+    fontSize: fontSizes.md,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  statusRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  statusChip: {
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  statusChipActive: {
+    backgroundColor: colors.brand,
+    borderColor: colors.brand,
+  },
+  statusChipInactive: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+  },
+  statusChipText: {
+    fontSize: fontSizes.xs,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  statusChipTextActive: {
+    color: colors.surface,
+  },
+  statusChipTextInactive: {
+    color: colors.textSecondary,
+  },
+  clearFiltersButton: {
+    alignSelf: "flex-start",
+    borderColor: colors.border,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  clearFiltersText: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.xs,
+    fontWeight: "600",
+  },
   metaText: {
     color: colors.textMuted,
     fontSize: fontSizes.xs,
@@ -206,6 +377,10 @@ const styles = StyleSheet.create({
   loadingWrap: {
     alignItems: "center",
     paddingVertical: spacing.xl,
+  },
+  footerLoader: {
+    alignItems: "center",
+    paddingVertical: spacing.md,
   },
   loadingText: {
     color: colors.textSecondary,
@@ -258,6 +433,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSizes.md,
     marginTop: spacing.sm,
+    textAlign: "center",
   },
 });
 

@@ -21,6 +21,8 @@ type PropertyListPayload = {
     page: number;
     per_page: number;
     total: number;
+    total_pages: number;
+    has_next_page: boolean;
     filters: {
       status: string | null;
       city: string | null;
@@ -221,6 +223,8 @@ export type PropertyPortfolioResult = {
     page: number;
     perPage: number;
     total: number;
+    totalPages: number;
+    hasNextPage: boolean;
     source: "database" | "in_memory";
     filters: {
       status: string | null;
@@ -320,6 +324,8 @@ export async function fetchPropertyPortfolio(
       page: payload.meta.page,
       perPage: payload.meta.per_page,
       total: payload.meta.total,
+      totalPages: payload.meta.total_pages,
+      hasNextPage: payload.meta.has_next_page,
       source: payload.meta.source,
       filters: {
         status: payload.meta.filters.status,
