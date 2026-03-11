@@ -4,11 +4,23 @@
 
 - Repository: `D:\still\kconecta-app`
 - Branch: `main` synced with `origin/main`
+- Main protection: enforced (no direct push)
 - Executor policy: `AI_EXECUTOR=aider` (OpenClaw en observacion)
 - Backend policy: Docker-only (sin XAMPP)
 - Wave activa: `Wave 21 - Manager assignment context parity`
 - Jira open (`statusCategory != Done`): `5` (`DEV-104..DEV-108`, todos en `In Progress`)
 - Open PRs: `5` (`#89..#93`, todos en `DRAFT`)
+
+## Workflow Guardrails (Do Not Break)
+
+- Direct push a `main` bloqueado por proteccion de rama.
+- Politica obligatoria: `feature branch` -> `PR` -> `review` -> `merge`.
+- Validacion realizada (2026-03-11): intento controlado `tmp/* -> main` rechazado con `GH006`:
+  - `Protected branch update failed for refs/heads/main`
+  - `Changes must be made through a pull request`
+- Regla operativa permanente:
+  - Nunca usar `git push origin main`.
+  - Crear rama para cualquier cambio, incluso docs/contexto.
 
 ## Wave 21 Progress Snapshot
 
