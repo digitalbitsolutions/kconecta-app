@@ -1,0 +1,22 @@
+{
+  "id": "EPIC-W21",
+  "title": "Wave 21 - Manager assignment context parity",
+  "description": "Add deterministic assignment context contract across backend and manager app so property detail can show current provider ownership metadata without manual cross-checking.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/wave21-manager-assignment-context-parity-plan.md",
+    "ai-orchestration/tasks/"
+  ],
+  "acceptance_criteria": [
+    "Wave plan defines architect/backend/mobile/qa sequencing and rollback checkpoints",
+    "Execution plan preserves Docker-only backend policy and AI executor policy",
+    "Execution plan includes PR/Jira traceability and merge gating"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave21",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript"
+  }
+}

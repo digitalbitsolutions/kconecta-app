@@ -21,6 +21,8 @@ type PropertyListPayload = {
     page: number;
     per_page: number;
     total: number;
+    total_pages: number;
+    has_next_page: boolean;
     filters: {
       status: string | null;
       city: string | null;
@@ -97,6 +99,31 @@ type AssignProviderPayload = {
   };
 };
 
+type PropertyAssignmentContextPayload = {
+  data: {
+    property_id: number;
+    assignment: {
+      assigned: boolean;
+      provider: {
+        id: number;
+        name: string;
+        category: string | null;
+        city: string | null;
+        status: string | null;
+        rating: number | null;
+      } | null;
+      assigned_at: string | null;
+      note: string | null;
+      state: "unassigned" | "assigned" | "provider_missing";
+    };
+  };
+  meta: {
+    contract: string;
+    flow: string;
+    reason: string;
+  };
+};
+
 export type PropertyViewModel = {
   id: string;
   title: string;
@@ -120,6 +147,24 @@ export type ProviderAssignmentResult = {
   providerId: string;
   assignedAt: string;
   property: PropertyViewModel;
+};
+
+export type AssignmentProviderSnapshot = {
+  id: string;
+  name: string;
+  category: string;
+  city: string;
+  status: string;
+  rating: string;
+};
+
+export type PropertyAssignmentContext = {
+  propertyId: string;
+  assigned: boolean;
+  state: "unassigned" | "assigned" | "provider_missing";
+  assignedAt: string | null;
+  note: string | null;
+  provider: AssignmentProviderSnapshot | null;
 };
 
 export type PropertyFormInput = {
@@ -178,6 +223,8 @@ export type PropertyPortfolioResult = {
     page: number;
     perPage: number;
     total: number;
+    totalPages: number;
+    hasNextPage: boolean;
     source: "database" | "in_memory";
     filters: {
       status: string | null;
@@ -277,6 +324,8 @@ export async function fetchPropertyPortfolio(
       page: payload.meta.page,
       perPage: payload.meta.per_page,
       total: payload.meta.total,
+      totalPages: payload.meta.total_pages,
+      hasNextPage: payload.meta.has_next_page,
       source: payload.meta.source,
       filters: {
         status: payload.meta.filters.status,
@@ -440,5 +489,34 @@ export async function assignProviderToProperty(
     providerId: String(payload.data.provider_id),
     assignedAt: payload.data.assigned_at,
     property: toViewModel(payload.data.property),
+  };
+}
+
+export async function fetchPropertyAssignmentContext(
+  propertyId: string
+): Promise<PropertyAssignmentContext> {
+  const payload = await requestJson<PropertyAssignmentContextPayload>(
+    `/properties/${propertyId}/assignment-context`
+  );
+
+  const provider = payload.data.assignment.provider;
+  return {
+    propertyId: String(payload.data.property_id),
+    assigned: payload.data.assignment.assigned,
+    state: payload.data.assignment.state,
+    assignedAt: payload.data.assignment.assigned_at,
+    note: payload.data.assignment.note,
+    provider:
+      provider !== null
+        ? {
+            id: String(provider.id),
+            name: provider.name,
+            category: provider.category ?? "General",
+            city: provider.city ?? "Unknown",
+            status: provider.status ?? "unknown",
+            rating:
+              typeof provider.rating === "number" ? provider.rating.toFixed(1) : "n/a",
+          }
+        : null,
   };
 }
