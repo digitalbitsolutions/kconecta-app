@@ -454,3 +454,38 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend assignment-context endpoint (`BE-019`).
 3. Manager property detail assignment-context wiring (`MOB-018`).
 4. Assignment-context regression matrix and Wave 19-20 baseline checks (`QA-020`).
+
+## Wave 22 Manager Portfolio Filter/Pagination State Map
+
+### Property List States (Extended)
+
+- `list_loading_initial`
+  - First portfolio fetch with default filters.
+- `list_filter_applying`
+  - Filter/search update in progress; keep previous list visible with lightweight loading indicator.
+- `list_ready`
+  - Render rows with applied filters and pagination footer.
+- `list_empty_filtered`
+  - No results for current filter/search combination; provide `Clear filters` CTA.
+- `list_paginating`
+  - Next page in flight; keep current page visible.
+- `list_pagination_end`
+  - Reached last page; hide/disable next-page action.
+- `list_error_retryable`
+  - Deterministic error with `Retry` CTA preserving current filters.
+
+### UX Rules
+
+- Filter controls must be deterministic:
+  - `status` single-select
+  - `city` text/select
+  - `search` free text
+- Clear-filter action resets to default query (`page=1`, no filters).
+- Pagination transition must reset to first page whenever filters/search change.
+
+## Wave 22 Delivery Sequencing
+
+1. Portfolio filter/pagination contract and state map (`ARCH-018`).
+2. Backend filters + pagination metadata implementation (`BE-020`).
+3. Manager property list filter/pagination UI wiring (`MOB-019`).
+4. Regression matrix for filters/pagination and Wave 20-21 baseline (`QA-021`).
