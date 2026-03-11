@@ -39,6 +39,15 @@ Repo objetivo: `D:\still\kconecta-app`
 - [x] No usar XAMPP (solo Docker).
 - [x] No usar comandos destructivos de Git.
 - [x] Mantener `AI_EXECUTOR=aider`.
+- [x] No push directo a `main`; solo rama + PR (proteccion validada con GH006).
+
+## Guardrail GitHub (permanente)
+
+- [x] `main` con `enforce_admins=true`.
+- [x] PR review requerida (`required_approving_review_count=1`).
+- [x] `required_conversation_resolution=true`.
+- [ ] Verificar antes de cada sesion:
+  - `gh api repos/digitalbitsolutions/kconecta-app/branches/main/protection --jq \"{enforce_admins: .enforce_admins.enabled, require_pr_reviews: (.required_pull_request_reviews.required_approving_review_count), required_conversation_resolution: .required_conversation_resolution.enabled}\"`
 
 ## Comandos de reanudacion
 
