@@ -145,18 +145,7 @@ class PropertyApiTest extends TestCase
             ->assertJsonValidationErrors(["page", "per_page"]);
     }
 
-    public function test_properties_endpoint_returns_validation_errors_for_invalid_status_filter(): void
-    {
-        $response = $this
-            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
-            ->getJson("/api/properties?status=invalid-status");
-
-        $response
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(["status"]);
-    }
-
-    public function test_mobile_client_can_paginate_and_receive_deterministic_meta_fields(): void
+    public function test_wave22_properties_meta_contract_includes_pagination_fields(): void
     {
         $response = $this
             ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
@@ -170,6 +159,17 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("meta.total_pages", 3)
             ->assertJsonPath("meta.has_next_page", true)
             ->assertJsonPath("meta.count", 1);
+    }
+
+    public function test_wave22_properties_endpoint_rejects_invalid_status_filter(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties?status=invalid-status");
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(["status"]);
     }
 
     public function test_provider_role_is_forbidden_from_manager_properties_endpoint(): void
