@@ -1,0 +1,25 @@
+{
+  "id": "BE-020",
+  "title": "Implement manager portfolio backend filters and pagination metadata",
+  "description": "Enhance manager portfolio endpoint to support deterministic server-side status/city filters and pagination metadata needed by native manager list UX.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "routes/api.php",
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "Portfolio endpoint accepts additive status and city filters together with search/page/per_page",
+    "Response meta includes page, per_page, total, total_pages, has_next_page, and source",
+    "Property API tests cover filter combinations, pagination boundaries, and unauthorized/forbidden guardrails"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave22",
+    "executor_model": "ollama_chat/deepseek-coder:6.7b",
+    "stack": "laravel-api"
+  }
+}
+

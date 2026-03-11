@@ -1,0 +1,24 @@
+{
+  "id": "ARCH-018",
+  "title": "Define Wave 22 manager portfolio filters and pagination contract",
+  "description": "Extend architecture docs with manager portfolio query contract, deterministic pagination metadata, filter taxonomy, and UI state map for list refresh and empty/error states.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Contract defines portfolio query params for search, status, city, page, and per_page",
+    "Contract defines deterministic meta payload for pagination and aggregate counters",
+    "UX map defines initial load, filter apply, clear filter, empty result, and error transitions"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave22",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "stack": "react-native-with-typescript"
+  }
+}
+
