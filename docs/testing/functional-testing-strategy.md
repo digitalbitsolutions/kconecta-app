@@ -261,6 +261,27 @@ Validate end-to-end functional behavior of native app API contracts before relea
 4. `DEV-102` -> Mobile login-first bootstrap and deterministic auth fallback routing.
 5. `DEV-103` -> Regression matrix + API assertions in `tests/Feature/Api/Wave20RegressionMatrixTest.php`.
 
+## Wave 21 Manager Assignment Context Matrix
+
+1. Assignment-context endpoint parity (`DEV-106`, `DEV-107`, `DEV-108`)
+  - `GET /api/properties/{id}/assignment-context` returns deterministic assignment payload.
+  - Unassigned property context returns `state=unassigned` with `assigned=false`.
+  - Assigned property context returns `state=assigned` with provider snapshot payload.
+2. Session and scope guardrails (`DEV-106`, `DEV-108`)
+  - Provider role access returns `403 ROLE_SCOPE_FORBIDDEN` with deterministic auth-session envelope.
+  - Invalid/expired tokens return deterministic `401` auth-session envelope.
+3. Cross-wave baseline safety (`DEV-108`)
+  - Wave 19 provider handoff endpoints remain stable.
+  - Wave 20 login-first/auth-me session contracts remain stable.
+
+## Wave 21 Ticket Mapping
+
+1. `DEV-104` -> Wave 21 orchestration epic and rollout tracking.
+2. `DEV-105` -> Assignment-context architecture contract/state map.
+3. `DEV-106` -> Backend assignment-context endpoint implementation.
+4. `DEV-107` -> Manager property detail + handoff assignment-context UI wiring.
+5. `DEV-108` -> Regression matrix + API assertions in `tests/Feature/Api/Wave21RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -282,6 +303,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 15. Run Wave 18 manager auth/property-form regression suite and record validation field-map + create/edit evidence.
 16. Run Wave 19 manager-provider handoff regression suite and record candidates/assignment envelope evidence.
 17. Run Wave 20 login-first session regression suite and record bootstrap/auth-me deterministic routing evidence.
+18. Run Wave 21 assignment-context regression suite and record assigned/unassigned/forbidden/unauthorized evidence.
 
 ## Entry Criteria
 

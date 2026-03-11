@@ -419,3 +419,38 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend auth/me endpoint and session envelope parity (`BE-018`).
 3. Manager login-first bootstrap wiring (`MOB-017`).
 4. Regression matrix for login/session parity and Wave 16-19 baseline (`QA-019`).
+
+## Wave 21 Manager Assignment Context State Map
+
+### Property Detail Assignment Context States
+
+- `assignment_context_loading`
+  - Fetch assignment context after property detail is loaded.
+  - Keep property details visible while assignment card is resolving.
+- `assignment_context_ready`
+  - Render provider snapshot and assignment metadata (`assigned_at`, `note`).
+- `assignment_context_unassigned`
+  - Render deterministic empty state with CTA to open provider handoff.
+- `assignment_context_provider_missing`
+  - Show warning state when property references provider id that no longer resolves in provider catalog.
+  - Keep mutation controls available for reassignment.
+- `assignment_context_error`
+  - Show retry CTA without leaving property detail screen.
+- `assignment_context_forbidden`
+  - Route to `Unauthorized` preserving deterministic manager auth behavior.
+- `assignment_context_session_expired`
+  - Route to `SessionExpired` after unrecoverable auth failure.
+
+### Handoff Refresh Rule
+
+- After successful `assign-provider` mutation:
+  - Navigate back to property detail.
+  - Trigger assignment-context reload.
+  - Keep success feedback deterministic (`assigned` state + provider summary).
+
+## Wave 21 Delivery Sequencing
+
+1. Assignment-context contract and state map (`ARCH-017`).
+2. Backend assignment-context endpoint (`BE-019`).
+3. Manager property detail assignment-context wiring (`MOB-018`).
+4. Assignment-context regression matrix and Wave 19-20 baseline checks (`QA-020`).

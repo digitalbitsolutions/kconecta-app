@@ -367,6 +367,61 @@ class PropertyController extends Controller
         return $this->handoffMutationResponse("properties_assign_provider", $result, $providerId);
     }
 
+    public function assignmentContext(Request $request, int $id): JsonResponse
+    {
+        if (!$this->apiAccessService->isAuthorized($request)) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_TOKEN_INVALID,
+                    "Unauthorized",
+                    "properties_assignment_context",
+                    "token_invalid",
+                    false
+                ),
+                401
+            );
+        }
+
+        if (!$this->hasAllowedRole($request, ["manager", "admin"])) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_ROLE_SCOPE_FORBIDDEN,
+                    "Forbidden",
+                    "properties_assignment_context",
+                    "role_scope_forbidden",
+                    false
+                ),
+                403
+            );
+        }
+
+        $property = $this->propertyService->findPropertyById($id);
+        if ($property === null) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => "PROPERTY_NOT_FOUND",
+                        "message" => "Property not found",
+                    ],
+                    "meta" => [
+                        "contract" => "manager-provider-context-v1",
+                        "flow" => "properties_assignment_context",
+                        "reason" => "property_not_found",
+                        "retryable" => false,
+                    ],
+                    "property_id" => $id,
+                ],
+                404
+            );
+        }
+
+        $providerId = isset($property["provider_id"]) ? (int) $property["provider_id"] : 0;
+        $provider = $providerId > 0 ? $this->providerService->findProviderById($providerId) : null;
+        $payload = $this->propertyService->buildAssignmentContextPayload($id, $property, $provider);
+
+        return response()->json($payload, 200);
+    }
+
     private function hasAllowedRole(Request $request, array $allowedRoles): bool
     {
         $resolvedRole = $this->resolveRole($request);
