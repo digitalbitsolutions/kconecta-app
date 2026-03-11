@@ -1,0 +1,23 @@
+{
+  "id": "MOB-018",
+  "title": "Wire manager property detail to assignment-context API",
+  "description": "Integrate assignment-context API into manager property detail and handoff UX so managers can verify active provider context and refresh it after assignment operations.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/screens/PropertyDetailScreen.tsx",
+    "apps/manager/src/screens/ManagerToProviderHandoffScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Property detail shows deterministic assignment context card from backend endpoint",
+    "Handoff flow refreshes assignment context after successful provider assignment",
+    "Unauthorized/session-expired handling remains deterministic and aligned with Wave 20"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave21",
+    "executor_model": "ollama_chat/deepseek-coder:6.7b",
+    "stack": "react-native-with-typescript"
+  }
+}

@@ -1,39 +1,53 @@
-# Session Handoff (2026-03-10)
+# Session Handoff (2026-03-11)
 
 ## Current State
 
 - Repository: `D:\still\kconecta-app`
 - Branch: `main` synced with `origin/main`
+- Main protection: enforced (no direct push)
 - Executor policy: `AI_EXECUTOR=aider` (OpenClaw en observacion)
 - Backend policy: Docker-only (sin XAMPP)
-- Wave cerrada: `Wave 19 - Manager provider handoff and assignment parity`
-- Jira open (`statusCategory != Done`): `0`
-- Open PRs: `0`
+- Wave activa: `Wave 21 - Manager assignment context parity`
+- Jira open (`statusCategory != Done`): `5` (`DEV-104..DEV-108`, todos en `In Progress`)
+- Open PRs: `5` (`#89..#93`, todos en `DRAFT`)
 
-## Wave 19 Closure Summary
+## Workflow Guardrails (Do Not Break)
 
-1. PRs merged to `main`:
-   - `#80` architect
-   - `#81` backend
-   - `#82` mobile
-   - `#83` qa
-2. Jira transitioned to `Done`:
-   - `DEV-95`, `DEV-96`, `DEV-97`, `DEV-98`
-3. Epic closed:
-   - `DEV-94` -> `Done`
-4. Main contains Wave 19 deliverables:
-   - manager provider-candidate and assignment endpoints
-   - manager app handoff screen wired to real API
-   - Wave 19 regression matrix (`Wave19RegressionMatrixTest.php`)
+- Direct push a `main` bloqueado por proteccion de rama.
+- Politica obligatoria: `feature branch` -> `PR` -> `review` -> `merge`.
+- Validacion realizada (2026-03-11): intento controlado `tmp/* -> main` rechazado con `GH006`:
+  - `Protected branch update failed for refs/heads/main`
+  - `Changes must be made through a pull request`
+- Regla operativa permanente:
+  - Nunca usar `git push origin main`.
+  - Crear rama para cualquier cambio, incluso docs/contexto.
+
+## Wave 21 Progress Snapshot
+
+1. Epic + tickets Jira creados:
+   - `DEV-104` epic/devops
+   - `DEV-105` architect
+   - `DEV-106` backend
+   - `DEV-107` mobile
+   - `DEV-108` qa
+2. Sprint board:
+   - `DEV Wave 21` activo (board id `1`, sprint id `144`)
+   - Todos los tickets Wave 21 asignados al sprint y en `In Progress`
+3. PRs draft abiertos:
+   - `#89` `DEV-104` devops bootstrap/docs
+   - `#90` `DEV-105` architect contract/state map
+   - `#91` `DEV-106` backend assignment-context endpoint + tests
+   - `#92` `DEV-107` mobile assignment-context UI/API wiring
+   - `#93` `DEV-108` QA regression matrix
 
 ## Known Blockers
 
-- Aider apply mode can still timeout on long edits.
-  - Current workaround: deterministic manual fallback in agent worktrees.
-- Full Laravel PHPUnit end-to-end in this repo remains limited by `docker-compose.yml` (no app/php service).
-  - Current workaround: Docker `php:8.2-cli` lint/smoke checks + CI gates on PR.
+- Aider apply mode puede timeout en tareas largas.
+  - Workaround: fallback manual controlado en worktrees de agente.
+- PHPUnit Laravel end-to-end local sigue limitado por `docker-compose.yml` (solo `db` + `adminer`, sin servicio app/php).
+- Host `php` local apunta a runtime XAMPP roto y debe ignorarse (politica: no usar XAMPP).
 
-## Resume Commands
+## Resume Commands (post-restart)
 
 ```powershell
 cd D:\still\kconecta-app
@@ -43,6 +57,7 @@ $env:GIT_CONFIG_VALUE_0='*'
 $env:AI_EXECUTOR='aider'
 $env:AIDER_EDIT_FORMAT='diff'
 $env:AIDER_EXEC_TIMEOUT_SECONDS='600'
+$env:AIDER_TOTAL_TIMEOUT_SECONDS='900'
 py ai-orchestration/orchestrator.py preflight
 gh pr list --state open --limit 20
 py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
@@ -50,6 +65,7 @@ py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
 
 ## Next Natural Actions
 
-1. Bootstrap `Wave 20` (epic + architect/backend/mobile/qa tasks).
-2. Transition architect/backend Wave 20 tickets to `In Progress` for board visibility.
-3. Start Wave 20 execution in standard order: architect -> backend -> mobile -> qa.
+1. Revisar/aprobar/mergear PRs `#89..#93` a `main`.
+2. Transicionar Jira `DEV-104..DEV-108` a `Done` al cerrar cada PR.
+3. Cerrar epic `DEV-104`.
+4. Abrir `Wave 22` (nuevo epic + 4 tickets) y arrancar ciclo architect -> backend -> mobile -> qa.

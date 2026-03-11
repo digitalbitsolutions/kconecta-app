@@ -1,13 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import React, { useCallback, useMemo, useState } from "react";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ActivityIndicator, Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { ApiError } from "../api/client";
 import {
+  fetchPropertyAssignmentContext,
   fetchPropertyById,
   releaseProperty,
   reserveProperty,
+  type PropertyAssignmentContext,
   updatePropertyStatus,
   type PropertyStatus,
   type PropertyViewModel,
@@ -31,6 +33,9 @@ const PropertyDetailScreen = () => {
   const [mutationLoading, setMutationLoading] = useState<boolean>(false);
   const [mutationMessage, setMutationMessage] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const [assignmentContext, setAssignmentContext] = useState<PropertyAssignmentContext | null>(null);
+  const [assignmentLoading, setAssignmentLoading] = useState<boolean>(true);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
 
   const loadProperty = useCallback(async () => {
     setLoading(true);
@@ -46,9 +51,29 @@ const PropertyDetailScreen = () => {
     }
   }, [propertyId]);
 
-  useEffect(() => {
-    loadProperty();
-  }, [loadProperty]);
+  const loadAssignmentContext = useCallback(async () => {
+    setAssignmentLoading(true);
+    setAssignmentError(null);
+    try {
+      const payload = await fetchPropertyAssignmentContext(propertyId);
+      setAssignmentContext(payload);
+    } catch (fetchError) {
+      const message =
+        fetchError instanceof Error ? fetchError.message : "Unable to load assignment context.";
+      setAssignmentError(message);
+      setAssignmentContext(null);
+    } finally {
+      setAssignmentLoading(false);
+    }
+  }, [propertyId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadProperty();
+      void loadAssignmentContext();
+      return undefined;
+    }, [loadAssignmentContext, loadProperty])
+  );
 
   const executeMutation = useCallback(
     async (successMessage: string, action: () => Promise<PropertyViewModel>) => {
@@ -59,6 +84,7 @@ const PropertyDetailScreen = () => {
       try {
         const updated = await action();
         setProperty(updated);
+        await loadAssignmentContext();
         setMutationMessage(successMessage);
       } catch (mutationFailure) {
         if (mutationFailure instanceof ApiError) {
@@ -83,7 +109,7 @@ const PropertyDetailScreen = () => {
         setMutationLoading(false);
       }
     },
-    [navigation]
+    [loadAssignmentContext, navigation]
   );
 
   const reserveOrReleaseLabel = property?.status === "reserved" ? "Release Reservation" : "Reserve Property";
@@ -150,6 +176,51 @@ const PropertyDetailScreen = () => {
             <Row label="Status" value={property.status} highlight />
             <Row label="Manager" value={property.managerId} />
             <Row label="Price" value={property.price} />
+          </View>
+
+          <View style={styles.assignmentCard}>
+            <Text style={styles.assignmentTitle}>Assignment context</Text>
+            {assignmentLoading ? (
+              <View style={styles.assignmentLoadingWrap}>
+                <ActivityIndicator color={colors.brand} />
+                <Text style={styles.assignmentLoadingText}>Refreshing assignment context...</Text>
+              </View>
+            ) : null}
+
+            {!assignmentLoading && assignmentError ? (
+              <>
+                <Text style={styles.assignmentErrorText}>{assignmentError}</Text>
+                <Pressable style={styles.assignmentRetryAction} onPress={loadAssignmentContext}>
+                  <Text style={styles.assignmentRetryText}>Retry context fetch</Text>
+                </Pressable>
+              </>
+            ) : null}
+
+            {!assignmentLoading && !assignmentError && assignmentContext ? (
+              <>
+                <Row
+                  label="State"
+                  value={assignmentContext.state}
+                  highlight={assignmentContext.state === "provider_missing"}
+                />
+                <Row
+                  label="Assigned"
+                  value={assignmentContext.assigned ? "Yes" : "No"}
+                />
+                <Row
+                  label="Provider"
+                  value={assignmentContext.provider?.name ?? "Not assigned"}
+                />
+                <Row
+                  label="Assigned at"
+                  value={assignmentContext.assignedAt ?? "-"}
+                />
+                <Row
+                  label="Note"
+                  value={assignmentContext.note ?? "-"}
+                />
+              </>
+            ) : null}
           </View>
 
           <View style={styles.actionCard}>
@@ -299,6 +370,46 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     borderWidth: 1,
     padding: spacing.lg,
+  },
+  assignmentCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+  },
+  assignmentTitle: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.md,
+    fontWeight: "700",
+    marginBottom: spacing.sm,
+  },
+  assignmentLoadingWrap: {
+    alignItems: "center",
+    paddingVertical: spacing.md,
+  },
+  assignmentLoadingText: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+    marginTop: spacing.sm,
+  },
+  assignmentErrorText: {
+    color: colors.danger,
+    fontSize: fontSizes.sm,
+  },
+  assignmentRetryAction: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  assignmentRetryText: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.sm,
+    fontWeight: "600",
   },
   row: {
     borderBottomColor: colors.border,
