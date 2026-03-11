@@ -51,7 +51,15 @@ class PropertyController extends Controller
         }
 
         $validated = $request->validate([
-            "status" => ["nullable", "string", "max:50"],
+            "status" => [
+                "nullable",
+                "string",
+                "in:" . implode(",", [
+                    PropertyService::STATUS_AVAILABLE,
+                    PropertyService::STATUS_RESERVED,
+                    PropertyService::STATUS_MAINTENANCE,
+                ]),
+            ],
             "city" => ["nullable", "string", "max:120"],
             "manager_id" => ["nullable", "string", "max:120"],
             "search" => ["nullable", "string", "max:120"],
