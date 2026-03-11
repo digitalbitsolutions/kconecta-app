@@ -248,6 +248,31 @@
   - Session module owns token lifecycle.
   - Manager module consumes validated session context only.
 
+## Wave 21 Manager Assignment Context Boundary
+
+### Assignment Context Composition Layer
+
+- Responsibilities:
+  - Compose current property assignment metadata with provider snapshot details for manager detail surfaces.
+  - Preserve deterministic state when provider reference exists but provider profile is missing.
+  - Keep Wave 19 provider assignment contracts unchanged while adding read-context parity.
+- Main contracts:
+  - `GET /api/properties/{id}/assignment-context`
+  - Existing dependencies:
+    - `GET /api/properties/{id}`
+    - `GET /api/properties/{id}/provider-candidates`
+    - `POST /api/properties/{id}/assign-provider`
+- Error semantics:
+  - `401` with `auth-session-v1` envelope.
+  - `403 ROLE_SCOPE_FORBIDDEN` for non-manager/non-admin.
+  - `404 PROPERTY_NOT_FOUND` with `manager-provider-context-v1` contract metadata.
+
+### Ownership Notes
+
+- Property module owns assignment state (`provider_id`, `assigned_at`, `handoff_note`).
+- Provider module owns provider profile snapshot fields (`name`, `category`, `city`, `status`, `rating`).
+- Manager UI consumes merged payload only, never direct multi-endpoint stitching in presentation layer.
+
 ## Compatibility Rules
 
 - Existing CRM contracts remain valid while native apps are onboarded.
