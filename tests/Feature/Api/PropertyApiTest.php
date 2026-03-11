@@ -29,6 +29,8 @@ class PropertyApiTest extends TestCase
                     "page",
                     "per_page",
                     "total",
+                    "total_pages",
+                    "has_next_page",
                     "filters" => ["status", "city", "manager_id", "search"],
                     "kpis" => [
                         "active_properties",
@@ -57,7 +59,9 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("meta.filters.search", "Modern")
             ->assertJsonPath("meta.page", 1)
             ->assertJsonPath("meta.per_page", 1)
-            ->assertJsonPath("meta.count", 1);
+            ->assertJsonPath("meta.count", 1)
+            ->assertJsonPath("meta.total_pages", 1)
+            ->assertJsonPath("meta.has_next_page", false);
         $this->assertValidDataSource($response->json("meta.source"));
     }
 
@@ -104,6 +108,8 @@ class PropertyApiTest extends TestCase
                     "page",
                     "per_page",
                     "total",
+                    "total_pages",
+                    "has_next_page",
                     "filters" => ["status", "city", "manager_id", "search"],
                     "kpis" => [
                         "active_properties",
@@ -137,6 +143,33 @@ class PropertyApiTest extends TestCase
         $response
             ->assertStatus(422)
             ->assertJsonValidationErrors(["page", "per_page"]);
+    }
+
+    public function test_properties_endpoint_returns_validation_errors_for_invalid_status_filter(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties?status=invalid-status");
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(["status"]);
+    }
+
+    public function test_mobile_client_can_paginate_and_receive_deterministic_meta_fields(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties?page=2&per_page=1");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("meta.page", 2)
+            ->assertJsonPath("meta.per_page", 1)
+            ->assertJsonPath("meta.total", 3)
+            ->assertJsonPath("meta.total_pages", 3)
+            ->assertJsonPath("meta.has_next_page", true)
+            ->assertJsonPath("meta.count", 1);
     }
 
     public function test_provider_role_is_forbidden_from_manager_properties_endpoint(): void

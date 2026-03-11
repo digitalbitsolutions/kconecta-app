@@ -76,6 +76,7 @@ class PropertyService
         $page = max(1, (int) ($filters["page"] ?? 1));
         $perPage = max(1, min(100, (int) ($filters["per_page"] ?? 25)));
         $total = count($filtered);
+        $totalPages = $total > 0 ? (int) ceil($total / $perPage) : 0;
         $offset = ($page - 1) * $perPage;
         $pagedRows = array_slice($filtered, $offset, $perPage);
         $summary = $this->buildKpis($filtered);
@@ -87,6 +88,8 @@ class PropertyService
                 "page" => $page,
                 "per_page" => $perPage,
                 "total" => $total,
+                "total_pages" => $totalPages,
+                "has_next_page" => $page < $totalPages,
                 "filters" => [
                     "status" => $filters["status"] ?? null,
                     "city" => $filters["city"] ?? null,
