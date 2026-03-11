@@ -1,4 +1,4 @@
-# TODO prioritario - Wave 21
+# TODO prioritario - Wave 21 (ciclo en review)
 
 Fecha: 2026-03-10  
 Repo objetivo: `D:\still\kconecta-app`
@@ -6,25 +6,28 @@ Repo objetivo: `D:\still\kconecta-app`
 ## Estado
 
 - Wave 20: cerrada (PRs `#84-#88` mergeadas, Jira `DEV-99..DEV-103` en `Done`).
-- Siguiente objetivo: abrir y ejecutar Wave 21 con foco en contexto de asignacion manager-provider dentro de Property Detail.
+- Wave 21: creada/activa y ejecutada end-to-end en ramas de agentes.
+- PRs draft abiertos Wave 21:
+  - `#89` (`DEV-104`) devops
+  - `#90` (`DEV-105`) architect
+  - `#91` (`DEV-106`) backend
+  - `#92` (`DEV-107`) mobile
+  - `#93` (`DEV-108`) qa
 
 ## P0 (inmediato)
 
-- [ ] Crear y registrar Wave 21 en Jira:
-  - epic devops
-  - architect contract
-  - backend assignment context endpoint
-  - mobile assignment context UI wiring
-  - qa regression
-- [ ] Mover architect/backend a `In Progress` para activar board visible.
-- [ ] Ejecutar ciclo completo Wave 21 (`architect -> backend -> mobile -> qa`) con PR draft por agente.
+- [x] Crear y registrar Wave 21 en Jira (epic + architect/backend/mobile/qa).
+- [x] Mover Wave 21 a `In Progress` y dejar board visible.
+- [x] Ejecutar ciclo completo Wave 21 (`architect -> backend -> mobile -> qa`) con PR draft por agente.
+- [ ] Revisar/aprobar/mergear PRs `#89..#93`.
+- [ ] Pasar `DEV-104..DEV-108` a `Done` al cerrar PRs.
 
 ## P1
 
 - [ ] Validar en emulador Android manager:
-  - tarjeta de contexto de asignacion en Property Detail
+  - tarjeta `Assignment context` en Property Detail
   - refresco de estado tras asignacion desde Handoff
-- [ ] Definir adicion de servicio app/php en Docker Compose para PHPUnit end-to-end completo.
+- [ ] Diseñar `docker-compose` con servicio app/php para habilitar PHPUnit local end-to-end (sin XAMPP).
 
 ## Restricciones activas
 
