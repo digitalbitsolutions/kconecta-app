@@ -1,52 +1,60 @@
-# TODO prioritario - Wave 21
+# TODO prioritario - Wave 22
 
 Fecha: 2026-03-11  
 Repo objetivo: `D:\still\kconecta-app`
 
 ## Estado actual
 
-- Wave 21 abierta y activa en Jira.
-- Tickets abiertos en `In Progress`: `DEV-104..DEV-108`.
-- PRs draft abiertas para Wave 21: `#89..#93`.
+- Wave 22 abierta y activa en Jira.
+- Issues abiertas:
+  - `DEV-109` epic (`In Progress`)
+  - `DEV-110` architect (`In Progress`)
+  - `DEV-111` backend (`In Progress`)
+  - `DEV-112` mobile (`In Progress`)
+  - `DEV-113` qa (`To Do`)
+- PRs draft abiertas:
+  - `#95` DEV-110 architect
+  - `#96` DEV-111 backend
+  - `#97` DEV-109 devops
 
 ## P0 (inmediato)
 
-- [ ] Revisar y cerrar ciclo Wave 21 end-to-end:
-  - `#89` DEV-104 (devops epic/docs)
-  - `#90` DEV-105 (architect contract/state map)
-  - `#91` DEV-106 (backend assignment-context endpoint)
-  - `#92` DEV-107 (mobile wiring property detail)
-  - `#93` DEV-108 (qa regression matrix)
-- [ ] Aprobar/mergear PRs `#89..#93` a `main` respetando validaciones.
-- [ ] Pasar Jira `DEV-104..DEV-108` a `Done` tras cada merge.
-- [ ] Cerrar epic `DEV-104`.
+- [ ] Ejecutar `BE-020` en apply mode con `AI_EXECUTOR=aider` y cerrar backend de Wave 22.
+- [ ] Reintentar `MOB-019` con politicas Aider por agente (timeout/retries/batch tuning).
+- [ ] Abrir ciclo QA (`DEV-113`) tras backend+mobile estables.
+- [ ] Mantener Jira actualizado en cada transicion (`To Do` -> `In Progress` -> `In Review` -> `Done`).
 
-## P1 (siguiente ola)
+## P1 (estabilizacion de ejecucion)
 
-- [ ] Abrir Wave 22 en Jira (epic + architect/backend/mobile/qa).
-- [ ] Arrancar architect/backend en `In Progress` para que el board muestre tarjetas activas.
-- [ ] Ejecutar ciclo completo de Wave 22 con PRs draft y trazabilidad Jira.
+- [ ] Confirmar mejora real de Aider en apply mode con evidencia de logs/transcripts.
+- [ ] Si persiste timeout en mobile:
+  - dividir `MOB-019` en subtareas mas pequenas,
+  - y/o subir `AIDER_AGENT_MOBILE_TOTAL_TIMEOUT_SECONDS`.
+- [ ] Mantener fallback manual en worktree solo como contingencia controlada.
 
 ## Bloqueos y mitigaciones
 
-- [ ] Aider puede agotar timeout en prompts grandes.
-  - Mitigacion: aumentar timeout y/o fallback manual controlado en worktrees.
-- [ ] No hay servicio `app/php` en `docker-compose.yml` (solo `db` + `adminer`), limita PHPUnit end-to-end.
-  - Mitigacion: agregar servicio PHP/Laravel para ejecutar `artisan test` dentro de Docker.
+- [ ] Timeout en Aider para `MOB-019` con politica actual mobile (`1320s`).
+  - Mitigacion recomendada:
+    - `AIDER_AGENT_MOBILE_TOTAL_TIMEOUT_SECONDS=2100`
+    - `AIDER_AGENT_MOBILE_RETRIES=3`
+    - `AIDER_AGENT_MOBILE_BATCH_SIZE=1`
+- [ ] Google AG puede devolver `429` por cuota y caer a fallback Ollama.
+  - Mitigacion: mantener prompts cortos y continuidad local.
+- [ ] Backend tests solo por Docker app/php (nunca por XAMPP).
 
 ## Restricciones activas
 
-- [x] No usar XAMPP (solo Docker).
+- [x] No usar XAMPP (solo Docker Desktop).
 - [x] No usar comandos destructivos de Git.
-- [x] Mantener `AI_EXECUTOR=aider`.
-- [x] No push directo a `main`; solo rama + PR (proteccion validada con GH006).
+- [x] Flujo obligatorio por PR (main protegida).
+- [x] Mantener trazabilidad Jira + PR + logs.
 
 ## Guardrail GitHub (permanente)
 
-- [x] `main` con `enforce_admins=true`.
-- [x] PR review requerida (`required_approving_review_count=1`).
-- [x] `required_conversation_resolution=true`.
-- [ ] Verificar antes de cada sesion:
+- [x] `main` protegida contra push directo.
+- [x] Merge via PR + aprobacion humana.
+- [ ] Verificacion rapida al iniciar sesion:
   - `gh api repos/digitalbitsolutions/kconecta-app/branches/main/protection --jq \"{enforce_admins: .enforce_admins.enabled, require_pr_reviews: (.required_pull_request_reviews.required_approving_review_count), required_conversation_resolution: .required_conversation_resolution.enabled}\"`
 
 ## Comandos de reanudacion
@@ -58,8 +66,6 @@ $env:GIT_CONFIG_KEY_0='safe.directory'
 $env:GIT_CONFIG_VALUE_0='*'
 $env:AI_EXECUTOR='aider'
 $env:AIDER_EDIT_FORMAT='diff'
-$env:AIDER_EXEC_TIMEOUT_SECONDS='600'
-$env:AIDER_TOTAL_TIMEOUT_SECONDS='900'
 py ai-orchestration/orchestrator.py preflight
 gh pr list --state open --limit 20
 py ai-orchestration/orchestrator.py jira-list --status open --max-results 20

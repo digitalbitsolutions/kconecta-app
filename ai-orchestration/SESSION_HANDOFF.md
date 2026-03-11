@@ -3,49 +3,67 @@
 ## Current State
 
 - Repository: `D:\still\kconecta-app`
-- Branch: `main` synced with `origin/main`
-- Main protection: enforced (no direct push)
-- Executor policy: `AI_EXECUTOR=aider` (OpenClaw en observacion)
-- Backend policy: Docker-only (sin XAMPP)
-- Wave activa: `Wave 21 - Manager assignment context parity`
-- Jira open (`statusCategory != Done`): `5` (`DEV-104..DEV-108`, todos en `In Progress`)
-- Open PRs: `5` (`#89..#93`, todos en `DRAFT`)
+- Branch local actual: `main` (sincronizada con `origin/main` antes de este set de cambios).
+- Proteccion de rama `main`: activa (sin push directo, requiere PR).
+- Politica runtime: Docker-only para backend (sin XAMPP).
+- Wave activa en Jira: `Wave 22 - Manager portfolio filter + pagination parity`.
+- Jira open (`statusCategory != Done`): `5`
+  - `DEV-109` epic/devops (`In Progress`)
+  - `DEV-110` architect (`In Progress`)
+  - `DEV-111` backend (`In Progress`)
+  - `DEV-112` mobile (`In Progress`)
+  - `DEV-113` qa (`To Do`)
+- PRs abiertas actuales:
+  - `#95` `DEV-110` (architect, draft)
+  - `#96` `DEV-111` (backend, draft)
+  - `#97` `DEV-109` (devops, draft)
+
+## Aider Hardening Applied (Root Fix)
+
+Se implemento hardening estructural en orquestacion:
+
+1. Prompts mas cortos por tarea:
+   - Compactacion fuerte de prompt de ejecucion.
+   - Limites por seccion (`file_scope`, `acceptance`, `validation`) y por longitud.
+2. Particion automatica de cambios:
+   - Split por lotes segun `files_scope` agrupado por ruta.
+   - Batch mode mantiene guardrails de scope.
+3. Timeout/retries adaptativos por agente:
+   - Politicas por defecto para `architect/backend/mobile/qa/devops`.
+   - Retries por modelo + timeout incremental por retry.
+   - Overrides por entorno (`AIDER_AGENT_<AGENT>_*`).
+4. Observabilidad:
+   - `preflight` ahora reporta `checks.aider_agent_policies`.
+   - `run-task` en apply reporta `aider_policy` efectiva.
+
+Archivos clave tocados:
+- `ai-orchestration/ai_orchestration/services/aider_service.py`
+- `ai-orchestration/ai_orchestration/services/executor_service.py`
+- `ai-orchestration/ai_orchestration/orchestrator_app.py`
+- `ai-orchestration/README.md`
+
+## Validation Snapshot
+
+- `py -m compileall ai-orchestration/ai_orchestration` -> OK
+- `py ai-orchestration/orchestrator.py preflight` -> OK
+- `AI_EXECUTOR=aider` confirmado en preflight -> OK
+- `run-task` real Wave 22 `MOB-019` con Aider -> timeout tras presupuesto de politica mobile (`1320s`).
+
+Conclusion:
+- La base quedo mejor instrumentada y mas estable.
+- Sigue existiendo bloqueo en tareas mobile largas (a resolver con tuning adicional o particion de task).
 
 ## Workflow Guardrails (Do Not Break)
 
-- Direct push a `main` bloqueado por proteccion de rama.
-- Politica obligatoria: `feature branch` -> `PR` -> `review` -> `merge`.
-- Validacion realizada (2026-03-11): intento controlado `tmp/* -> main` rechazado con `GH006`:
-  - `Protected branch update failed for refs/heads/main`
-  - `Changes must be made through a pull request`
-- Regla operativa permanente:
-  - Nunca usar `git push origin main`.
-  - Crear rama para cualquier cambio, incluso docs/contexto.
-
-## Wave 21 Progress Snapshot
-
-1. Epic + tickets Jira creados:
-   - `DEV-104` epic/devops
-   - `DEV-105` architect
-   - `DEV-106` backend
-   - `DEV-107` mobile
-   - `DEV-108` qa
-2. Sprint board:
-   - `DEV Wave 21` activo (board id `1`, sprint id `144`)
-   - Todos los tickets Wave 21 asignados al sprint y en `In Progress`
-3. PRs draft abiertos:
-   - `#89` `DEV-104` devops bootstrap/docs
-   - `#90` `DEV-105` architect contract/state map
-   - `#91` `DEV-106` backend assignment-context endpoint + tests
-   - `#92` `DEV-107` mobile assignment-context UI/API wiring
-   - `#93` `DEV-108` QA regression matrix
+- No hacer `git push origin main`.
+- Flujo obligatorio: `branch de agente -> PR draft -> review -> merge`.
+- Regla de proteccion ya validada en vivo (`GH006` rechazo de push directo a `main`).
 
 ## Known Blockers
 
-- Aider apply mode puede timeout en tareas largas.
-  - Workaround: fallback manual controlado en worktrees de agente.
-- PHPUnit Laravel end-to-end local sigue limitado por `docker-compose.yml` (solo `db` + `adminer`, sin servicio app/php).
-- Host `php` local apunta a runtime XAMPP roto y debe ignorarse (politica: no usar XAMPP).
+1. Aider en tareas largas de mobile (`MOB-019`) aun puede agotar presupuesto.
+2. Google AG presenta intermitencia por cuota (`429`) y cae a Ollama fallback.
+3. Test Laravel end-to-end depende de runtime Docker app/php; no usar host PHP/XAMPP.
 
 ## Resume Commands (post-restart)
 
@@ -56,16 +74,22 @@ $env:GIT_CONFIG_KEY_0='safe.directory'
 $env:GIT_CONFIG_VALUE_0='*'
 $env:AI_EXECUTOR='aider'
 $env:AIDER_EDIT_FORMAT='diff'
-$env:AIDER_EXEC_TIMEOUT_SECONDS='600'
-$env:AIDER_TOTAL_TIMEOUT_SECONDS='900'
 py ai-orchestration/orchestrator.py preflight
 gh pr list --state open --limit 20
 py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
 ```
 
+Opcional tuning inmediato para desbloquear mobile:
+
+```powershell
+$env:AIDER_AGENT_MOBILE_TOTAL_TIMEOUT_SECONDS='2100'
+$env:AIDER_AGENT_MOBILE_RETRIES='3'
+$env:AIDER_AGENT_MOBILE_BATCH_SIZE='1'
+```
+
 ## Next Natural Actions
 
-1. Revisar/aprobar/mergear PRs `#89..#93` a `main`.
-2. Transicionar Jira `DEV-104..DEV-108` a `Done` al cerrar cada PR.
-3. Cerrar epic `DEV-104`.
-4. Abrir `Wave 22` (nuevo epic + 4 tickets) y arrancar ciclo architect -> backend -> mobile -> qa.
+1. Ejecutar `BE-020` real con `AI_EXECUTOR=aider` para avanzar Wave 22 backend.
+2. Reintentar `MOB-019` con tuning mobile o dividir task en subtareas.
+3. Abrir `DEV-113` (QA) cuando backend/mobile queden listos.
+4. Continuar flujo PR/Jira sin saltar guardrails de rama protegida.

@@ -4,7 +4,7 @@
 
 Build a local AI software factory for the CRM ecosystem with isolated agent execution, controlled merges, and traceable delivery.
 
-## Current Status (2026-03-06)
+## Current Status (2026-03-11)
 
 Completed:
 
@@ -47,6 +47,15 @@ Completed:
   - DB-first provider/property retrieval with fallback controls.
   - API `meta.source` contract in list endpoints.
   - QA smoke suite aligned with data-source metadata.
+- Waves 10-16 completed and merged to `main` (manager parity foundation).
+- Wave 22 opened (manager portfolio filters + pagination parity):
+  - Jira: `DEV-109..DEV-113`
+  - Open PRs: `#95`, `#96`, `#97` (draft)
+- Aider hardening applied in orchestrator:
+  - shorter execution prompts per task
+  - automatic change partitioning by files scope
+  - adaptive timeout/retry policy by agent
+  - policy visibility in `preflight` via `aider_agent_policies`
 
 ## Delivery Phases
 
@@ -62,6 +71,7 @@ Completed:
 - Add request validation and response resources.
 - Add migration-safe schema updates.
 - Define API auth and role scopes against CRM backend.
+- Current focus: Wave 22 backend filters and pagination metadata (`BE-020`).
 
 ### Phase 3: Mobile Delivery (In Progress)
 
@@ -69,6 +79,7 @@ Completed:
 - Add shared API client and typed models. (Done for manager property flows)
 - Integrate auth/session handling and role-aware navigation. (Pending)
 - Implement providers, properties, and service-order flows.
+- Current focus: Wave 22 portfolio filters/pagination UI wiring (`MOB-019`).
 
 ### Phase 4: QA + Security (In Progress)
 
@@ -106,16 +117,15 @@ Automation:
 
 ## Next Milestones
 
-1. Complete DB persistence wave by adding write operations and pagination over CRM-backed tables.
-2. Add auth/session layer for mobile API requests (token storage, refresh, unauthorized redirect).
-3. Extend manager app with create/update/reserve actions and form validation.
-4. Expand providers app workflows and connect to backend service-order endpoints.
-5. Add mandatory branch protection rules in GitHub for `main` with required checks and review count.
-6. Expand CI with API test job (`phpunit`) and React Native lint/test jobs as codebase matures.
+1. Close Wave 22 end-to-end (`DEV-109..DEV-113`) with PR merge + Jira transitions.
+2. Resolve remaining mobile timeout risk (`MOB-019`) via policy tuning or task split.
+3. Continue manager parity waves after filters/pagination baseline.
+4. Keep Docker-only backend runtime for tests (no XAMPP path).
+5. Maintain PR-only merge discipline on protected `main`.
 
 Status update:
 
-- Jira environment is active and workflow proven (`DEV-7` to `DEV-17` completed).
-- `DEV-1` (core feature set) is in progress and decomposed into merged wave 4 sub-tasks.
-- Current repository baseline at main includes merged wave 1-8 outputs.
-- Wave 9 persistence increment is in progress on top of Docker Desktop MySQL (`kconecta-app` volume).
+- Jira environment remains active and board/timeline tracking is stable.
+- Main branch protection is enforced and validated (direct push rejected by rule).
+- Repository baseline includes merged waves through Wave 16.
+- Wave 22 is active and visible in board (`In Progress` + `To Do`).
