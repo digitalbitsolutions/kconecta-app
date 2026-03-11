@@ -1,0 +1,21 @@
+﻿{
+  "id": "BE-020",
+  "title": "Finalize Wave 22 backend portfolio pagination contract",
+  "description": "Validate and minimally adjust backend portfolio meta contract for page, per_page, total, total_pages and has_next_page.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Services/PropertyService.php"
+  ],
+  "acceptance_criteria": [
+    "meta includes page/per_page/total/total_pages/has_next_page",
+    "no behavior regression on existing filters"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave22",
+    "executor_model": "ollama_chat/deepseek-coder:6.7b",
+    "stack": "laravel-api",
+    "partition": "be020-finalize-property-service"
+  }
+}

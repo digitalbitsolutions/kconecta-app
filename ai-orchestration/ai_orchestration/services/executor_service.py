@@ -72,6 +72,7 @@ class ExecutorService:
         prompt: str,
         files: list[str],
         model: str,
+        agent_name: str | None = None,
     ) -> ExecutorRunResult:
         selection = self._select_executor()
         selected = selection.selected
@@ -96,6 +97,7 @@ class ExecutorService:
                         prompt=prompt,
                         files=files,
                         model=model,
+                        agent_name=agent_name,
                     )
                     return ExecutorRunResult.from_command_result(
                         executor="aider",
@@ -110,6 +112,7 @@ class ExecutorService:
             prompt=prompt,
             files=files,
             model=model,
+            agent_name=agent_name,
         )
         return ExecutorRunResult.from_command_result(
             executor="aider",

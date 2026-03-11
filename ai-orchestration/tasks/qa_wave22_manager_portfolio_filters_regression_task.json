@@ -1,0 +1,24 @@
+{
+  "id": "QA-021",
+  "title": "Add Wave 22 manager portfolio filters and pagination regression matrix",
+  "description": "Expand QA coverage for manager portfolio filtering and pagination while preserving Wave 20-21 manager runtime baselines.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/Wave22RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix includes filter combinations, empty results, and pagination boundary transitions",
+    "Property API tests assert deterministic portfolio meta contract and guardrail envelopes",
+    "Wave 20-21 manager baseline checks remain stable after Wave 22 additions"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave22",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "stack": "qa-core"
+  }
+}
+
