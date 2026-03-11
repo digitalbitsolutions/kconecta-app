@@ -3,69 +3,69 @@
 ## Current State
 
 - Repository: `D:\still\kconecta-app`
-- Branch local actual: `main` (sincronizada con `origin/main` antes de este set de cambios).
-- Proteccion de rama `main`: activa (sin push directo, requiere PR).
-- Politica runtime: Docker-only para backend (sin XAMPP).
-- Wave activa en Jira: `Wave 22 - Manager portfolio filter + pagination parity`.
-- Jira open (`statusCategory != Done`): `5`
-  - `DEV-109` epic/devops (`In Progress`)
-  - `DEV-110` architect (`In Progress`)
-  - `DEV-111` backend (`In Progress`)
-  - `DEV-112` mobile (`In Progress`)
-  - `DEV-113` qa (`To Do`)
-- PRs abiertas actuales:
-  - `#95` `DEV-110` (architect, draft)
-  - `#96` `DEV-111` (backend, draft)
-  - `#97` `DEV-109` (devops, draft)
+- Branch: `main` synced with `origin/main`
+- Main protection: enforced (`PR required`, no direct push to `main`)
+- Executor policy: `AI_EXECUTOR=aider` (OpenClaw in observation)
+- Backend runtime policy: Docker-only (`NO XAMPP`)
+- Active wave: `Wave 22 - Manager portfolio filter + pagination parity`
 
-## Aider Hardening Applied (Root Fix)
+## Wave 22 Snapshot
 
-Se implemento hardening estructural en orquestacion:
+- Jira tickets:
+  - `DEV-109` (devops) -> `In Progress`
+  - `DEV-110` (architect) -> `In Progress`
+  - `DEV-111` (backend / BE-020) -> `In Progress`
+  - `DEV-112` (mobile / MOB-019) -> `In Progress`
+  - `DEV-113` (qa / QA-021) -> `In Progress`
+- Open PRs:
+  - `#95` `DEV-110` architect (DRAFT)
+  - `#96` `DEV-111` backend (READY FOR REVIEW)
+  - `#97` `DEV-109` devops (DRAFT)
+  - `#98` `DEV-112` mobile (READY FOR REVIEW)
+  - `#99` `DEV-113` qa (DRAFT)
 
-1. Prompts mas cortos por tarea:
-   - Compactacion fuerte de prompt de ejecucion.
-   - Limites por seccion (`file_scope`, `acceptance`, `validation`) y por longitud.
-2. Particion automatica de cambios:
-   - Split por lotes segun `files_scope` agrupado por ruta.
-   - Batch mode mantiene guardrails de scope.
-3. Timeout/retries adaptativos por agente:
-   - Politicas por defecto para `architect/backend/mobile/qa/devops`.
-   - Retries por modelo + timeout incremental por retry.
-   - Overrides por entorno (`AIDER_AGENT_<AGENT>_*`).
-4. Observabilidad:
-   - `preflight` ahora reporta `checks.aider_agent_policies`.
-   - `run-task` en apply reporta `aider_policy` efectiva.
+## What Was Executed In This Session
 
-Archivos clave tocados:
-- `ai-orchestration/ai_orchestration/services/aider_service.py`
-- `ai-orchestration/ai_orchestration/services/executor_service.py`
-- `ai-orchestration/ai_orchestration/orchestrator_app.py`
-- `ai-orchestration/README.md`
-
-## Validation Snapshot
-
-- `py -m compileall ai-orchestration/ai_orchestration` -> OK
-- `py ai-orchestration/orchestrator.py preflight` -> OK
-- `AI_EXECUTOR=aider` confirmado en preflight -> OK
-- `run-task` real Wave 22 `MOB-019` con Aider -> timeout tras presupuesto de politica mobile (`1320s`).
-
-Conclusion:
-- La base quedo mejor instrumentada y mas estable.
-- Sigue existiendo bloqueo en tareas mobile largas (a resolver con tuning adicional o particion de task).
-
-## Workflow Guardrails (Do Not Break)
-
-- No hacer `git push origin main`.
-- Flujo obligatorio: `branch de agente -> PR draft -> review -> merge`.
-- Regla de proteccion ya validada en vivo (`GH006` rechazo de push directo a `main`).
+1. `BE-020` executed with Aider (real run):
+   - Full orchestrator task with `diff` format keeps timing out.
+   - Partitioned/minimal Aider runs executed.
+   - Aider completed successfully using `whole` format + `--map-tokens 0` and confirmed backend already aligned (no extra delta required).
+2. Mobile (`DEV-112`) completed and pushed:
+   - commit on `agent/mobile`: `feat: add wave22 manager portfolio filters and pagination ui`
+   - PR `#98` marked ready for review.
+3. QA (`DEV-113`) implemented and pushed:
+   - commit on `agent/qa`: `test: add wave22 manager portfolio regression matrix`
+   - PR `#99` created as draft.
+4. Jira updates:
+   - `DEV-111` comment added with Aider execution evidence.
+   - `DEV-112` transitioned/commented with PR + validation evidence.
+   - `DEV-113` commented with QA status + Docker blocker.
 
 ## Known Blockers
 
-1. Aider en tareas largas de mobile (`MOB-019`) aun puede agotar presupuesto.
-2. Google AG presenta intermitencia por cuota (`429`) y cae a Ollama fallback.
-3. Test Laravel end-to-end depende de runtime Docker app/php; no usar host PHP/XAMPP.
+1. Docker Desktop engine API currently failing from CLI:
+   - error pattern: HTTP 500 on `//./pipe/dockerDesktopLinuxEngine/...`
+   - impact: containerized php lint/test execution blocked in this shell.
+2. Aider reliability on long prompts:
+   - `diff` edit format + larger scope tends to timeout.
+   - lightweight models may fail edit-format conformance.
 
-## Resume Commands (post-restart)
+## Aider Stable Settings (Current Best)
+
+- Prefer partitioned tasks (small file scope).
+- Use:
+  - `AIDER_EDIT_FORMAT=whole` for problematic tasks.
+  - `--map-tokens 0` (or equivalent) to reduce latency.
+  - short focused prompt, minimal files.
+
+## Guardrails (Do Not Break)
+
+- Never push directly to `main`.
+- Always use `agent/*` branch -> PR -> review -> merge.
+- Keep `NO XAMPP` policy.
+- Keep non-destructive Git operations only.
+
+## Resume Commands
 
 ```powershell
 cd D:\still\kconecta-app
@@ -73,23 +73,19 @@ $env:GIT_CONFIG_COUNT=1
 $env:GIT_CONFIG_KEY_0='safe.directory'
 $env:GIT_CONFIG_VALUE_0='*'
 $env:AI_EXECUTOR='aider'
-$env:AIDER_EDIT_FORMAT='diff'
+$env:AIDER_EDIT_FORMAT='whole'
+$env:AIDER_EXEC_TIMEOUT_SECONDS='180'
+$env:AIDER_TOTAL_TIMEOUT_SECONDS='900'
+$env:AIDER_BATCH_SIZE='1'
+$env:AIDER_PROMPT_MAX_CHARS='1600'
 py ai-orchestration/orchestrator.py preflight
 gh pr list --state open --limit 20
 py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
 ```
 
-Opcional tuning inmediato para desbloquear mobile:
-
-```powershell
-$env:AIDER_AGENT_MOBILE_TOTAL_TIMEOUT_SECONDS='2100'
-$env:AIDER_AGENT_MOBILE_RETRIES='3'
-$env:AIDER_AGENT_MOBILE_BATCH_SIZE='1'
-```
-
 ## Next Natural Actions
 
-1. Ejecutar `BE-020` real con `AI_EXECUTOR=aider` para avanzar Wave 22 backend.
-2. Reintentar `MOB-019` con tuning mobile o dividir task en subtareas.
-3. Abrir `DEV-113` (QA) cuando backend/mobile queden listos.
-4. Continuar flujo PR/Jira sin saltar guardrails de rama protegida.
+1. Review/approve/merge `#96` (backend) and transition `DEV-111` to `Done`.
+2. Review/approve/merge `#98` (mobile) and transition `DEV-112` to `Done`.
+3. Fix Docker engine pipe issue, then run QA validations and move `#99` out of draft.
+4. Merge `#95` and `#97` after validation and close Wave 22 epic path.
