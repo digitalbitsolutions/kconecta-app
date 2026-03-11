@@ -79,6 +79,11 @@ const ManagerToProviderHandoffScreen = () => {
       try {
         const payload = await assignProviderToProperty(propertyId, providerId, note);
         setSuccess(`Provider #${payload.providerId} assigned successfully.`);
+        navigation.navigate("PropertyDetail", {
+          propertyId,
+          propertyTitle: propertyTitle ?? `Property #${propertyId}`,
+        });
+        return;
       } catch (mutationError) {
         if (mutationError instanceof ApiError) {
           if (mutationError.status === 401) {
