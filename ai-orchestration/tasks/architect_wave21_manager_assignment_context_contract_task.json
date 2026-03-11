@@ -1,0 +1,23 @@
+{
+  "id": "ARCH-017",
+  "title": "Define Wave 21 manager assignment-context contract and UI state map",
+  "description": "Extend architecture docs with additive assignment-context endpoint contract, role rules, and manager property-detail/handoff UI state transitions.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Contract defines endpoint payload and deterministic error envelope for assignment context",
+    "UI map defines assignment context loading/ready/missing/error states in manager detail flow",
+    "Module map defines ownership between property and provider modules for context resolution"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave21",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "stack": "react-native-with-typescript"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "id": "QA-020",
+  "title": "Add Wave 21 assignment-context regression matrix",
+  "description": "Expand QA coverage for manager assignment-context endpoint, property detail parity states, and Wave 19-20 baseline compatibility.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/Wave21RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix includes assignment-context success, unassigned, forbidden, and unauthorized cases",
+    "Property API tests assert assignment-context deterministic contract payload",
+    "Wave 19-20 baseline checks remain stable after Wave 21 additions"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave21",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "stack": "qa-core"
+  }
+}
