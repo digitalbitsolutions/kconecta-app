@@ -112,6 +112,15 @@ Executor environment variables:
 - `AI_ALLOW_LARGE_DIFF=true|false` (default: `false`)
 - `AI_ALLOW_HOST_PHP=true|false` (default: `false`, host PHP/XAMPP blocked)
 - `CRM_BACKEND_ROOT` (optional): absolute path to CRM Laravel backend root for Docker test runs
+- `AIDER_RETRIES` (default: `1`)
+- `AIDER_RETRY_TIMEOUT_STEP_SECONDS` (default: `45`)
+- Per-agent Aider override format:
+  - `AIDER_AGENT_<AGENT>_PROMPT_MAX_CHARS`
+  - `AIDER_AGENT_<AGENT>_BATCH_SIZE`
+  - `AIDER_AGENT_<AGENT>_EXEC_TIMEOUT_SECONDS`
+  - `AIDER_AGENT_<AGENT>_TOTAL_TIMEOUT_SECONDS`
+  - `AIDER_AGENT_<AGENT>_RETRIES`
+  - where `<AGENT>` is `ARCHITECT|BACKEND|MOBILE|QA|DEVOPS`
 
 ## Commands
 
@@ -130,6 +139,7 @@ It also reports executor diagnostics:
 - `openclaw_available`
 - `aider_available`
 - `selected_executor`
+- `aider_agent_policies`
 - `ollama_available`
 - `google_ag_available`
 
@@ -422,13 +432,21 @@ The orchestration scaffold itself does not modify database data.
 - `Aider not found`:
   - Install `aider-chat` or use `py -m aider.main` fallback path.
 - `Aider timed out on long tasks`:
-  - The runner now applies prompt compaction, timeout budget control, and optional file batching.
+  - The runner now applies task-level prompt compaction, adaptive retries/timeouts per agent, and automatic file partitioning.
   - Tune with env vars:
     - `AIDER_EXEC_TIMEOUT_SECONDS` (per attempt, default `420`)
     - `AIDER_TOTAL_TIMEOUT_SECONDS` (overall budget across model variants)
+    - `AIDER_RETRIES` (additional retries per model variant, default `1`)
+    - `AIDER_RETRY_TIMEOUT_STEP_SECONDS` (extra timeout added on each retry, default `45`)
     - `AIDER_BATCH_MODE=true|false` (default `true`)
     - `AIDER_BATCH_SIZE` (default `2`)
     - `AIDER_PROMPT_MAX_CHARS` (default `3200`)
+  - Optional per-agent overrides (same keys, prefixed by agent):
+    - `AIDER_AGENT_ARCHITECT_EXEC_TIMEOUT_SECONDS`
+    - `AIDER_AGENT_BACKEND_TOTAL_TIMEOUT_SECONDS`
+    - `AIDER_AGENT_MOBILE_BATCH_SIZE`
+    - `AIDER_AGENT_QA_PROMPT_MAX_CHARS`
+    - `AIDER_AGENT_DEVOPS_RETRIES`
 - `Host PHP or XAMPP command blocked`:
   - This is intentional policy.
   - Use `backend-test-docker` or MCP `docker.run_backend_tests`.

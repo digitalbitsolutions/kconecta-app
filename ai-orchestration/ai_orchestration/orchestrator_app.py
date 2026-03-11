@@ -103,6 +103,7 @@ class Orchestrator:
         report["checks"]["missing_models"] = missing_models
 
         report["checks"]["aider_command"] = self._resolve_aider_command()
+        report["checks"]["aider_agent_policies"] = self.aider.all_policies_preview()
         report["checks"]["openclaw_command"] = self._resolve_openclaw_command()
         # Backward-compatible diagnostics key.
         report["checks"]["opencode_command"] = report["checks"]["openclaw_command"]
@@ -212,6 +213,7 @@ class Orchestrator:
             prompt=prompt,
             files=file_scope,
             model=executor_model,
+            agent_name=normalized_agent,
         )
         changed_files = self.git.changed_files(cwd=worktree)
         self._validate_changed_files_within_scope(changed_files, file_scope, worktree=worktree)
@@ -247,6 +249,9 @@ class Orchestrator:
             "executor_fallback_from": execution_result.fallback_from,
             "executor_fallback_reason": execution_result.fallback_reason,
             "executor_transcript_file": str(transcript_file),
+            "aider_policy": self.aider.preview_policy(normalized_agent)
+            if execution_result.selected_executor == "aider"
+            else None,
             "aider_command": execution_result.command
             if execution_result.selected_executor == "aider"
             else None,
@@ -832,13 +837,36 @@ class Orchestrator:
         return outputs
 
     def _build_execution_prompt(self, task: TaskSpec, output: Any) -> str:
-        validation_text = "\n".join(f"- {step}" for step in output.validation_steps) or "- none"
-        acceptance_text = "\n".join(f"- {item}" for item in task.acceptance_criteria) or "- none"
-        file_scope_text = "\n".join(f"- {path}" for path in (output.target_files or task.files_scope))
+        prompt_limits = self._executor_prompt_limits(task)
+        validation_text = self._format_prompt_list(
+            output.validation_steps,
+            limit=prompt_limits["validation_steps"],
+            max_chars=prompt_limits["line_chars"],
+        )
+        acceptance_text = self._format_prompt_list(
+            task.acceptance_criteria,
+            limit=prompt_limits["acceptance_criteria"],
+            max_chars=prompt_limits["line_chars"],
+        )
+        file_scope_text = self._format_prompt_list(
+            (output.target_files or task.files_scope),
+            limit=prompt_limits["file_scope"],
+            max_chars=prompt_limits["line_chars"],
+        )
+        plan_summary = self._compact_prompt_line(
+            output.plan_summary,
+            max_chars=prompt_limits["plan_summary_chars"],
+        )
+        proposed_changes = self._compact_prompt_line(
+            output.proposed_changes,
+            max_chars=prompt_limits["proposed_changes_chars"],
+        )
         return (
             "Edit files directly now. Do not ask follow-up questions.\n"
             f"Task: {task.id} - {task.title}\n"
-            f"Goal: {task.description}\n\n"
+            f"Goal: {self._compact_prompt_line(task.description, max_chars=220)}\n\n"
+            f"Implementation intent: {plan_summary}\n"
+            f"Proposed changes summary: {proposed_changes}\n\n"
             f"Allowed file scope:\n{file_scope_text}\n\n"
             f"Acceptance criteria:\n{acceptance_text}\n\n"
             f"Validation checks:\n{validation_text}\n\n"
@@ -848,6 +876,100 @@ class Orchestrator:
             "- Keep changes concise and production-ready.\n"
             "- Apply edits in-place and finish."
         )
+
+    def _executor_prompt_limits(self, task: TaskSpec) -> dict[str, int]:
+        defaults = {
+            "file_scope": 8,
+            "acceptance_criteria": 6,
+            "validation_steps": 6,
+            "line_chars": 180,
+            "plan_summary_chars": 280,
+            "proposed_changes_chars": 320,
+        }
+        if task.commit_type in {"docs", "test"}:
+            defaults["file_scope"] = 6
+            defaults["acceptance_criteria"] = 5
+            defaults["validation_steps"] = 5
+            defaults["proposed_changes_chars"] = 260
+
+        if task.priority in {"high", "critical"}:
+            defaults["acceptance_criteria"] = min(8, defaults["acceptance_criteria"] + 1)
+            defaults["validation_steps"] = min(8, defaults["validation_steps"] + 1)
+
+        metadata = task.metadata if isinstance(task.metadata, dict) else {}
+        defaults["file_scope"] = self._clamp_prompt_limit(
+            metadata.get("executor_prompt_file_scope_limit"),
+            defaults["file_scope"],
+            minimum=3,
+            maximum=20,
+        )
+        defaults["acceptance_criteria"] = self._clamp_prompt_limit(
+            metadata.get("executor_prompt_acceptance_limit"),
+            defaults["acceptance_criteria"],
+            minimum=3,
+            maximum=20,
+        )
+        defaults["validation_steps"] = self._clamp_prompt_limit(
+            metadata.get("executor_prompt_validation_limit"),
+            defaults["validation_steps"],
+            minimum=3,
+            maximum=20,
+        )
+        defaults["line_chars"] = self._clamp_prompt_limit(
+            metadata.get("executor_prompt_line_chars"),
+            defaults["line_chars"],
+            minimum=80,
+            maximum=260,
+        )
+        defaults["plan_summary_chars"] = self._clamp_prompt_limit(
+            metadata.get("executor_prompt_plan_chars"),
+            defaults["plan_summary_chars"],
+            minimum=120,
+            maximum=600,
+        )
+        defaults["proposed_changes_chars"] = self._clamp_prompt_limit(
+            metadata.get("executor_prompt_changes_chars"),
+            defaults["proposed_changes_chars"],
+            minimum=120,
+            maximum=800,
+        )
+        return defaults
+
+    def _format_prompt_list(self, items: list[str], *, limit: int, max_chars: int) -> str:
+        cleaned = [item for item in (items or []) if str(item).strip()]
+        if not cleaned:
+            return "- none"
+
+        truncated_items = cleaned[:limit]
+        lines = [f"- {self._compact_prompt_line(item, max_chars=max_chars)}" for item in truncated_items]
+        omitted = len(cleaned) - len(truncated_items)
+        if omitted > 0:
+            lines.append(f"- ... +{omitted} more item(s) omitted for latency")
+        return "\n".join(lines)
+
+    def _compact_prompt_line(self, value: str, *, max_chars: int) -> str:
+        normalized = " ".join(str(value or "").replace("\r", " ").replace("\n", " ").split())
+        if not normalized:
+            return "none"
+        if len(normalized) <= max_chars:
+            return normalized
+        return normalized[: max_chars - 3] + "..."
+
+    def _clamp_prompt_limit(
+        self,
+        raw_value: Any,
+        default: int,
+        *,
+        minimum: int,
+        maximum: int,
+    ) -> int:
+        if raw_value in (None, ""):
+            return default
+        try:
+            value = int(raw_value)
+        except (TypeError, ValueError):
+            return default
+        return max(minimum, min(value, maximum))
 
     def _save_transcript(self, task_id: str, agent_name: str, transcript: str) -> Path:
         transcript_dir = self.repo_root / "ai-orchestration" / "logs" / "transcripts"

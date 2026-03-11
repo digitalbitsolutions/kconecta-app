@@ -1,53 +1,44 @@
-# TODO prioritario - Wave 21
+# TODO Prioritario - Wave 22
 
 Fecha: 2026-03-11  
 Repo objetivo: `D:\still\kconecta-app`
 
 ## Estado actual
 
-- Wave 21 abierta y activa en Jira.
-- Tickets abiertos en `In Progress`: `DEV-104..DEV-108`.
-- PRs draft abiertas para Wave 21: `#89..#93`.
+- Wave 22 activa en Jira.
+- PRs abiertos:
+  - `#95` DEV-110 (architect) DRAFT
+  - `#96` DEV-111 (backend) READY
+  - `#97` DEV-109 (devops) DRAFT
+  - `#98` DEV-112 (mobile) READY
+  - `#99` DEV-113 (qa) DRAFT
 
 ## P0 (inmediato)
 
-- [ ] Revisar y cerrar ciclo Wave 21 end-to-end:
-  - `#89` DEV-104 (devops epic/docs)
-  - `#90` DEV-105 (architect contract/state map)
-  - `#91` DEV-106 (backend assignment-context endpoint)
-  - `#92` DEV-107 (mobile wiring property detail)
-  - `#93` DEV-108 (qa regression matrix)
-- [ ] Aprobar/mergear PRs `#89..#93` a `main` respetando validaciones.
-- [ ] Pasar Jira `DEV-104..DEV-108` a `Done` tras cada merge.
-- [ ] Cerrar epic `DEV-104`.
+- [ ] Revisar y mergear `#96` (backend) -> mover `DEV-111` a `Done`.
+- [ ] Revisar y mergear `#98` (mobile) -> mover `DEV-112` a `Done`.
+- [ ] Resolver Docker engine pipe issue (`dockerDesktopLinuxEngine` HTTP 500) para habilitar validaciones QA en contenedor.
+- [ ] Ejecutar validaciones QA Wave 22 y marcar `#99` ready.
+- [ ] Revisar/mergear `#95` y `#97`, luego cerrar epic Wave 22.
 
 ## P1 (siguiente ola)
 
-- [ ] Abrir Wave 22 en Jira (epic + architect/backend/mobile/qa).
-- [ ] Arrancar architect/backend en `In Progress` para que el board muestre tarjetas activas.
-- [ ] Ejecutar ciclo completo de Wave 22 con PRs draft y trazabilidad Jira.
+- [ ] Abrir Wave 23 (epic + architect/backend/mobile/qa).
+- [ ] Mantener `TO DO/In Progress` visibles en board desde inicio del sprint.
 
 ## Bloqueos y mitigaciones
 
-- [ ] Aider puede agotar timeout en prompts grandes.
-  - Mitigacion: aumentar timeout y/o fallback manual controlado en worktrees.
-- [ ] No hay servicio `app/php` en `docker-compose.yml` (solo `db` + `adminer`), limita PHPUnit end-to-end.
-  - Mitigacion: agregar servicio PHP/Laravel para ejecutar `artisan test` dentro de Docker.
+- [ ] Aider en tasks largos con `diff` tiende a timeout.
+  - Mitigacion aplicada: particionar task + `AIDER_EDIT_FORMAT=whole` + `map-tokens=0`.
+- [ ] Docker CLI responde HTTP 500 contra pipe local.
+  - Mitigacion: estabilizar Docker Desktop/contexto antes de ejecutar php lint/tests.
 
 ## Restricciones activas
 
-- [x] No usar XAMPP (solo Docker).
-- [x] No usar comandos destructivos de Git.
-- [x] Mantener `AI_EXECUTOR=aider`.
-- [x] No push directo a `main`; solo rama + PR (proteccion validada con GH006).
-
-## Guardrail GitHub (permanente)
-
-- [x] `main` con `enforce_admins=true`.
-- [x] PR review requerida (`required_approving_review_count=1`).
-- [x] `required_conversation_resolution=true`.
-- [ ] Verificar antes de cada sesion:
-  - `gh api repos/digitalbitsolutions/kconecta-app/branches/main/protection --jq \"{enforce_admins: .enforce_admins.enabled, require_pr_reviews: (.required_pull_request_reviews.required_approving_review_count), required_conversation_resolution: .required_conversation_resolution.enabled}\"`
+- [x] NO usar XAMPP.
+- [x] Solo Docker para backend runtime/tests.
+- [x] No comandos destructivos de Git.
+- [x] No push directo a `main` (solo PR flow).
 
 ## Comandos de reanudacion
 
@@ -57,10 +48,11 @@ $env:GIT_CONFIG_COUNT=1
 $env:GIT_CONFIG_KEY_0='safe.directory'
 $env:GIT_CONFIG_VALUE_0='*'
 $env:AI_EXECUTOR='aider'
-$env:AIDER_EDIT_FORMAT='diff'
-$env:AIDER_EXEC_TIMEOUT_SECONDS='600'
+$env:AIDER_EDIT_FORMAT='whole'
+$env:AIDER_EXEC_TIMEOUT_SECONDS='180'
 $env:AIDER_TOTAL_TIMEOUT_SECONDS='900'
+$env:AIDER_BATCH_SIZE='1'
+$env:AIDER_PROMPT_MAX_CHARS='1600'
 py ai-orchestration/orchestrator.py preflight
 gh pr list --state open --limit 20
-py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
 ```
