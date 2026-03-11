@@ -273,6 +273,32 @@
 - Provider module owns provider profile snapshot fields (`name`, `category`, `city`, `status`, `rating`).
 - Manager UI consumes merged payload only, never direct multi-endpoint stitching in presentation layer.
 
+## Wave 22 Manager Portfolio Query Boundary
+
+### Portfolio Query Orchestration Layer
+
+- Responsibilities:
+  - Normalize manager portfolio filters (`search`, `status`, `city`) and pagination params.
+  - Return deterministic pagination metadata for native list UX.
+  - Keep source visibility (`database|in_memory`) for diagnostics and parity checks.
+- Main contracts:
+  - `GET /api/properties?search=&status=&city=&page=&per_page=`
+- Error semantics:
+  - `422 VALIDATION_ERROR` for malformed/unsupported query params.
+  - `401` auth envelope from Auth Session Module.
+  - `403 ROLE_SCOPE_FORBIDDEN` for non-manager/non-admin roles.
+
+### Ownership Notes
+
+- Property module owns:
+  - filter parsing
+  - query application
+  - pagination metadata shaping
+- Manager mobile module owns:
+  - filter input state
+  - page navigation triggers
+  - deterministic empty/error rendering using contract metadata
+
 ## Compatibility Rules
 
 - Existing CRM contracts remain valid while native apps are onboarded.

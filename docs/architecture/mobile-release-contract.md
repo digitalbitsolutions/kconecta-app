@@ -553,6 +553,47 @@ Define the minimum environment and auth contract required for native app release
     - `POST /api/properties/{id}/assign-provider`
   - Existing Wave 16-20 payload fields are untouched.
 
+## Wave 22 Manager Portfolio Filters and Pagination Contract
+
+### Portfolio Query Contract
+
+- Endpoint:
+  - `GET /api/properties`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Additive query params:
+  - `search` (optional string)
+  - `status` (optional: `available|reserved|maintenance`)
+  - `city` (optional string)
+  - `page` (optional integer, default `1`)
+  - `per_page` (optional integer, bounded max)
+
+### Deterministic Response Metadata
+
+- Response keeps existing `data` collection and extends `meta` with:
+  - `page`
+  - `per_page`
+  - `total`
+  - `total_pages`
+  - `has_next_page`
+  - `filters` (echo of effective filters)
+  - `source` (`database|in_memory`)
+
+### Error and Guardrail Semantics
+
+- `401 TOKEN_EXPIRED` -> refresh path.
+- `401 TOKEN_INVALID|TOKEN_REVOKED` -> deterministic session reset.
+- `403 ROLE_SCOPE_FORBIDDEN` for unauthorized roles.
+- `422 VALIDATION_ERROR` for invalid filter/pagination params.
+
+### Compatibility Notes
+
+- Wave 22 is additive:
+  - no endpoint removals
+  - no breaking removals in existing portfolio payload fields
+  - existing list consumers remain valid with default params
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
