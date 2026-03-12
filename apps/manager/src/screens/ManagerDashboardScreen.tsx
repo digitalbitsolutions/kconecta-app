@@ -14,7 +14,9 @@ import {
 import { ApiError } from "../api/client";
 import {
   fetchManagerDashboardSummary,
-  type ManagerDashboardPriorityItem,
+  fetchManagerPriorityQueue,
+  setManagerPortfolioLaunchContext,
+  type ManagerPriorityQueueItem,
   type PortfolioKpis,
 } from "../api/propertyApi";
 import { clearSession, getSessionSnapshot } from "../auth/session";
@@ -27,7 +29,6 @@ type DashboardNavigation = NativeStackNavigationProp<ManagerStackParamList, "Man
 
 type DashboardSummaryState = {
   kpis: PortfolioKpis;
-  priorities: ManagerDashboardPriorityItem[];
   generatedAt: string;
   source: "database" | "in_memory";
 };
@@ -41,7 +42,6 @@ const emptyKpis: PortfolioKpis = {
 
 const emptySummary: DashboardSummaryState = {
   kpis: emptyKpis,
-  priorities: [],
   generatedAt: "",
   source: "in_memory",
 };
@@ -63,7 +63,7 @@ function formatIsoDate(iso: string | null): string {
   });
 }
 
-function severityLabel(priority: ManagerDashboardPriorityItem): string {
+function severityLabel(priority: ManagerPriorityQueueItem): string {
   if (priority.severity === "high") {
     return "High";
   }
@@ -73,7 +73,7 @@ function severityLabel(priority: ManagerDashboardPriorityItem): string {
   return "Low";
 }
 
-function severityStyle(priority: ManagerDashboardPriorityItem): object {
+function severityStyle(priority: ManagerPriorityQueueItem): object {
   if (priority.severity === "high") {
     return styles.priorityBadgeHigh;
   }
@@ -83,9 +83,23 @@ function severityStyle(priority: ManagerDashboardPriorityItem): object {
   return styles.priorityBadgeLow;
 }
 
+function queueTitle(item: ManagerPriorityQueueItem): string {
+  if (item.category === "provider_assignment") {
+    return "Provider assignment pending";
+  }
+  if (item.category === "maintenance_follow_up") {
+    return "Maintenance follow-up required";
+  }
+  if (item.category === "portfolio_review") {
+    return "Reserved pipeline review";
+  }
+  return "Quality signal check";
+}
+
 const ManagerDashboardScreen = () => {
   const navigation = useNavigation<DashboardNavigation>();
   const [summary, setSummary] = useState<DashboardSummaryState>(emptySummary);
+  const [priorityQueue, setPriorityQueue] = useState<ManagerPriorityQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,13 +119,16 @@ const ManagerDashboardScreen = () => {
       setError(null);
 
       try {
-        const payload = await fetchManagerDashboardSummary();
+        const [summaryPayload, queuePayload] = await Promise.all([
+          fetchManagerDashboardSummary(),
+          fetchManagerPriorityQueue({ limit: 15 }),
+        ]);
         setSummary({
-          kpis: payload.kpis,
-          priorities: payload.priorities,
-          generatedAt: payload.meta.generatedAt,
-          source: payload.meta.source,
+          kpis: summaryPayload.kpis,
+          generatedAt: summaryPayload.meta.generatedAt,
+          source: summaryPayload.meta.source,
         });
+        setPriorityQueue(queuePayload.items);
         setHasLoadedData(true);
       } catch (requestError) {
         if (requestError instanceof ApiError) {
@@ -129,6 +146,7 @@ const ManagerDashboardScreen = () => {
         setError(message);
         if (!hasLoadedData) {
           setSummary(emptySummary);
+          setPriorityQueue([]);
         }
       } finally {
         if (mode === "refresh") {
@@ -160,8 +178,20 @@ const ManagerDashboardScreen = () => {
     });
   };
 
+  const openQueueInPortfolio = useCallback(
+    (item: ManagerPriorityQueueItem) => {
+      setManagerPortfolioLaunchContext({
+        status: item.status,
+        search: item.propertyTitle,
+        city: item.city,
+      });
+      navigation.navigate("PropertyList");
+    },
+    [navigation]
+  );
+
   const showLoading = loading && !hasLoadedData;
-  const showEmptyPriorities = !showLoading && summary.priorities.length === 0;
+  const showEmptyQueue = !showLoading && priorityQueue.length === 0;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -243,24 +273,30 @@ const ManagerDashboardScreen = () => {
         ) : null}
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Today priorities</Text>
+          <Text style={styles.sectionTitle}>Priority queue</Text>
 
-          {showEmptyPriorities ? (
-            <Text style={styles.emptyPriorityText}>No priorities pending. Pull to refresh to confirm latest state.</Text>
+          {showEmptyQueue ? (
+            <Text style={styles.emptyPriorityText}>No priority queue items. Pull to refresh to confirm latest state.</Text>
           ) : null}
 
-          {summary.priorities.map((priority) => (
+          {priorityQueue.map((priority) => (
             <View key={priority.id} style={styles.priorityItem}>
               <View style={styles.priorityHeader}>
-                <Text style={styles.priorityTitle}>{priority.title}</Text>
+                <Text style={styles.priorityTitle}>{queueTitle(priority)}</Text>
                 <View style={[styles.priorityBadgeBase, severityStyle(priority)]}>
                   <Text style={styles.priorityBadgeText}>{severityLabel(priority)}</Text>
                 </View>
               </View>
-              <Text style={styles.priorityDescription}>{priority.description}</Text>
-              <Text style={styles.priorityMeta}>
-                Due: {formatIsoDate(priority.dueAt)} | Updated: {formatIsoDate(priority.updatedAt)}
+              <Text style={styles.priorityDescription}>
+                {priority.propertyTitle} | {priority.city} | {priority.category}
               </Text>
+              <Text style={styles.priorityMeta}>
+                SLA: {priority.slaState} | Due: {formatIsoDate(priority.slaDueAt)} | Updated: {formatIsoDate(priority.updatedAt)}
+              </Text>
+
+              <Pressable style={styles.priorityActionButton} onPress={() => openQueueInPortfolio(priority)}>
+                <Text style={styles.priorityActionText}>Open in portfolio</Text>
+              </Pressable>
             </View>
           ))}
         </View>
@@ -463,6 +499,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
   priorityBadgeText: {
+    color: colors.surface,
+    fontSize: fontSizes.xs,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  priorityActionButton: {
+    alignItems: "center",
+    backgroundColor: colors.brand,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  priorityActionText: {
     color: colors.surface,
     fontSize: fontSizes.xs,
     fontWeight: "700",
