@@ -152,7 +152,12 @@ class PropertyController extends Controller
             );
         }
 
-        return response()->json(["data" => $property], 200);
+        return response()->json(
+            [
+                "data" => $this->propertyService->buildPropertyDetailPayload($property),
+            ],
+            200
+        );
     }
 
     public function create(Request $request): JsonResponse

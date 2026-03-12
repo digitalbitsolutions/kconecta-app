@@ -74,9 +74,21 @@ class PropertyApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonStructure([
-                "data" => ["id", "title", "city", "status", "manager_id", "price"],
+                "data" => [
+                    "id",
+                    "title",
+                    "city",
+                    "status",
+                    "manager_id",
+                    "price",
+                    "timeline" => [
+                        "*" => ["id", "type", "occurred_at", "actor", "summary", "metadata"],
+                    ],
+                ],
             ])
-            ->assertJsonPath("data.id", 101);
+            ->assertJsonPath("data.id", 101)
+            ->assertJsonPath("data.timeline.0.type", "assignment")
+            ->assertJsonPath("data.timeline.1.type", "status_change");
     }
 
     public function test_authenticated_user_gets_not_found_for_unknown_property(): void
@@ -131,7 +143,68 @@ class PropertyApiTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonPath("data.id", 101);
+            ->assertJsonPath("data.id", 101)
+            ->assertJsonPath("data.timeline.0.type", "assignment");
+    }
+
+    public function test_mobile_property_detail_timeline_contains_assignment_and_status_events_in_descending_order(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/101");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("data.timeline.0.type", "assignment")
+            ->assertJsonPath("data.timeline.1.type", "status_change");
+
+        $timeline = $response->json("data.timeline", []);
+        $this->assertIsArray($timeline);
+        $this->assertCount(2, $timeline);
+
+        $timestamps = array_map(
+            static fn (array $event): string => (string) ($event["occurred_at"] ?? ""),
+            $timeline
+        );
+
+        $sorted = $timestamps;
+        rsort($sorted);
+        $this->assertSame(
+            $sorted,
+            $timestamps,
+            "Property detail timeline events must be sorted in descending occurred_at order."
+        );
+    }
+
+    public function test_property_detail_endpoint_is_forbidden_for_provider_role(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-ROLE" => "provider",
+            ])
+            ->getJson("/api/properties/101");
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_show")
+            ->assertJsonPath("meta.reason", "role_scope_forbidden");
+    }
+
+    public function test_invalid_bearer_token_returns_unauthorized_for_property_detail_endpoint(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer invalid-token"])
+            ->getJson("/api/properties/101");
+
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("error.code", "TOKEN_INVALID")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_show")
+            ->assertJsonPath("meta.reason", "token_invalid");
     }
 
     public function test_mobile_property_detail_timeline_contains_assignment_and_status_events_in_descending_order(): void
@@ -244,7 +317,6 @@ class PropertyApiTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors(["status"]);
     }
-
     public function test_provider_role_is_forbidden_from_manager_properties_endpoint(): void
     {
         $response = $this
