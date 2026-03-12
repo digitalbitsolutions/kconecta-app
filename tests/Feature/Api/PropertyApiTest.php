@@ -171,6 +171,10 @@ class PropertyApiTest extends TestCase
             ])
             ->assertJsonPath("meta.contract", "manager-dashboard-summary-v1");
 
+        $generatedAt = $response->json("meta.generated_at");
+        $this->assertIsString($generatedAt);
+        $this->assertNotSame("", trim($generatedAt));
+
         $this->assertValidDataSource($response->json("meta.source"));
     }
 
@@ -234,7 +238,8 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
             ->assertJsonPath("meta.contract", "auth-session-v1")
             ->assertJsonPath("meta.flow", "properties_summary")
-            ->assertJsonPath("meta.reason", "role_scope_forbidden");
+            ->assertJsonPath("meta.reason", "role_scope_forbidden")
+            ->assertJsonPath("meta.retryable", false);
     }
 
     public function test_invalid_bearer_token_returns_unauthorized_for_summary_endpoint(): void
@@ -248,7 +253,8 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("error.code", "TOKEN_INVALID")
             ->assertJsonPath("meta.contract", "auth-session-v1")
             ->assertJsonPath("meta.flow", "properties_summary")
-            ->assertJsonPath("meta.reason", "token_invalid");
+            ->assertJsonPath("meta.reason", "token_invalid")
+            ->assertJsonPath("meta.retryable", false);
     }
 
     public function test_mobile_property_detail_timeline_contains_assignment_and_status_events_in_descending_order(): void

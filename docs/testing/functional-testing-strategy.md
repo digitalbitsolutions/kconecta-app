@@ -328,6 +328,36 @@ Validate end-to-end functional behavior of native app API contracts before relea
 4. `DEV-117` -> Mobile manager detail/handoff timeline UI integration.
 5. `DEV-118` -> Regression matrix + API assertions in `tests/Feature/Api/Wave23RegressionMatrixTest.php`.
 
+## Wave 24 Manager Dashboard Summary and Priorities Matrix
+
+1. Dashboard summary payload parity (`DEV-121`, `DEV-122`, `DEV-123`)
+  - `GET /api/properties/summary` returns deterministic envelope with:
+    - `data.kpis`
+    - `data.priorities[]`
+    - `meta.contract=manager-dashboard-summary-v1`
+    - `meta.generated_at`
+    - `meta.source`
+  - Priorities follow deterministic ordering:
+    - severity (`high` > `medium` > `low`)
+    - ascending `due_at` (nulls last)
+    - descending `updated_at`
+2. Session and role guardrails (`DEV-121`, `DEV-123`)
+  - Provider role access to summary route returns `403 ROLE_SCOPE_FORBIDDEN`.
+  - Invalid token against summary route returns deterministic `401 TOKEN_INVALID`.
+  - Both forbidden/unauthorized responses preserve `auth-session-v1` envelope metadata.
+3. Cross-wave baseline safety (`DEV-123`)
+  - Wave 20 `/api/auth/me` unauthorized contract remains stable.
+  - Wave 21 assignment-context role guard remains stable.
+  - Wave 23 property detail timeline contract remains stable while dashboard summary/priorities are introduced.
+
+## Wave 24 Ticket Mapping
+
+1. `DEV-120` -> Wave 24 orchestration epic and rollout tracking.
+2. `DEV-119` -> Manager dashboard summary/priorities architecture contract.
+3. `DEV-121` -> Backend summary endpoint + deterministic priorities feed implementation.
+4. `DEV-122` -> Mobile manager dashboard summary/priorities UI integration.
+5. `DEV-123` -> Regression matrix + API assertions in `tests/Feature/Api/Wave24RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -352,6 +382,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 18. Run Wave 21 assignment-context regression suite and record assigned/unassigned/forbidden/unauthorized evidence.
 19. Run Wave 22 portfolio filter/pagination regression suite and record filter echoes, pagination boundaries, and guardrail evidence.
 20. Run Wave 23 property detail timeline regression suite and record timeline ordering plus detail guardrail evidence.
+21. Run Wave 24 dashboard summary/priorities regression suite and record ordering + summary guardrail evidence.
 
 ## Entry Criteria
 
