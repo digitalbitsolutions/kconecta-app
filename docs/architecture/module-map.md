@@ -325,6 +325,36 @@
 - Auth Session module owns session and role guardrails.
 - Manager mobile module consumes timeline as read model; it does not reconstruct history client-side.
 
+## Wave 24 Manager Dashboard Priorities Boundary
+
+### Manager Dashboard Summary Aggregation Layer
+
+- Responsibilities:
+  - Aggregate KPI counters used by manager dashboard summary cards.
+  - Produce deterministic priorities feed for daily manager actions.
+  - Stamp payload generation time for cache/refresh observability.
+- Main contracts:
+  - `GET /api/properties/summary` with:
+    - `data.kpis`
+    - `data.priorities[]`
+    - `meta.generated_at`
+    - `meta.contract = manager-dashboard-summary-v1`
+
+### Priorities Deterministic Classification Layer
+
+- Responsibilities:
+  - Classify manager action items into stable taxonomy categories.
+  - Normalize severity and timestamp semantics across data sources.
+  - Guarantee deterministic ordering inputs for native clients.
+- Category taxonomy:
+  - `portfolio_review`
+  - `provider_assignment`
+  - `maintenance_follow_up`
+  - `quality_alert`
+- Ownership notes:
+  - Backend owns classification and timestamps (`due_at`, `updated_at`).
+  - Manager mobile module consumes ordered feed and applies non-breaking local presentation only.
+
 ## Compatibility Rules
 
 - Existing CRM contracts remain valid while native apps are onboarded.
