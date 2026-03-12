@@ -1,69 +1,59 @@
-# Session Handoff (2026-03-11)
+# Session Handoff (2026-03-12)
 
 ## Current State
 
 - Repository: `D:\still\kconecta-app`
-- Branch: `main` synced with `origin/main`
-- Main protection: enforced (`PR required`, no direct push to `main`)
-- Executor policy: `AI_EXECUTOR=aider` (OpenClaw in observation)
+- Branch: `main` synced with `origin/main` at `8b37fb9`
+- Main protection: enforced (`PR required`, direct push blocked)
 - Backend runtime policy: Docker-only (`NO XAMPP`)
-- Active wave: `Wave 22 - Manager portfolio filter + pagination parity`
+- Executor stack:
+  - default `AI_EXECUTOR=auto` now resolves to `aider`
+  - runtime fallback `aider -> openclaw` implemented in orchestrator
+  - OpenClaw currently marked as **experimental fallback** (see risks)
 
-## Wave 22 Snapshot
+## Wave Status Snapshot
 
-- Jira tickets:
-  - `DEV-109` (devops) -> `In Progress`
-  - `DEV-110` (architect) -> `In Progress`
-  - `DEV-111` (backend / BE-020) -> `In Progress`
-  - `DEV-112` (mobile / MOB-019) -> `In Progress`
-  - `DEV-113` (qa / QA-021) -> `In Progress`
-- Open PRs:
-  - `#95` `DEV-110` architect (DRAFT)
-  - `#96` `DEV-111` backend (READY FOR REVIEW)
-  - `#97` `DEV-109` devops (DRAFT)
-  - `#98` `DEV-112` mobile (READY FOR REVIEW)
-  - `#99` `DEV-113` qa (DRAFT)
+- Wave 23: completed and merged.
+- Wave 24:
+  - merged: `DEV-119` (architect, PR `#104`)
+  - merged: `DEV-121` (backend, PR `#105`)
+  - merged: devops platform update (PR `#107`) for `aider -> openclaw` fallback
+  - merged: CI unblock hotfix (PR `#108`) removing duplicate test methods
+  - pending: mobile + QA closeout (`DEV-122`, QA counterpart)
+
+- Open PRs: none.
 
 ## What Was Executed In This Session
 
-1. `BE-020` executed with Aider (real run):
-   - Full orchestrator task with `diff` format keeps timing out.
-   - Partitioned/minimal Aider runs executed.
-   - Aider completed successfully using `whole` format + `--map-tokens 0` and confirmed backend already aligned (no extra delta required).
-2. Mobile (`DEV-112`) completed and pushed:
-   - commit on `agent/mobile`: `feat: add wave22 manager portfolio filters and pagination ui`
-   - PR `#98` marked ready for review.
-3. QA (`DEV-113`) implemented and pushed:
-   - commit on `agent/qa`: `test: add wave22 manager portfolio regression matrix`
-   - PR `#99` created as draft.
-4. Jira updates:
-   - `DEV-111` comment added with Aider execution evidence.
-   - `DEV-112` transitioned/commented with PR + validation evidence.
-   - `DEV-113` commented with QA status + Docker blocker.
+1. Merged PRs:
+   - `#104` architect contract
+   - `#105` backend contract implementation
+   - `#107` executor fallback refactor
+   - `#108` test duplicate hotfix
+2. Synced `main` and agent branches after merges.
+3. Added automatic executor policy:
+   - `auto` picks `aider` first
+   - if `aider` execution fails, orchestrator attempts `openclaw`
+4. Verified CI recovery:
+   - fixed `PropertyApiTest` duplicate methods causing `Cannot redeclare` failures.
 
-## Known Blockers
+## Known Risks / Blockers
 
-1. Docker Desktop engine API currently failing from CLI:
-   - error pattern: HTTP 500 on `//./pipe/dockerDesktopLinuxEngine/...`
-   - impact: containerized php lint/test execution blocked in this shell.
-2. Aider reliability on long prompts:
-   - `diff` edit format + larger scope tends to timeout.
-   - lightweight models may fail edit-format conformance.
-
-## Aider Stable Settings (Current Best)
-
-- Prefer partitioned tasks (small file scope).
-- Use:
-  - `AIDER_EDIT_FORMAT=whole` for problematic tasks.
-  - `--map-tokens 0` (or equivalent) to reduce latency.
-  - short focused prompt, minimal files.
+1. OpenClaw reliability as fallback:
+   - fallback activation works,
+   - but this installed OpenClaw variant may attempt edits outside `files_scope` on some prompts.
+   - keep `AI_EXECUTOR=aider` for primary runs until further hardening.
+2. Aider long tasks:
+   - still can timeout for large prompts/scopes.
+   - mitigated by partitioning, shorter prompts, per-agent timeout policies, and recovery mode.
 
 ## Guardrails (Do Not Break)
 
 - Never push directly to `main`.
 - Always use `agent/*` branch -> PR -> review -> merge.
 - Keep `NO XAMPP` policy.
-- Keep non-destructive Git operations only.
+- Use Docker for backend checks/tests.
+- Avoid destructive Git commands.
 
 ## Resume Commands
 
@@ -73,11 +63,6 @@ $env:GIT_CONFIG_COUNT=1
 $env:GIT_CONFIG_KEY_0='safe.directory'
 $env:GIT_CONFIG_VALUE_0='*'
 $env:AI_EXECUTOR='aider'
-$env:AIDER_EDIT_FORMAT='whole'
-$env:AIDER_EXEC_TIMEOUT_SECONDS='180'
-$env:AIDER_TOTAL_TIMEOUT_SECONDS='900'
-$env:AIDER_BATCH_SIZE='1'
-$env:AIDER_PROMPT_MAX_CHARS='1600'
 py ai-orchestration/orchestrator.py preflight
 gh pr list --state open --limit 20
 py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
@@ -85,7 +70,7 @@ py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
 
 ## Next Natural Actions
 
-1. Review/approve/merge `#96` (backend) and transition `DEV-111` to `Done`.
-2. Review/approve/merge `#98` (mobile) and transition `DEV-112` to `Done`.
-3. Fix Docker engine pipe issue, then run QA validations and move `#99` out of draft.
-4. Merge `#95` and `#97` after validation and close Wave 22 epic path.
+1. Execute `DEV-122` mobile task (`MOB-021`) with `AI_EXECUTOR=aider`.
+2. Open PR draft for mobile result and move Jira status to `In Progress/Review`.
+3. Execute QA ticket for Wave 24 closeout and open QA PR.
+4. Merge mobile + QA PRs and close Wave 24 epic in Jira.

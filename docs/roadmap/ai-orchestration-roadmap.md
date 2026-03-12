@@ -4,7 +4,7 @@
 
 Build a local AI software factory for the CRM ecosystem with isolated agent execution, controlled merges, and traceable delivery.
 
-## Current Status (2026-03-11)
+## Current Status (2026-03-12)
 
 Completed:
 
@@ -48,14 +48,21 @@ Completed:
   - API `meta.source` contract in list endpoints.
   - QA smoke suite aligned with data-source metadata.
 - Waves 10-16 completed and merged to `main` (manager parity foundation).
-- Wave 22 opened (manager portfolio filters + pagination parity):
-  - Jira: `DEV-109..DEV-113`
-  - Open PRs: `#95`, `#96`, `#97` (draft)
+- Wave 22 closed and merged (manager portfolio filters + pagination parity).
+- Wave 23 closed and merged (manager property detail + timeline parity).
+- Wave 24 partially closed:
+  - merged: `DEV-119` (architect, PR `#104`)
+  - merged: `DEV-121` (backend, PR `#105`)
+  - pending: mobile + QA closeout
 - Aider hardening applied in orchestrator:
   - shorter execution prompts per task
   - automatic change partitioning by files scope
   - adaptive timeout/retry policy by agent
   - policy visibility in `preflight` via `aider_agent_policies`
+- Executor strategy updated:
+  - `AI_EXECUTOR=auto` now selects `aider`
+  - runtime fallback `aider -> openclaw` implemented
+  - OpenClaw fallback remains in observation until edit-scope reliability is hardened
 
 ## Delivery Phases
 
@@ -71,7 +78,7 @@ Completed:
 - Add request validation and response resources.
 - Add migration-safe schema updates.
 - Define API auth and role scopes against CRM backend.
-- Current focus: Wave 22 backend filters and pagination metadata (`BE-020`).
+- Current focus: Wave 24 manager dashboard summary/priorities data contract evolution.
 
 ### Phase 3: Mobile Delivery (In Progress)
 
@@ -79,7 +86,7 @@ Completed:
 - Add shared API client and typed models. (Done for manager property flows)
 - Integrate auth/session handling and role-aware navigation. (Pending)
 - Implement providers, properties, and service-order flows.
-- Current focus: Wave 22 portfolio filters/pagination UI wiring (`MOB-019`).
+- Current focus: Wave 24 dashboard summary/priorities UI wiring (`MOB-021`).
 
 ### Phase 4: QA + Security (In Progress)
 
@@ -117,9 +124,9 @@ Automation:
 
 ## Next Milestones
 
-1. Close Wave 22 end-to-end (`DEV-109..DEV-113`) with PR merge + Jira transitions.
-2. Resolve remaining mobile timeout risk (`MOB-019`) via policy tuning or task split.
-3. Continue manager parity waves after filters/pagination baseline.
+1. Close Wave 24 end-to-end (mobile + QA tickets) with PR merge + Jira transitions.
+2. Keep `AI_EXECUTOR=aider` as operational default; keep OpenClaw as controlled fallback.
+3. Continue manager parity waves (Wave 25+) after dashboard summary/priorities baseline.
 4. Keep Docker-only backend runtime for tests (no XAMPP path).
 5. Maintain PR-only merge discipline on protected `main`.
 
@@ -127,5 +134,5 @@ Status update:
 
 - Jira environment remains active and board/timeline tracking is stable.
 - Main branch protection is enforced and validated (direct push rejected by rule).
-- Repository baseline includes merged waves through Wave 16.
-- Wave 22 is active and visible in board (`In Progress` + `To Do`).
+- Repository baseline includes merged waves through Wave 23, with Wave 24 in progress.
+- CI blocker from duplicate test methods was fixed in PR `#108`.

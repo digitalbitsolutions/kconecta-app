@@ -1,0 +1,24 @@
+{
+  "id": "QA-023",
+  "title": "Add Wave 24 manager dashboard summary and priorities regression matrix",
+  "description": "Expand QA regression coverage for manager dashboard summary contract and priorities feed while preserving Wave 20-23 auth, assignment-context, filters, and timeline baselines.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/Wave24RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix includes summary KPI and priorities payload checks with ordering guarantees",
+    "API tests assert deterministic unauthorized/forbidden envelopes for summary route",
+    "Wave 20-23 manager baselines remain stable after Wave 24 coverage is added"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave24",
+    "stack": "qa-core",
+    "suite": "qa",
+    "domain": "manager-dashboard"
+  }
+}
