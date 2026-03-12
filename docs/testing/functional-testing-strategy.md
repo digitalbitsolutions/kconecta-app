@@ -304,6 +304,30 @@ Validate end-to-end functional behavior of native app API contracts before relea
 4. `DEV-112` -> Mobile manager portfolio UI filters + next-page loading.
 5. `DEV-113` -> Regression matrix + API assertions in `tests/Feature/Api/Wave22RegressionMatrixTest.php`.
 
+## Wave 23 Manager Property Detail Timeline Matrix
+
+1. Manager property detail timeline contract (`DEV-116`, `DEV-117`, `DEV-118`)
+  - `GET /api/properties/{id}` exposes `data.timeline[]` with deterministic fields:
+    - `id`, `type`, `occurred_at`, `actor`, `summary`, `metadata`
+  - Timeline includes assignment and status transition events with descending chronological order.
+  - Empty or pre-merge timeline payloads are tracked as matrix readiness gates for branch-under-test.
+2. Session and role guardrails for property detail (`DEV-116`, `DEV-118`)
+  - Provider role against manager detail route returns `403 ROLE_SCOPE_FORBIDDEN`.
+  - Invalid token against manager detail route returns `401 TOKEN_INVALID`.
+  - Guardrail envelopes keep deterministic `auth-session-v1` metadata (`contract`, `flow`, `reason`, `retryable`).
+3. Cross-wave baseline safety (`DEV-118`)
+  - Wave 20 `auth/me` unauthorized contract remains stable.
+  - Wave 21 assignment-context role guard remains stable.
+  - Wave 22 filters/pagination contract remains stable while timeline payload is introduced.
+
+## Wave 23 Ticket Mapping
+
+1. `DEV-114` -> Wave 23 orchestration epic and rollout tracking.
+2. `DEV-115` -> Manager detail timeline architecture contract/state map.
+3. `DEV-116` -> Backend detail timeline payload implementation.
+4. `DEV-117` -> Mobile manager detail/handoff timeline UI integration.
+5. `DEV-118` -> Regression matrix + API assertions in `tests/Feature/Api/Wave23RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -327,6 +351,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 17. Run Wave 20 login-first session regression suite and record bootstrap/auth-me deterministic routing evidence.
 18. Run Wave 21 assignment-context regression suite and record assigned/unassigned/forbidden/unauthorized evidence.
 19. Run Wave 22 portfolio filter/pagination regression suite and record filter echoes, pagination boundaries, and guardrail evidence.
+20. Run Wave 23 property detail timeline regression suite and record timeline ordering plus detail guardrail evidence.
 
 ## Entry Criteria
 

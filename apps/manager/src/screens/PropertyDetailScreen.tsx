@@ -10,9 +10,9 @@ import {
   releaseProperty,
   reserveProperty,
   type PropertyAssignmentContext,
+  type PropertyDetailViewModel,
   updatePropertyStatus,
   type PropertyStatus,
-  type PropertyViewModel,
 } from "../api/propertyApi";
 import type { ManagerStackParamList } from "../navigation";
 import { borderRadius, colors, fontSizes, spacing } from "../theme/tokens";
@@ -27,7 +27,7 @@ const PropertyDetailScreen = () => {
   const route = useRoute<PropertyDetailRoute>();
   const { propertyId, propertyTitle } = route.params;
 
-  const [property, setProperty] = useState<PropertyViewModel | null>(null);
+  const [property, setProperty] = useState<PropertyDetailViewModel | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [mutationLoading, setMutationLoading] = useState<boolean>(false);
@@ -36,6 +36,7 @@ const PropertyDetailScreen = () => {
   const [assignmentContext, setAssignmentContext] = useState<PropertyAssignmentContext | null>(null);
   const [assignmentLoading, setAssignmentLoading] = useState<boolean>(true);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [timelineRefreshing, setTimelineRefreshing] = useState<boolean>(false);
 
   const loadProperty = useCallback(async () => {
     setLoading(true);
@@ -76,15 +77,14 @@ const PropertyDetailScreen = () => {
   );
 
   const executeMutation = useCallback(
-    async (successMessage: string, action: () => Promise<PropertyViewModel>) => {
+    async (successMessage: string, action: () => Promise<unknown>) => {
       setMutationLoading(true);
       setMutationError(null);
       setMutationMessage(null);
 
       try {
-        const updated = await action();
-        setProperty(updated);
-        await loadAssignmentContext();
+        await action();
+        await Promise.all([loadProperty(), loadAssignmentContext()]);
         setMutationMessage(successMessage);
       } catch (mutationFailure) {
         if (mutationFailure instanceof ApiError) {
@@ -109,8 +109,30 @@ const PropertyDetailScreen = () => {
         setMutationLoading(false);
       }
     },
-    [loadAssignmentContext, navigation]
+    [loadAssignmentContext, loadProperty, navigation]
   );
+
+  const refreshTimeline = useCallback(async () => {
+    setTimelineRefreshing(true);
+    try {
+      const payload = await fetchPropertyById(propertyId);
+      setProperty(payload);
+    } catch (refreshError) {
+      const message =
+        refreshError instanceof Error ? refreshError.message : "Unable to refresh timeline.";
+      setMutationError(message);
+    } finally {
+      setTimelineRefreshing(false);
+    }
+  }, [propertyId]);
+
+  const formatTimelineSubtitle = useCallback((occurredAt: string, actor: string): string => {
+    const timestamp = new Date(occurredAt);
+    const formattedTimestamp = Number.isNaN(timestamp.getTime())
+      ? occurredAt
+      : timestamp.toLocaleString("es-ES");
+    return `${actor} · ${formattedTimestamp}`;
+  }, []);
 
   const reserveOrReleaseLabel = property?.status === "reserved" ? "Release Reservation" : "Reserve Property";
 
@@ -221,6 +243,35 @@ const PropertyDetailScreen = () => {
                 />
               </>
             ) : null}
+          </View>
+
+          <View style={styles.timelineCard}>
+            <View style={styles.timelineHeaderRow}>
+              <Text style={styles.timelineTitle}>Timeline</Text>
+              <Pressable
+                style={[styles.timelineRefreshAction, timelineRefreshing && styles.actionDisabled]}
+                disabled={timelineRefreshing}
+                onPress={refreshTimeline}
+              >
+                <Text style={styles.timelineRefreshText}>
+                  {timelineRefreshing ? "Refreshing..." : "Refresh"}
+                </Text>
+              </Pressable>
+            </View>
+
+            {property.timeline.length === 0 ? (
+              <Text style={styles.timelineEmptyText}>No timeline events available for this property.</Text>
+            ) : (
+              property.timeline.map((event) => (
+                <View key={event.id} style={styles.timelineEventCard}>
+                  <Text style={styles.timelineEventTitle}>{event.summary}</Text>
+                  <Text style={styles.timelineEventMeta}>
+                    {formatTimelineSubtitle(event.occurredAt, event.actor)}
+                  </Text>
+                  <Text style={styles.timelineEventType}>Type: {event.type}</Text>
+                </View>
+              ))
+            )}
           </View>
 
           <View style={styles.actionCard}>
@@ -410,6 +461,64 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: fontSizes.sm,
     fontWeight: "600",
+  },
+  timelineCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+  },
+  timelineHeaderRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: spacing.sm,
+  },
+  timelineTitle: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.md,
+    fontWeight: "700",
+  },
+  timelineRefreshAction: {
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  timelineRefreshText: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.xs,
+    fontWeight: "700",
+  },
+  timelineEmptyText: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+  },
+  timelineEventCard: {
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.sm,
+    padding: spacing.md,
+  },
+  timelineEventTitle: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
+  },
+  timelineEventMeta: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.xs,
+    marginTop: spacing.xs,
+  },
+  timelineEventType: {
+    color: colors.textMuted,
+    fontSize: fontSizes.xs,
+    marginTop: spacing.xs,
+    textTransform: "capitalize",
   },
   row: {
     borderBottomColor: colors.border,
