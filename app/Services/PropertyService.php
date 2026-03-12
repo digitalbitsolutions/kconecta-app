@@ -76,6 +76,7 @@ class PropertyService
         $page = max(1, (int) ($filters["page"] ?? 1));
         $perPage = max(1, min(100, (int) ($filters["per_page"] ?? 25)));
         $total = count($filtered);
+        $totalPages = $total > 0 ? (int) ceil($total / $perPage) : 0;
         $offset = ($page - 1) * $perPage;
         $pagedRows = array_slice($filtered, $offset, $perPage);
         $summary = $this->buildKpis($filtered);
@@ -87,6 +88,8 @@ class PropertyService
                 "page" => $page,
                 "per_page" => $perPage,
                 "total" => $total,
+                "total_pages" => $totalPages,
+                "has_next_page" => $page < $totalPages,
                 "filters" => [
                     "status" => $filters["status"] ?? null,
                     "city" => $filters["city"] ?? null,
@@ -374,6 +377,49 @@ class PropertyService
         }
 
         return $this->successResult($updated, "provider_assigned");
+    }
+
+    /**
+     * Build deterministic assignment context payload for manager property detail flows.
+     */
+    public function buildAssignmentContextPayload(int $propertyId, array $property, ?array $provider): array
+    {
+        $providerId = isset($property["provider_id"]) ? (int) $property["provider_id"] : 0;
+        $hasProviderReference = $providerId > 0;
+
+        $assignmentState = "unassigned";
+        $assigned = false;
+        if ($hasProviderReference && $provider !== null) {
+            $assignmentState = "assigned";
+            $assigned = true;
+        } elseif ($hasProviderReference && $provider === null) {
+            $assignmentState = "provider_missing";
+        }
+
+        return [
+            "data" => [
+                "property_id" => $propertyId,
+                "assignment" => [
+                    "assigned" => $assigned,
+                    "provider" => $provider !== null ? [
+                        "id" => (int) ($provider["id"] ?? 0),
+                        "name" => (string) ($provider["name"] ?? ""),
+                        "category" => $provider["category"] ?? null,
+                        "city" => $provider["city"] ?? null,
+                        "status" => $provider["status"] ?? null,
+                        "rating" => $provider["rating"] ?? null,
+                    ] : null,
+                    "assigned_at" => $property["assigned_at"] ?? null,
+                    "note" => $property["handoff_note"] ?? null,
+                    "state" => $assignmentState,
+                ],
+            ],
+            "meta" => [
+                "contract" => "manager-provider-context-v1",
+                "flow" => "properties_assignment_context",
+                "reason" => "assignment_context_loaded",
+            ],
+        ];
     }
 
     /**

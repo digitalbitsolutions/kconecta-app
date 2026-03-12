@@ -419,3 +419,73 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend auth/me endpoint and session envelope parity (`BE-018`).
 3. Manager login-first bootstrap wiring (`MOB-017`).
 4. Regression matrix for login/session parity and Wave 16-19 baseline (`QA-019`).
+
+## Wave 21 Manager Assignment Context State Map
+
+### Property Detail Assignment Context States
+
+- `assignment_context_loading`
+  - Fetch assignment context after property detail is loaded.
+  - Keep property details visible while assignment card is resolving.
+- `assignment_context_ready`
+  - Render provider snapshot and assignment metadata (`assigned_at`, `note`).
+- `assignment_context_unassigned`
+  - Render deterministic empty state with CTA to open provider handoff.
+- `assignment_context_provider_missing`
+  - Show warning state when property references provider id that no longer resolves in provider catalog.
+  - Keep mutation controls available for reassignment.
+- `assignment_context_error`
+  - Show retry CTA without leaving property detail screen.
+- `assignment_context_forbidden`
+  - Route to `Unauthorized` preserving deterministic manager auth behavior.
+- `assignment_context_session_expired`
+  - Route to `SessionExpired` after unrecoverable auth failure.
+
+### Handoff Refresh Rule
+
+- After successful `assign-provider` mutation:
+  - Navigate back to property detail.
+  - Trigger assignment-context reload.
+  - Keep success feedback deterministic (`assigned` state + provider summary).
+
+## Wave 21 Delivery Sequencing
+
+1. Assignment-context contract and state map (`ARCH-017`).
+2. Backend assignment-context endpoint (`BE-019`).
+3. Manager property detail assignment-context wiring (`MOB-018`).
+4. Assignment-context regression matrix and Wave 19-20 baseline checks (`QA-020`).
+
+## Wave 22 Manager Portfolio Filter/Pagination State Map
+
+### Property List States (Extended)
+
+- `list_loading_initial`
+  - First portfolio fetch with default filters.
+- `list_filter_applying`
+  - Filter/search update in progress; keep previous list visible with lightweight loading indicator.
+- `list_ready`
+  - Render rows with applied filters and pagination footer.
+- `list_empty_filtered`
+  - No results for current filter/search combination; provide `Clear filters` CTA.
+- `list_paginating`
+  - Next page in flight; keep current page visible.
+- `list_pagination_end`
+  - Reached last page; hide/disable next-page action.
+- `list_error_retryable`
+  - Deterministic error with `Retry` CTA preserving current filters.
+
+### UX Rules
+
+- Filter controls must be deterministic:
+  - `status` single-select
+  - `city` text/select
+  - `search` free text
+- Clear-filter action resets to default query (`page=1`, no filters).
+- Pagination transition must reset to first page whenever filters/search change.
+
+## Wave 22 Delivery Sequencing
+
+1. Portfolio filter/pagination contract and state map (`ARCH-018`).
+2. Backend filters + pagination metadata implementation (`BE-020`).
+3. Manager property list filter/pagination UI wiring (`MOB-019`).
+4. Regression matrix for filters/pagination and Wave 20-21 baseline (`QA-021`).

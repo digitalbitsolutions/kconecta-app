@@ -1,0 +1,24 @@
+{
+  "id": "MOB-019",
+  "title": "Wire manager property list to backend filters and pagination controls",
+  "description": "Integrate manager property list with server-side filters and pagination metadata so list views stay consistent with backend contract for large datasets.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/screens/PropertyListScreen.tsx",
+    "apps/manager/src/components/PropertyListItem.tsx"
+  ],
+  "acceptance_criteria": [
+    "Property list supports status/city filter controls and clear-filter action",
+    "List pagination uses backend meta fields and supports next-page loading",
+    "Unauthorized/session-expired behavior remains deterministic and aligned with manager auth flow"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave22",
+    "executor_model": "ollama_chat/deepseek-coder:6.7b",
+    "stack": "react-native-with-typescript"
+  }
+}
+

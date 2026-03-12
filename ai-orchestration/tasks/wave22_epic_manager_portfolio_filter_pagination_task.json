@@ -1,0 +1,23 @@
+{
+  "id": "EPIC-W22",
+  "title": "Wave 22 - Manager portfolio filter and pagination parity",
+  "description": "Extend manager portfolio parity with deterministic backend filters and pagination so managers can navigate large inventories without relying on ad-hoc client-side filtering.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/wave22-manager-portfolio-filter-pagination-plan.md",
+    "ai-orchestration/tasks/"
+  ],
+  "acceptance_criteria": [
+    "Wave plan defines architect/backend/mobile/qa sequencing and rollback checkpoints",
+    "Execution plan preserves Docker-only backend policy and AI executor policy",
+    "Execution plan includes PR/Jira traceability and merge gating"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave22",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript"
+  }
+}
+

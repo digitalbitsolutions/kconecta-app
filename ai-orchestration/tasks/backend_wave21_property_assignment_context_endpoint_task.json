@@ -1,0 +1,24 @@
+{
+  "id": "BE-019",
+  "title": "Implement property assignment-context endpoint for manager runtime",
+  "description": "Add manager/admin protected endpoint to expose current property assignment context, including provider snapshot and handoff metadata with deterministic contract semantics.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "routes/api.php",
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "GET /api/properties/{id}/assignment-context returns deterministic payload for assigned/unassigned states",
+    "Provider role receives ROLE_SCOPE_FORBIDDEN and invalid token receives auth-session envelope",
+    "Property API tests cover success and guardrail behavior for assignment-context route"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave21",
+    "executor_model": "ollama_chat/deepseek-coder:6.7b",
+    "stack": "laravel-api"
+  }
+}

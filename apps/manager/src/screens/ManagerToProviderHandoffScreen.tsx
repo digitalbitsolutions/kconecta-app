@@ -87,6 +87,11 @@ const ManagerToProviderHandoffScreen = () => {
           detail.timeline.find((event) => event.type === "assignment") ?? detail.timeline[0] ?? null;
         setLatestTimelineEvent(assignmentEvent);
         setSuccess(`Provider #${payload.providerId} assigned successfully.`);
+        navigation.navigate("PropertyDetail", {
+          propertyId,
+          propertyTitle: propertyTitle ?? `Property #${propertyId}`,
+        });
+        return;
       } catch (mutationError) {
         if (mutationError instanceof ApiError) {
           if (mutationError.status === 401) {

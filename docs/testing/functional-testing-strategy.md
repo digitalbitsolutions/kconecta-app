@@ -261,6 +261,49 @@ Validate end-to-end functional behavior of native app API contracts before relea
 4. `DEV-102` -> Mobile login-first bootstrap and deterministic auth fallback routing.
 5. `DEV-103` -> Regression matrix + API assertions in `tests/Feature/Api/Wave20RegressionMatrixTest.php`.
 
+## Wave 21 Manager Assignment Context Matrix
+
+1. Assignment-context endpoint parity (`DEV-106`, `DEV-107`, `DEV-108`)
+  - `GET /api/properties/{id}/assignment-context` returns deterministic assignment payload.
+  - Unassigned property context returns `state=unassigned` with `assigned=false`.
+  - Assigned property context returns `state=assigned` with provider snapshot payload.
+2. Session and scope guardrails (`DEV-106`, `DEV-108`)
+  - Provider role access returns `403 ROLE_SCOPE_FORBIDDEN` with deterministic auth-session envelope.
+  - Invalid/expired tokens return deterministic `401` auth-session envelope.
+3. Cross-wave baseline safety (`DEV-108`)
+  - Wave 19 provider handoff endpoints remain stable.
+  - Wave 20 login-first/auth-me session contracts remain stable.
+
+## Wave 21 Ticket Mapping
+
+1. `DEV-104` -> Wave 21 orchestration epic and rollout tracking.
+2. `DEV-105` -> Assignment-context architecture contract/state map.
+3. `DEV-106` -> Backend assignment-context endpoint implementation.
+4. `DEV-107` -> Manager property detail + handoff assignment-context UI wiring.
+5. `DEV-108` -> Regression matrix + API assertions in `tests/Feature/Api/Wave21RegressionMatrixTest.php`.
+
+## Wave 22 Manager Portfolio Filter + Pagination Matrix
+
+1. Filter combinations (`DEV-111`, `DEV-112`, `DEV-113`)
+  - `/api/properties` accepts additive `status`, `city`, `search`, `page`, `per_page` filters.
+  - `meta.filters` echoes active filters in deterministic shape.
+  - Invalid filter values keep deterministic `422` validation envelope.
+2. Pagination boundary behavior (`DEV-111`, `DEV-112`, `DEV-113`)
+  - Response includes `meta.page`, `meta.per_page`, `meta.total`, `meta.total_pages`, `meta.has_next_page`.
+  - Empty result sets keep deterministic pagination values (`count=0`, `total=0`, `total_pages=0`, `has_next_page=false`).
+  - Boundary pages preserve deterministic `has_next_page` semantics.
+3. Baseline protection (`DEV-113`)
+  - Wave 20 login/session guardrails remain stable (`401 TOKEN_INVALID` + `auth-session-v1` envelope).
+  - Wave 21 assignment-context guardrails remain stable (`403 ROLE_SCOPE_FORBIDDEN` + deterministic flow metadata).
+
+## Wave 22 Ticket Mapping
+
+1. `DEV-109` -> Wave 22 orchestration epic and rollout tracking.
+2. `DEV-110` -> Manager portfolio filter/pagination architecture contract.
+3. `DEV-111` -> Backend filters + pagination endpoint contract implementation.
+4. `DEV-112` -> Mobile manager portfolio UI filters + next-page loading.
+5. `DEV-113` -> Regression matrix + API assertions in `tests/Feature/Api/Wave22RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -282,6 +325,8 @@ Validate end-to-end functional behavior of native app API contracts before relea
 15. Run Wave 18 manager auth/property-form regression suite and record validation field-map + create/edit evidence.
 16. Run Wave 19 manager-provider handoff regression suite and record candidates/assignment envelope evidence.
 17. Run Wave 20 login-first session regression suite and record bootstrap/auth-me deterministic routing evidence.
+18. Run Wave 21 assignment-context regression suite and record assigned/unassigned/forbidden/unauthorized evidence.
+19. Run Wave 22 portfolio filter/pagination regression suite and record filter echoes, pagination boundaries, and guardrail evidence.
 
 ## Entry Criteria
 
