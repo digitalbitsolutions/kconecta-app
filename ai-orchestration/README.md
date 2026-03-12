@@ -433,8 +433,10 @@ The orchestration scaffold itself does not modify database data.
   - Install OpenClaw CLI and ensure `openclaw` is in PATH.
   - Or keep default `AI_EXECUTOR=auto` / `AI_EXECUTOR=aider` (OpenClaw fallback disabled).
 - `OpenClaw detected but unsupported`:
-  - This orchestrator requires `openclaw run ...` support.
-  - If `openclaw run --help` fails, you likely installed a different OpenClaw CLI variant.
+  - This orchestrator requires one of these command surfaces:
+    - `openclaw run ...`
+    - `openclaw agent --local --message ...`
+  - If both fail on `--help`, you likely installed a different OpenClaw CLI variant.
   - Keep Aider as primary executor until the coding-agent OpenClaw distribution is installed.
 - `Aider not found`:
   - Install `aider-chat` or use `py -m aider.main` fallback path.
