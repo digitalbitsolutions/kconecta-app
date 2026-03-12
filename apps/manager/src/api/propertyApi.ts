@@ -14,6 +14,15 @@ export type PropertyRecord = {
   price: number;
 };
 
+type ApiPropertyTimelineEvent = {
+  id: string | number;
+  type: string;
+  occurred_at: string;
+  actor: string;
+  summary: string;
+  metadata?: Record<string, unknown> | null;
+};
+
 type PropertyListPayload = {
   data: PropertyRecord[];
   meta: {
@@ -40,7 +49,9 @@ type PropertyListPayload = {
 };
 
 type PropertyDetailPayload = {
-  data: PropertyRecord;
+  data: PropertyRecord & {
+    timeline?: ApiPropertyTimelineEvent[];
+  };
 };
 
 type PropertyMutationPayload = {
@@ -131,6 +142,21 @@ export type PropertyViewModel = {
   status: PropertyStatus;
   price: string;
   managerId: string;
+};
+
+export type PropertyTimelineEventType = "assignment" | "status_change" | "note";
+
+export type PropertyTimelineEvent = {
+  id: string;
+  type: PropertyTimelineEventType | string;
+  occurredAt: string;
+  actor: string;
+  summary: string;
+  metadata: Record<string, unknown>;
+};
+
+export type PropertyDetailViewModel = PropertyViewModel & {
+  timeline: PropertyTimelineEvent[];
 };
 
 export type ProviderCandidate = {
@@ -252,6 +278,24 @@ function toViewModel(record: PropertyRecord): PropertyViewModel {
   };
 }
 
+function mapTimelineEvent(event: ApiPropertyTimelineEvent): PropertyTimelineEvent {
+  return {
+    id: String(event.id),
+    type: event.type,
+    occurredAt: event.occurred_at,
+    actor: event.actor,
+    summary: event.summary,
+    metadata: event.metadata ?? {},
+  };
+}
+
+function toDetailViewModel(record: PropertyDetailPayload["data"]): PropertyDetailViewModel {
+  return {
+    ...toViewModel(record),
+    timeline: Array.isArray(record.timeline) ? record.timeline.map(mapTimelineEvent) : [],
+  };
+}
+
 function toProviderCandidateViewModel(
   candidate: ProviderCandidatesPayload["data"]["candidates"][number]
 ): ProviderCandidate {
@@ -342,9 +386,9 @@ export async function fetchProperties(query: PropertyListQuery = {}): Promise<Pr
   return payload.properties;
 }
 
-export async function fetchPropertyById(id: string): Promise<PropertyViewModel> {
+export async function fetchPropertyById(id: string): Promise<PropertyDetailViewModel> {
   const payload = await requestJson<PropertyDetailPayload>(`/properties/${id}`);
-  return toViewModel(payload.data);
+  return toDetailViewModel(payload.data);
 }
 
 export async function reserveProperty(id: string): Promise<PropertyViewModel> {
