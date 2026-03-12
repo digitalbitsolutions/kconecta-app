@@ -524,3 +524,36 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend timeline payload implementation (`BE-021`).
 3. Manager detail/handoff timeline UI wiring (`MOB-020`).
 4. Regression matrix for timeline parity and Wave 20-22 baseline (`QA-022`).
+
+## Wave 24 Manager Dashboard Summary and Priorities State Map
+
+### Dashboard Summary States
+
+- `dashboard_summary_loading`
+  - Initial dashboard summary request in flight.
+  - KPI cards and priorities panel render deterministic skeleton placeholders.
+- `dashboard_summary_ready`
+  - Render `data.kpis` and ordered `data.priorities[]` from contract.
+- `dashboard_summary_refreshing`
+  - Pull-to-refresh or explicit retry keeps previous data visible.
+  - Show non-blocking refresh indicator.
+- `dashboard_summary_empty_priorities`
+  - KPI block remains visible.
+  - Priorities panel shows deterministic empty state copy.
+- `dashboard_summary_error_fallback`
+  - If request fails and no snapshot exists, render deterministic fallback state with retry CTA.
+  - If snapshot exists, preserve stale snapshot + show non-blocking error banner.
+
+### Dashboard Interaction Rules
+
+- Priorities ordering must follow backend taxonomy contract:
+  - `severity` descending, then `due_at`, then `updated_at`.
+- Refresh action never clears current UI state before receiving new payload.
+- Empty priorities is not treated as error if KPI block is valid.
+
+### Wave 24 Delivery Sequencing
+
+1. Dashboard summary/priorities contract and state map (`ARCH-020`).
+2. Backend summary/priorities payload implementation (`BE-022`).
+3. Manager dashboard/priorities UI wiring (`MOB-021`).
+4. Regression matrix for dashboard summary and priorities parity (`QA-023`).
