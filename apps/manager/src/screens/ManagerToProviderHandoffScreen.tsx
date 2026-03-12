@@ -14,7 +14,9 @@ import {
 import { ApiError } from "../api/client";
 import {
   assignProviderToProperty,
+  fetchPropertyById,
   fetchProviderCandidates,
+  type PropertyTimelineEvent,
   type ProviderCandidate,
 } from "../api/propertyApi";
 import type { ManagerStackParamList } from "../navigation";
@@ -36,6 +38,7 @@ const ManagerToProviderHandoffScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [latestTimelineEvent, setLatestTimelineEvent] = useState<PropertyTimelineEvent | null>(null);
 
   const loadCandidates = useCallback(async () => {
     setLoading(true);
@@ -75,15 +78,15 @@ const ManagerToProviderHandoffScreen = () => {
       setAssigningId(providerId);
       setError(null);
       setSuccess(null);
+      setLatestTimelineEvent(null);
 
       try {
         const payload = await assignProviderToProperty(propertyId, providerId, note);
+        const detail = await fetchPropertyById(propertyId);
+        const assignmentEvent =
+          detail.timeline.find((event) => event.type === "assignment") ?? detail.timeline[0] ?? null;
+        setLatestTimelineEvent(assignmentEvent);
         setSuccess(`Provider #${payload.providerId} assigned successfully.`);
-        navigation.navigate("PropertyDetail", {
-          propertyId,
-          propertyTitle: propertyTitle ?? `Property #${propertyId}`,
-        });
-        return;
       } catch (mutationError) {
         if (mutationError instanceof ApiError) {
           if (mutationError.status === 401) {
@@ -105,6 +108,14 @@ const ManagerToProviderHandoffScreen = () => {
     },
     [navigation, note, propertyId]
   );
+
+  const formatTimelineSubtitle = useCallback((occurredAt: string, actor: string): string => {
+    const timestamp = new Date(occurredAt);
+    const formattedTimestamp = Number.isNaN(timestamp.getTime())
+      ? occurredAt
+      : timestamp.toLocaleString("es-ES");
+    return `${actor} · ${formattedTimestamp}`;
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -183,6 +194,16 @@ const ManagerToProviderHandoffScreen = () => {
           ) : null}
 
           {success ? <Text style={styles.successText}>{success}</Text> : null}
+
+          {latestTimelineEvent ? (
+            <View style={styles.timelineCard}>
+              <Text style={styles.timelineTitle}>Latest assignment event</Text>
+              <Text style={styles.timelineSummary}>{latestTimelineEvent.summary}</Text>
+              <Text style={styles.timelineMeta}>
+                {formatTimelineSubtitle(latestTimelineEvent.occurredAt, latestTimelineEvent.actor)}
+              </Text>
+            </View>
+          ) : null}
 
         <Pressable
           style={styles.secondaryAction}
@@ -336,6 +357,29 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontSize: fontSizes.sm,
     marginTop: spacing.md,
+  },
+  timelineCard: {
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.md,
+    padding: spacing.md,
+  },
+  timelineTitle: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
+  },
+  timelineSummary: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.sm,
+    marginTop: spacing.xs,
+  },
+  timelineMeta: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.xs,
+    marginTop: spacing.xs,
   },
   secondaryAction: {
     alignItems: "center",
