@@ -174,7 +174,6 @@ class PropertyApiTest extends TestCase
         $generatedAt = $response->json("meta.generated_at");
         $this->assertIsString($generatedAt);
         $this->assertNotSame("", trim($generatedAt));
-
         $this->assertValidDataSource($response->json("meta.source"));
     }
 
@@ -1029,6 +1028,157 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("data.assignment.provider.id", 1)
             ->assertJsonPath("meta.contract", "manager-provider-context-v1")
             ->assertJsonPath("meta.flow", "properties_assignment_context");
+    }
+
+    public function test_mobile_client_can_fetch_manager_priority_queue_contract(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue");
+
+        $response
+            ->assertOk()
+            ->assertJsonStructure([
+                "data" => [
+                    "items" => [
+                        "*" => [
+                            "id",
+                            "property_id",
+                            "property_title",
+                            "city",
+                            "status",
+                            "category",
+                            "severity",
+                            "sla_due_at",
+                            "sla_state",
+                            "updated_at",
+                            "action",
+                        ],
+                    ],
+                ],
+                "meta" => [
+                    "contract",
+                    "generated_at",
+                    "source",
+                    "filters" => ["category", "severity", "limit"],
+                    "count",
+                ],
+            ])
+            ->assertJsonPath("meta.contract", "manager-priority-queue-v1");
+
+        $this->assertValidDataSource($response->json("meta.source"));
+        $this->assertNotEmpty((array) $response->json("data.items", []));
+    }
+
+    public function test_manager_priority_queue_is_deterministically_ordered(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue");
+
+        $response->assertOk();
+        $items = $response->json("data.items", []);
+        $this->assertNotEmpty($items);
+
+        $severityOrder = [
+            "high" => 0,
+            "medium" => 1,
+            "low" => 2,
+        ];
+
+        $expected = $items;
+        usort(
+            $expected,
+            static function (array $left, array $right) use ($severityOrder): int {
+                $leftSeverity = $severityOrder[strtolower((string) ($left["severity"] ?? "low"))] ?? 3;
+                $rightSeverity = $severityOrder[strtolower((string) ($right["severity"] ?? "low"))] ?? 3;
+                if ($leftSeverity !== $rightSeverity) {
+                    return $leftSeverity <=> $rightSeverity;
+                }
+
+                $leftDue = $left["sla_due_at"] ?? null;
+                $rightDue = $right["sla_due_at"] ?? null;
+                if ($leftDue !== $rightDue) {
+                    if ($leftDue === null) {
+                        return 1;
+                    }
+                    if ($rightDue === null) {
+                        return -1;
+                    }
+                    return strcmp((string) $leftDue, (string) $rightDue);
+                }
+
+                $updatedComparison = strcmp((string) ($right["updated_at"] ?? ""), (string) ($left["updated_at"] ?? ""));
+                if ($updatedComparison !== 0) {
+                    return $updatedComparison;
+                }
+
+                return strcmp((string) ($left["id"] ?? ""), (string) ($right["id"] ?? ""));
+            }
+        );
+
+        $this->assertSame($expected, $items, "Priority queue must be deterministic for identical inputs.");
+    }
+
+    public function test_manager_priority_queue_supports_filter_and_limit_query_params(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue?category=provider_assignment&severity=high&limit=1");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("meta.filters.category", "provider_assignment")
+            ->assertJsonPath("meta.filters.severity", "high")
+            ->assertJsonPath("meta.filters.limit", 1)
+            ->assertJsonPath("meta.count", 1);
+
+        $items = $response->json("data.items", []);
+        $this->assertCount(1, $items);
+        $this->assertSame("provider_assignment", $items[0]["category"] ?? null);
+        $this->assertSame("high", $items[0]["severity"] ?? null);
+    }
+
+    public function test_priority_queue_endpoint_is_forbidden_for_provider_role(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-ROLE" => "provider",
+            ])
+            ->getJson("/api/properties/priorities/queue");
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue")
+            ->assertJsonPath("meta.reason", "role_scope_forbidden");
+    }
+
+    public function test_invalid_bearer_token_returns_unauthorized_for_priority_queue_endpoint(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer invalid-token"])
+            ->getJson("/api/properties/priorities/queue");
+
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("error.code", "TOKEN_INVALID")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue")
+            ->assertJsonPath("meta.reason", "token_invalid");
+    }
+
+    public function test_priority_queue_rejects_invalid_filter_values(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue?severity=critical&limit=1000");
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(["severity", "limit"]);
     }
 
     private function assertValidDataSource(mixed $source): void

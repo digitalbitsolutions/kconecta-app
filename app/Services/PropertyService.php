@@ -123,6 +123,184 @@ class PropertyService
         ];
     }
 
+    public function priorityQueue(array $filters = []): array
+    {
+        $dataset = $this->loadRows();
+        $items = $this->buildPriorityQueueItems($dataset["rows"]);
+
+        $filtered = array_values(
+            array_filter(
+                $items,
+                static function (array $item) use ($filters): bool {
+                    if (
+                        !empty($filters["category"]) &&
+                        strcasecmp((string) ($item["category"] ?? ""), (string) $filters["category"]) !== 0
+                    ) {
+                        return false;
+                    }
+                    if (
+                        !empty($filters["severity"]) &&
+                        strcasecmp((string) ($item["severity"] ?? ""), (string) $filters["severity"]) !== 0
+                    ) {
+                        return false;
+                    }
+
+                    return true;
+                }
+            )
+        );
+
+        $limit = null;
+        if (isset($filters["limit"]) && $filters["limit"] !== null) {
+            $limit = max(1, min(100, (int) $filters["limit"]));
+            $filtered = array_slice($filtered, 0, $limit);
+        }
+
+        return [
+            "data" => [
+                "items" => array_values($filtered),
+            ],
+            "meta" => [
+                "contract" => "manager-priority-queue-v1",
+                "generated_at" => $this->resolveGeneratedAt($filtered),
+                "source" => $dataset["source"],
+                "filters" => [
+                    "category" => $filters["category"] ?? null,
+                    "severity" => $filters["severity"] ?? null,
+                    "limit" => $limit,
+                ],
+                "count" => count($filtered),
+            ],
+        ];
+    }
+
+    private function buildPriorityQueueItems(array $rows): array
+    {
+        $items = [];
+
+        foreach ($rows as $row) {
+            $propertyId = (int) ($row["id"] ?? 0);
+            if ($propertyId <= 0) {
+                continue;
+            }
+
+            $status = strtolower((string) ($row["status"] ?? self::STATUS_AVAILABLE));
+            $providerId = (int) ($row["provider_id"] ?? 0);
+            $item = [
+                "id" => "",
+                "property_id" => $propertyId,
+                "property_title" => (string) ($row["title"] ?? "Property {$propertyId}"),
+                "city" => (string) ($row["city"] ?? "Unknown"),
+                "status" => $status,
+                "category" => "portfolio_review",
+                "severity" => "low",
+                "sla_due_at" => null,
+                "sla_state" => "no_deadline",
+                "updated_at" => $this->buildQueueTimestamp(70, $propertyId),
+                "action" => "open_property",
+            ];
+
+            if ($status === self::STATUS_AVAILABLE && $providerId <= 0) {
+                $item["id"] = "priority-provider-assignment-{$propertyId}";
+                $item["category"] = "provider_assignment";
+                $item["severity"] = "high";
+                $item["sla_due_at"] = $this->buildQueueTimestamp(95, $propertyId);
+                $item["updated_at"] = $this->buildQueueTimestamp(75, $propertyId);
+                $item["action"] = "open_handoff";
+            } elseif ($status === self::STATUS_MAINTENANCE) {
+                $item["id"] = "priority-maintenance-follow-up-{$propertyId}";
+                $item["category"] = "maintenance_follow_up";
+                $item["severity"] = "high";
+                $item["sla_due_at"] = $this->buildQueueTimestamp(130, $propertyId);
+                $item["updated_at"] = $this->buildQueueTimestamp(72, $propertyId);
+                $item["action"] = "review_status";
+            } elseif ($status === self::STATUS_RESERVED) {
+                $item["id"] = "priority-portfolio-review-{$propertyId}";
+                $item["category"] = "portfolio_review";
+                $item["severity"] = "medium";
+                $item["sla_due_at"] = $this->buildQueueTimestamp(210, $propertyId);
+                $item["updated_at"] = $this->buildQueueTimestamp(88, $propertyId);
+                $item["action"] = "open_property";
+            } else {
+                $item["id"] = "priority-quality-alert-{$propertyId}";
+                $item["category"] = "quality_alert";
+                $item["severity"] = "low";
+                $item["sla_due_at"] = null;
+                $item["updated_at"] = $this->buildQueueTimestamp(66, $propertyId);
+                $item["action"] = "review_status";
+            }
+
+            $item["sla_state"] = $this->resolveQueueSlaState($item["sla_due_at"]);
+            $items[] = $item;
+        }
+
+        usort($items, [$this, "comparePriorityQueueItems"]);
+
+        return array_values($items);
+    }
+
+    private function buildQueueTimestamp(int $baseMinuteOffset, int $propertyId): string
+    {
+        $deterministicOffset = max(0, $baseMinuteOffset) + (($propertyId % 11) * 7);
+        return $this->buildPriorityTimestamp($deterministicOffset, 0);
+    }
+
+    private function resolveQueueSlaState(?string $dueAt): string
+    {
+        if ($dueAt === null || trim($dueAt) === "") {
+            return "no_deadline";
+        }
+
+        $dueTimestamp = strtotime($dueAt);
+        if ($dueTimestamp === false) {
+            return "no_deadline";
+        }
+
+        $referenceTimestamp = strtotime("2026-01-01T11:00:00Z");
+        if ($dueTimestamp < $referenceTimestamp) {
+            return "overdue";
+        }
+        if (($dueTimestamp - $referenceTimestamp) <= 3600) {
+            return "at_risk";
+        }
+
+        return "on_track";
+    }
+
+    private function comparePriorityQueueItems(array $left, array $right): int
+    {
+        $severityOrder = [
+            "high" => 0,
+            "medium" => 1,
+            "low" => 2,
+        ];
+
+        $leftSeverity = $severityOrder[strtolower((string) ($left["severity"] ?? "low"))] ?? 3;
+        $rightSeverity = $severityOrder[strtolower((string) ($right["severity"] ?? "low"))] ?? 3;
+        if ($leftSeverity !== $rightSeverity) {
+            return $leftSeverity <=> $rightSeverity;
+        }
+
+        $leftDue = $left["sla_due_at"] ?? null;
+        $rightDue = $right["sla_due_at"] ?? null;
+        if ($leftDue !== $rightDue) {
+            if ($leftDue === null) {
+                return 1;
+            }
+            if ($rightDue === null) {
+                return -1;
+            }
+            return strcmp((string) $leftDue, (string) $rightDue);
+        }
+
+        $updatedComparison = strcmp((string) ($right["updated_at"] ?? ""), (string) ($left["updated_at"] ?? ""));
+        if ($updatedComparison !== 0) {
+            return $updatedComparison;
+        }
+
+        return strcmp((string) ($left["id"] ?? ""), (string) ($right["id"] ?? ""));
+    }
+
     private function buildKpis(array $rows): array
     {
         $active = 0;
