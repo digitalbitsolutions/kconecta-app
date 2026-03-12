@@ -489,3 +489,38 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend filters + pagination metadata implementation (`BE-020`).
 3. Manager property list filter/pagination UI wiring (`MOB-019`).
 4. Regression matrix for filters/pagination and Wave 20-21 baseline (`QA-021`).
+
+## Wave 23 Manager Property Timeline State Map
+
+### Property Detail Timeline States
+
+- `detail_timeline_loading`
+  - Timeline request in progress after detail payload loads.
+  - Keep property summary visible.
+- `detail_timeline_ready`
+  - Render timeline events in descending chronological order.
+- `detail_timeline_empty`
+  - Render deterministic empty-history state.
+- `detail_timeline_refreshing`
+  - Non-blocking refresh after assignment/mutation action.
+- `detail_timeline_error`
+  - Show retry CTA preserving current property context.
+- `detail_timeline_forbidden`
+  - Route to unauthorized state while session remains authenticated.
+- `detail_timeline_session_expired`
+  - Route to `SessionExpired` on unrecoverable `401`.
+
+### Handoff-to-Detail Timeline Rules
+
+- After successful assign-provider mutation:
+  - Return to property detail and trigger timeline refresh.
+  - The latest event should represent assignment mutation outcome.
+- Status mutation flow must append deterministic timeline event after successful mutation.
+- Empty timeline must not block property detail usage.
+
+## Wave 23 Delivery Sequencing
+
+1. Timeline contract/state map (`ARCH-019`).
+2. Backend timeline payload implementation (`BE-021`).
+3. Manager detail/handoff timeline UI wiring (`MOB-020`).
+4. Regression matrix for timeline parity and Wave 20-22 baseline (`QA-022`).

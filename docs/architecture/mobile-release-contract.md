@@ -594,6 +594,52 @@ Define the minimum environment and auth contract required for native app release
   - no breaking removals in existing portfolio payload fields
   - existing list consumers remain valid with default params
 
+## Wave 23 Manager Property Detail Timeline Contract
+
+### Property Detail Timeline Endpoint Contract
+
+- Endpoint:
+  - `GET /api/properties/{id}`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Additive timeline payload:
+  - `data.timeline[]` sorted by descending `occurred_at`.
+  - Event shape:
+    - `id` (stable event identifier)
+    - `type` (`assignment`, `status_change`, `note`)
+    - `occurred_at` (ISO-8601 UTC)
+    - `actor` (`system`, `manager`, `admin`)
+    - `summary` (short deterministic copy)
+    - `metadata` (object with type-specific fields)
+
+### Timeline Event Taxonomy
+
+- `assignment`:
+  - `metadata.provider_id`
+  - `metadata.provider_name`
+  - `metadata.assignment_state` (`assigned|reassigned|unassigned`)
+- `status_change`:
+  - `metadata.previous_status`
+  - `metadata.next_status`
+- `note`:
+  - `metadata.note`
+  - `metadata.scope` (`handoff|property`)
+
+### Deterministic Error and Guardrail Semantics
+
+- `401 TOKEN_EXPIRED` -> refresh path.
+- `401 TOKEN_INVALID|TOKEN_REVOKED` -> deterministic session reset.
+- `403 ROLE_SCOPE_FORBIDDEN` for unauthorized roles.
+- `404 PROPERTY_NOT_FOUND` with deterministic envelope metadata.
+
+### Compatibility Notes
+
+- Wave 23 is additive:
+  - no endpoint removals
+  - timeline field is additive in `GET /api/properties/{id}`
+  - existing detail consumers remain valid when timeline is not rendered
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
