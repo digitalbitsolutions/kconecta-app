@@ -640,6 +640,57 @@ Define the minimum environment and auth contract required for native app release
   - timeline field is additive in `GET /api/properties/{id}`
   - existing detail consumers remain valid when timeline is not rendered
 
+## Wave 24 Manager Dashboard Summary and Priorities Contract
+
+### Dashboard Summary Endpoint Contract
+
+- Endpoint:
+  - `GET /api/properties/summary`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Response shape:
+  - `data.kpis`:
+    - `active_properties` (number)
+    - `reserved_properties` (number)
+    - `avg_time_to_close_days` (number)
+    - `provider_matches_pending` (number)
+  - `data.priorities[]`:
+    - `id` (stable item id)
+    - `category` (`portfolio_review|provider_assignment|maintenance_follow_up|quality_alert`)
+    - `title` (deterministic short label)
+    - `description` (deterministic actionable summary)
+    - `severity` (`low|medium|high`)
+    - `due_at` (nullable ISO-8601 UTC)
+    - `updated_at` (ISO-8601 UTC)
+  - `meta.contract = manager-dashboard-summary-v1`
+  - `meta.generated_at` (ISO-8601 UTC)
+  - `meta.source` (`database|in_memory`)
+
+### Priorities Taxonomy and Timestamp Semantics
+
+- `category` is deterministic and backend-owned.
+- `updated_at` represents the latest upstream state transition affecting the priority item.
+- `due_at` represents operational target date and may be null.
+- Client sorting contract:
+  - Primary: `severity` (`high` > `medium` > `low`)
+  - Secondary: ascending `due_at` (nulls last)
+  - Tertiary: descending `updated_at`
+
+### Error and Guardrail Semantics
+
+- `401 TOKEN_EXPIRED` -> one refresh attempt path.
+- `401 TOKEN_INVALID|TOKEN_REVOKED` -> deterministic session reset.
+- `403 ROLE_SCOPE_FORBIDDEN` for unauthorized roles.
+- Response envelope remains consistent with prior manager auth/session contracts.
+
+### Compatibility Notes
+
+- Wave 24 is additive:
+  - no endpoint removals
+  - `data.kpis` remains backward compatible
+  - `data.priorities[]` and `meta.generated_at` are additive fields
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
