@@ -52,11 +52,11 @@ AGENT_POLICY_DEFAULTS: dict[str, AiderAgentPolicy] = {
         retries=2,
     ),
     "mobile": AiderAgentPolicy(
-        prompt_max_chars=3000,
-        batch_size=2,
-        per_attempt_timeout=480,
-        total_timeout=1320,
-        retries=2,
+        prompt_max_chars=2200,
+        batch_size=1,
+        per_attempt_timeout=240,
+        total_timeout=1080,
+        retries=1,
     ),
     "qa": AiderAgentPolicy(
         prompt_max_chars=2600,
@@ -123,13 +123,64 @@ class AiderService:
 
         policy = self._resolve_policy(agent_name)
         normalized_files = self._normalize_scope_files(files)
+        edit_format = self._resolve_edit_format(
+            env_key="AIDER_EDIT_FORMAT",
+            fallback="diff",
+        )
+        try:
+            return self._apply_with_policy(
+                worktree=worktree,
+                prompt=prompt,
+                files=normalized_files,
+                model=model,
+                policy=policy,
+                agent_name=agent_name,
+                edit_format=edit_format,
+            )
+        except RuntimeError as exc:
+            if not self._timeout_recovery_enabled() or not self._is_timeout_error(exc):
+                raise
+
+            recovery_policy = self._build_timeout_recovery_policy(policy)
+            recovery_edit_format = self._resolve_edit_format(
+                env_key="AIDER_TIMEOUT_RECOVERY_EDIT_FORMAT",
+                fallback="whole",
+            )
+            try:
+                return self._apply_with_policy(
+                    worktree=worktree,
+                    prompt=prompt,
+                    files=normalized_files,
+                    model=model,
+                    policy=recovery_policy,
+                    agent_name=agent_name,
+                    edit_format=recovery_edit_format,
+                    force_batch_mode=True,
+                )
+            except RuntimeError as recovery_exc:
+                raise RuntimeError(
+                    f"{exc} | Timeout recovery failed: {recovery_exc}"
+                ) from recovery_exc
+
+    def _apply_with_policy(
+        self,
+        *,
+        worktree: Path,
+        prompt: str,
+        files: list[str],
+        model: str,
+        policy: AiderAgentPolicy,
+        agent_name: str | None,
+        edit_format: str,
+        force_batch_mode: bool = False,
+    ) -> CommandResult:
         prepared_prompt = self._compact_prompt(prompt, max_chars=policy.prompt_max_chars)
         partitions = self._partition_files_for_batches(
-            normalized_files,
+            files,
             batch_size=policy.batch_size,
         )
 
-        if self._batch_mode_enabled() and len(partitions) > 1:
+        if (force_batch_mode or self._batch_mode_enabled()) and len(partitions) > 1:
             return self._apply_patch_in_batches(
                 worktree=worktree,
                 prompt=prepared_prompt,
@@ -137,15 +188,17 @@ class AiderService:
                 model=model,
                 policy=policy,
                 agent_name=agent_name,
+                edit_format=edit_format,
             )
 
         return self._run_with_model_variants(
             worktree=worktree,
             prompt=prepared_prompt,
-            files=normalized_files,
+            files=files,
             model=model,
             policy=policy,
             agent_name=agent_name,
+            edit_format=edit_format,
         )
 
     def _apply_patch_in_batches(
@@ -157,6 +210,7 @@ class AiderService:
         model: str,
         policy: AiderAgentPolicy,
         agent_name: str | None,
+        edit_format: str,
     ) -> CommandResult:
         results: list[CommandResult] = []
 
@@ -174,6 +228,7 @@ class AiderService:
                 model=model,
                 policy=policy,
                 agent_name=agent_name,
+                edit_format=edit_format,
             )
             results.append(result)
 
@@ -208,6 +263,7 @@ class AiderService:
         model: str,
         policy: AiderAgentPolicy,
         agent_name: str | None,
+        edit_format: str,
     ) -> CommandResult:
         base_command = self.resolve_command()
         model_variants = self._build_model_variants(model)
@@ -239,7 +295,7 @@ class AiderService:
                     "--no-show-model-warnings",
                     "--no-restore-chat-history",
                     "--edit-format",
-                    os.environ.get("AIDER_EDIT_FORMAT", "diff"),
+                    edit_format,
                     "--input-history-file",
                     ".aider.orch.input.history",
                     "--chat-history-file",
@@ -290,6 +346,56 @@ class AiderService:
             f"Last stdout: {last_result.stdout or '(empty)'} | "
             f"Last stderr: {last_result.stderr or '(empty)'}"
         )
+
+    def _timeout_recovery_enabled(self) -> bool:
+        raw = os.environ.get("AIDER_TIMEOUT_RECOVERY", "true").strip().lower()
+        return raw in {"1", "true", "yes", "on"}
+
+    def _is_timeout_error(self, exc: RuntimeError) -> bool:
+        return "timed out" in str(exc).lower()
+
+    def _build_timeout_recovery_policy(self, policy: AiderAgentPolicy) -> AiderAgentPolicy:
+        prompt_max_chars = self._read_int_env(
+            "AIDER_TIMEOUT_RECOVERY_PROMPT_MAX_CHARS",
+            default=min(policy.prompt_max_chars, 1600),
+            minimum=800,
+            maximum=6000,
+        )
+        per_attempt_timeout = self._read_int_env(
+            "AIDER_TIMEOUT_RECOVERY_EXEC_TIMEOUT_SECONDS",
+            default=max(120, min(policy.per_attempt_timeout, 240)),
+            minimum=60,
+            maximum=1800,
+        )
+        total_timeout = self._read_int_env(
+            "AIDER_TIMEOUT_RECOVERY_TOTAL_TIMEOUT_SECONDS",
+            default=max(per_attempt_timeout + 120, min(policy.total_timeout + 180, 1800)),
+            minimum=120,
+            maximum=7200,
+        )
+        retries = self._read_int_env(
+            "AIDER_TIMEOUT_RECOVERY_RETRIES",
+            default=max(1, min(policy.retries, 1)),
+            minimum=0,
+            maximum=6,
+        )
+
+        if total_timeout < per_attempt_timeout:
+            total_timeout = min(7200, per_attempt_timeout + 60)
+
+        return AiderAgentPolicy(
+            prompt_max_chars=prompt_max_chars,
+            batch_size=1,
+            per_attempt_timeout=per_attempt_timeout,
+            total_timeout=total_timeout,
+            retries=retries,
+        )
+
+    def _resolve_edit_format(self, *, env_key: str, fallback: str) -> str:
+        raw = os.environ.get(env_key, "").strip().lower()
+        if raw in {"diff", "whole"}:
+            return raw
+        return fallback
 
     def _aider_env(self) -> dict[str, str]:
         return {

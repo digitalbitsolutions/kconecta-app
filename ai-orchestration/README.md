@@ -114,6 +114,12 @@ Executor environment variables:
 - `CRM_BACKEND_ROOT` (optional): absolute path to CRM Laravel backend root for Docker test runs
 - `AIDER_RETRIES` (default: `1`)
 - `AIDER_RETRY_TIMEOUT_STEP_SECONDS` (default: `45`)
+- `AIDER_TIMEOUT_RECOVERY=true|false` (default: `true`)
+- `AIDER_TIMEOUT_RECOVERY_EDIT_FORMAT=whole|diff` (default: `whole`)
+- `AIDER_TIMEOUT_RECOVERY_PROMPT_MAX_CHARS` (default: `1600`)
+- `AIDER_TIMEOUT_RECOVERY_EXEC_TIMEOUT_SECONDS` (default: `240`)
+- `AIDER_TIMEOUT_RECOVERY_TOTAL_TIMEOUT_SECONDS` (default: `policy+180`, capped)
+- `AIDER_TIMEOUT_RECOVERY_RETRIES` (default: `1`)
 - Per-agent Aider override format:
   - `AIDER_AGENT_<AGENT>_PROMPT_MAX_CHARS`
   - `AIDER_AGENT_<AGENT>_BATCH_SIZE`
@@ -432,7 +438,12 @@ The orchestration scaffold itself does not modify database data.
 - `Aider not found`:
   - Install `aider-chat` or use `py -m aider.main` fallback path.
 - `Aider timed out on long tasks`:
-  - The runner now applies task-level prompt compaction, adaptive retries/timeouts per agent, and automatic file partitioning.
+  - The runner applies task-level prompt compaction, adaptive retries/timeouts per agent, and automatic file partitioning.
+  - On timeout, orchestrator now performs automatic recovery pass:
+    - process-tree cleanup (prevents orphan `aider/python` workers)
+    - forced compact prompt
+    - forced `batch_size=1`
+    - fallback edit format (default `whole`)
   - Tune with env vars:
     - `AIDER_EXEC_TIMEOUT_SECONDS` (per attempt, default `420`)
     - `AIDER_TOTAL_TIMEOUT_SECONDS` (overall budget across model variants)
@@ -441,6 +452,12 @@ The orchestration scaffold itself does not modify database data.
     - `AIDER_BATCH_MODE=true|false` (default `true`)
     - `AIDER_BATCH_SIZE` (default `2`)
     - `AIDER_PROMPT_MAX_CHARS` (default `3200`)
+    - `AIDER_TIMEOUT_RECOVERY=true|false` (default `true`)
+    - `AIDER_TIMEOUT_RECOVERY_EDIT_FORMAT=whole|diff` (default `whole`)
+    - `AIDER_TIMEOUT_RECOVERY_PROMPT_MAX_CHARS`
+    - `AIDER_TIMEOUT_RECOVERY_EXEC_TIMEOUT_SECONDS`
+    - `AIDER_TIMEOUT_RECOVERY_TOTAL_TIMEOUT_SECONDS`
+    - `AIDER_TIMEOUT_RECOVERY_RETRIES`
   - Optional per-agent overrides (same keys, prefixed by agent):
     - `AIDER_AGENT_ARCHITECT_EXEC_TIMEOUT_SECONDS`
     - `AIDER_AGENT_BACKEND_TOTAL_TIMEOUT_SECONDS`
