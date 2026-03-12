@@ -113,6 +113,62 @@ class PropertyController extends Controller
         return response()->json($payload, 200);
     }
 
+    public function priorityQueue(Request $request): JsonResponse
+    {
+        if (!$this->apiAccessService->isAuthorized($request)) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_TOKEN_INVALID,
+                    "Unauthorized",
+                    "properties_priority_queue",
+                    "token_invalid",
+                    false
+                ),
+                401
+            );
+        }
+
+        if (!$this->hasAllowedRole($request, ["manager", "admin"])) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_ROLE_SCOPE_FORBIDDEN,
+                    "Forbidden",
+                    "properties_priority_queue",
+                    "role_scope_forbidden",
+                    false
+                ),
+                403
+            );
+        }
+
+        $validated = $request->validate([
+            "category" => [
+                "nullable",
+                "string",
+                "in:" . implode(",", [
+                    "provider_assignment",
+                    "maintenance_follow_up",
+                    "portfolio_review",
+                    "quality_alert",
+                ]),
+            ],
+            "severity" => [
+                "nullable",
+                "string",
+                "in:high,medium,low",
+            ],
+            "limit" => ["nullable", "integer", "min:1", "max:100"],
+        ]);
+
+        $payload = $this->propertyService->priorityQueue([
+            "category" => $validated["category"] ?? null,
+            "severity" => $validated["severity"] ?? null,
+            "limit" => $validated["limit"] ?? null,
+        ]);
+
+        return response()->json($payload, 200);
+    }
+
     public function show(Request $request, int $id): JsonResponse
     {
         if (!$this->apiAccessService->isAuthorized($request)) {
