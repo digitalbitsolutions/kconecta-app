@@ -76,6 +76,7 @@ class PropertyService
         $page = max(1, (int) ($filters["page"] ?? 1));
         $perPage = max(1, min(100, (int) ($filters["per_page"] ?? 25)));
         $total = count($filtered);
+        $totalPages = $total > 0 ? (int) ceil($total / $perPage) : 0;
         $offset = ($page - 1) * $perPage;
         $pagedRows = array_slice($filtered, $offset, $perPage);
         $summary = $this->buildKpis($filtered);
@@ -87,6 +88,8 @@ class PropertyService
                 "page" => $page,
                 "per_page" => $perPage,
                 "total" => $total,
+                "total_pages" => $totalPages,
+                "has_next_page" => $page < $totalPages,
                 "filters" => [
                     "status" => $filters["status"] ?? null,
                     "city" => $filters["city"] ?? null,
@@ -152,6 +155,17 @@ class PropertyService
         }
 
         return null;
+    }
+
+    /**
+     * Build property detail payload with additive deterministic timeline events.
+     */
+    public function buildPropertyDetailPayload(array $property): array
+    {
+        $detail = $property;
+        $detail["timeline"] = $this->buildTimelineEvents($property);
+
+        return $detail;
     }
 
     /**
@@ -634,6 +648,74 @@ class PropertyService
         }
 
         return $text;
+    }
+
+    private function buildTimelineEvents(array $property): array
+    {
+        $propertyId = (int) ($property["id"] ?? 0);
+        $status = strtolower((string) ($property["status"] ?? self::STATUS_AVAILABLE));
+        $providerId = isset($property["provider_id"]) ? (int) $property["provider_id"] : 0;
+        $providerName = $providerId > 0 ? "Provider #{$providerId}" : null;
+        $assignmentState = $providerId > 0 ? "assigned" : "unassigned";
+
+        $events = [
+            [
+                "id" => "property-{$propertyId}-assignment",
+                "type" => "assignment",
+                "occurred_at" => (string) ($property["assigned_at"] ?? $this->buildTimelineTimestamp($propertyId, 3)),
+                "actor" => "manager",
+                "summary" => $providerId > 0
+                    ? "Provider assigned to property"
+                    : "Property currently has no provider assignment",
+                "metadata" => [
+                    "provider_id" => $providerId > 0 ? $providerId : null,
+                    "provider_name" => $providerName,
+                    "assignment_state" => $assignmentState,
+                ],
+            ],
+            [
+                "id" => "property-{$propertyId}-status",
+                "type" => "status_change",
+                "occurred_at" => $this->buildTimelineTimestamp($propertyId, 2),
+                "actor" => "system",
+                "summary" => "Property status updated to {$status}",
+                "metadata" => [
+                    "previous_status" => $status === self::STATUS_AVAILABLE ? "draft" : self::STATUS_AVAILABLE,
+                    "next_status" => $status,
+                ],
+            ],
+        ];
+
+        if (!empty($property["handoff_note"])) {
+            $events[] = [
+                "id" => "property-{$propertyId}-note",
+                "type" => "note",
+                "occurred_at" => $this->buildTimelineTimestamp($propertyId, 1),
+                "actor" => "manager",
+                "summary" => "Manager added handoff note",
+                "metadata" => [
+                    "note" => (string) $property["handoff_note"],
+                    "scope" => "handoff",
+                ],
+            ];
+        }
+
+        usort(
+            $events,
+            static fn (array $left, array $right): int => strcmp(
+                (string) $right["occurred_at"],
+                (string) $left["occurred_at"]
+            )
+        );
+
+        return array_values($events);
+    }
+
+    private function buildTimelineTimestamp(int $propertyId, int $slot): string
+    {
+        $baseTimestamp = strtotime("2026-01-01T00:00:00Z");
+        $offsetSeconds = max(0, $propertyId) * 300 + max(0, $slot) * 60;
+        return gmdate("Y-m-d\\TH:i:s\\Z", $baseTimestamp + $offsetSeconds);
     }
 
     private function seedRows(): array

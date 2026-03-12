@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+import signal
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -36,26 +38,69 @@ class CommandRunner:
         env: dict[str, str] | None = None,
     ) -> CommandResult:
         self._enforce_runtime_policy(command)
-        process = subprocess.run(
-            command,
-            cwd=str(cwd) if cwd else None,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            capture_output=True,
-            timeout=timeout,
-            env=self._build_env(env),
-        )
+        popen_kwargs: dict[str, object] = {
+            "cwd": str(cwd) if cwd else None,
+            "text": True,
+            "encoding": "utf-8",
+            "errors": "replace",
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+            "env": self._build_env(env),
+        }
+        if os.name == "nt":
+            popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            popen_kwargs["start_new_session"] = True
+
+        process = subprocess.Popen(command, **popen_kwargs)
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            # Ensure we terminate the full process tree (including model/tool children).
+            self._terminate_process_tree(process)
+            stdout, stderr = process.communicate()
+            raise subprocess.TimeoutExpired(
+                cmd=command,
+                timeout=timeout,
+                output=(stdout or "").strip(),
+                stderr=(stderr or "").strip(),
+            ) from exc
 
         result = CommandResult(
             command=command,
-            returncode=process.returncode,
-            stdout=process.stdout.strip(),
-            stderr=process.stderr.strip(),
+            returncode=process.returncode if process.returncode is not None else 1,
+            stdout=(stdout or "").strip(),
+            stderr=(stderr or "").strip(),
         )
         if check and result.returncode != 0:
             raise CommandError(result)
         return result
+
+    def _terminate_process_tree(self, process: subprocess.Popen[str]) -> None:
+        pid = process.pid
+        if pid is None:
+            return
+
+        try:
+            if os.name == "nt":
+                subprocess.run(
+                    ["taskkill", "/PID", str(pid), "/T", "/F"],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                return
+
+            pgid = os.getpgid(pid)
+            os.killpg(pgid, signal.SIGTERM)
+            time.sleep(0.5)
+            if process.poll() is None:
+                os.killpg(pgid, signal.SIGKILL)
+        except Exception:
+            try:
+                process.kill()
+            except Exception:
+                return
 
     def _build_env(self, extra: dict[str, str] | None) -> dict[str, str]:
         base = dict(os.environ)

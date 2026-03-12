@@ -8,6 +8,7 @@ export type PropertySummary = {
   city: string;
   status: "available" | "reserved" | "maintenance";
   price: string;
+  managerId?: string;
 };
 
 type PropertyListItemProps = {
@@ -33,6 +34,7 @@ const PropertyListItem: React.FC<PropertyListItemProps> = ({ property, onPress }
         <Text style={[styles.status, statusStyle]}>{property.status}</Text>
       </View>
       <Text style={styles.city}>{property.city}</Text>
+      {property.managerId ? <Text style={styles.manager}>Manager: {property.managerId}</Text> : null}
       <Text style={styles.price}>{property.price}</Text>
     </Pressable>
   );
@@ -65,6 +67,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSizes.sm,
     marginTop: spacing.sm,
+  },
+  manager: {
+    color: colors.textMuted,
+    fontSize: fontSizes.xs,
+    marginTop: spacing.xs,
   },
   price: {
     color: colors.accent,
