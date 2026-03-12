@@ -273,6 +273,58 @@
 - Provider module owns provider profile snapshot fields (`name`, `category`, `city`, `status`, `rating`).
 - Manager UI consumes merged payload only, never direct multi-endpoint stitching in presentation layer.
 
+## Wave 22 Manager Portfolio Query Boundary
+
+### Portfolio Query Orchestration Layer
+
+- Responsibilities:
+  - Normalize manager portfolio filters (`search`, `status`, `city`) and pagination params.
+  - Return deterministic pagination metadata for native list UX.
+  - Keep source visibility (`database|in_memory`) for diagnostics and parity checks.
+- Main contracts:
+  - `GET /api/properties?search=&status=&city=&page=&per_page=`
+- Error semantics:
+  - `422 VALIDATION_ERROR` for malformed/unsupported query params.
+  - `401` auth envelope from Auth Session Module.
+  - `403 ROLE_SCOPE_FORBIDDEN` for non-manager/non-admin roles.
+
+### Ownership Notes
+
+- Property module owns:
+  - filter parsing
+  - query application
+  - pagination metadata shaping
+- Manager mobile module owns:
+  - filter input state
+  - page navigation triggers
+  - deterministic empty/error rendering using contract metadata
+
+## Wave 23 Manager Property Timeline Boundary
+
+### Property Timeline Composition Layer
+
+- Responsibilities:
+  - Compose property detail timeline from assignment, status, and note events.
+  - Guarantee deterministic event ordering for mobile timeline rendering.
+  - Keep timeline contract additive to existing property detail payload.
+- Main contracts:
+  - `GET /api/properties/{id}` with additive `data.timeline[]`.
+  - Existing mutation dependencies:
+    - `POST /api/properties/{id}/assign-provider`
+    - `POST /api/properties/{id}/reserve`
+    - `POST /api/properties/{id}/release`
+    - `PATCH /api/properties/{id}`
+- Error semantics:
+  - `401` auth envelope from Auth Session Module.
+  - `403 ROLE_SCOPE_FORBIDDEN` for unauthorized roles.
+  - `404 PROPERTY_NOT_FOUND` with deterministic timeline flow metadata.
+
+### Ownership Notes
+
+- Property module owns timeline event creation and ordering guarantees.
+- Auth Session module owns session and role guardrails.
+- Manager mobile module consumes timeline as read model; it does not reconstruct history client-side.
+
 ## Compatibility Rules
 
 - Existing CRM contracts remain valid while native apps are onboarded.

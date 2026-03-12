@@ -14,6 +14,15 @@ export type PropertyRecord = {
   price: number;
 };
 
+type ApiPropertyTimelineEvent = {
+  id: string | number;
+  type: string;
+  occurred_at: string;
+  actor: string;
+  summary: string;
+  metadata?: Record<string, unknown> | null;
+};
+
 type PropertyListPayload = {
   data: PropertyRecord[];
   meta: {
@@ -21,6 +30,8 @@ type PropertyListPayload = {
     page: number;
     per_page: number;
     total: number;
+    total_pages: number;
+    has_next_page: boolean;
     filters: {
       status: string | null;
       city: string | null;
@@ -38,7 +49,9 @@ type PropertyListPayload = {
 };
 
 type PropertyDetailPayload = {
-  data: PropertyRecord;
+  data: PropertyRecord & {
+    timeline?: ApiPropertyTimelineEvent[];
+  };
 };
 
 type PropertyMutationPayload = {
@@ -131,6 +144,21 @@ export type PropertyViewModel = {
   managerId: string;
 };
 
+export type PropertyTimelineEventType = "assignment" | "status_change" | "note";
+
+export type PropertyTimelineEvent = {
+  id: string;
+  type: PropertyTimelineEventType | string;
+  occurredAt: string;
+  actor: string;
+  summary: string;
+  metadata: Record<string, unknown>;
+};
+
+export type PropertyDetailViewModel = PropertyViewModel & {
+  timeline: PropertyTimelineEvent[];
+};
+
 export type ProviderCandidate = {
   id: string;
   name: string;
@@ -221,6 +249,8 @@ export type PropertyPortfolioResult = {
     page: number;
     perPage: number;
     total: number;
+    totalPages: number;
+    hasNextPage: boolean;
     source: "database" | "in_memory";
     filters: {
       status: string | null;
@@ -245,6 +275,24 @@ function toViewModel(record: PropertyRecord): PropertyViewModel {
     status: record.status,
     managerId: record.manager_id,
     price: currencyFormatter.format(record.price),
+  };
+}
+
+function mapTimelineEvent(event: ApiPropertyTimelineEvent): PropertyTimelineEvent {
+  return {
+    id: String(event.id),
+    type: event.type,
+    occurredAt: event.occurred_at,
+    actor: event.actor,
+    summary: event.summary,
+    metadata: event.metadata ?? {},
+  };
+}
+
+function toDetailViewModel(record: PropertyDetailPayload["data"]): PropertyDetailViewModel {
+  return {
+    ...toViewModel(record),
+    timeline: Array.isArray(record.timeline) ? record.timeline.map(mapTimelineEvent) : [],
   };
 }
 
@@ -320,6 +368,8 @@ export async function fetchPropertyPortfolio(
       page: payload.meta.page,
       perPage: payload.meta.per_page,
       total: payload.meta.total,
+      totalPages: payload.meta.total_pages,
+      hasNextPage: payload.meta.has_next_page,
       source: payload.meta.source,
       filters: {
         status: payload.meta.filters.status,
@@ -336,9 +386,9 @@ export async function fetchProperties(query: PropertyListQuery = {}): Promise<Pr
   return payload.properties;
 }
 
-export async function fetchPropertyById(id: string): Promise<PropertyViewModel> {
+export async function fetchPropertyById(id: string): Promise<PropertyDetailViewModel> {
   const payload = await requestJson<PropertyDetailPayload>(`/properties/${id}`);
-  return toViewModel(payload.data);
+  return toDetailViewModel(payload.data);
 }
 
 export async function reserveProperty(id: string): Promise<PropertyViewModel> {

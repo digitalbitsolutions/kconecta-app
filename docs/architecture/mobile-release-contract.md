@@ -553,6 +553,93 @@ Define the minimum environment and auth contract required for native app release
     - `POST /api/properties/{id}/assign-provider`
   - Existing Wave 16-20 payload fields are untouched.
 
+## Wave 22 Manager Portfolio Filters and Pagination Contract
+
+### Portfolio Query Contract
+
+- Endpoint:
+  - `GET /api/properties`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Additive query params:
+  - `search` (optional string)
+  - `status` (optional: `available|reserved|maintenance`)
+  - `city` (optional string)
+  - `page` (optional integer, default `1`)
+  - `per_page` (optional integer, bounded max)
+
+### Deterministic Response Metadata
+
+- Response keeps existing `data` collection and extends `meta` with:
+  - `page`
+  - `per_page`
+  - `total`
+  - `total_pages`
+  - `has_next_page`
+  - `filters` (echo of effective filters)
+  - `source` (`database|in_memory`)
+
+### Error and Guardrail Semantics
+
+- `401 TOKEN_EXPIRED` -> refresh path.
+- `401 TOKEN_INVALID|TOKEN_REVOKED` -> deterministic session reset.
+- `403 ROLE_SCOPE_FORBIDDEN` for unauthorized roles.
+- `422 VALIDATION_ERROR` for invalid filter/pagination params.
+
+### Compatibility Notes
+
+- Wave 22 is additive:
+  - no endpoint removals
+  - no breaking removals in existing portfolio payload fields
+  - existing list consumers remain valid with default params
+
+## Wave 23 Manager Property Detail Timeline Contract
+
+### Property Detail Timeline Endpoint Contract
+
+- Endpoint:
+  - `GET /api/properties/{id}`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Additive timeline payload:
+  - `data.timeline[]` sorted by descending `occurred_at`.
+  - Event shape:
+    - `id` (stable event identifier)
+    - `type` (`assignment`, `status_change`, `note`)
+    - `occurred_at` (ISO-8601 UTC)
+    - `actor` (`system`, `manager`, `admin`)
+    - `summary` (short deterministic copy)
+    - `metadata` (object with type-specific fields)
+
+### Timeline Event Taxonomy
+
+- `assignment`:
+  - `metadata.provider_id`
+  - `metadata.provider_name`
+  - `metadata.assignment_state` (`assigned|reassigned|unassigned`)
+- `status_change`:
+  - `metadata.previous_status`
+  - `metadata.next_status`
+- `note`:
+  - `metadata.note`
+  - `metadata.scope` (`handoff|property`)
+
+### Deterministic Error and Guardrail Semantics
+
+- `401 TOKEN_EXPIRED` -> refresh path.
+- `401 TOKEN_INVALID|TOKEN_REVOKED` -> deterministic session reset.
+- `403 ROLE_SCOPE_FORBIDDEN` for unauthorized roles.
+- `404 PROPERTY_NOT_FOUND` with deterministic envelope metadata.
+
+### Compatibility Notes
+
+- Wave 23 is additive:
+  - no endpoint removals
+  - timeline field is additive in `GET /api/properties/{id}`
+  - existing detail consumers remain valid when timeline is not rendered
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
