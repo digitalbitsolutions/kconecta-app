@@ -691,6 +691,64 @@ Define the minimum environment and auth contract required for native app release
   - `data.kpis` remains backward compatible
   - `data.priorities[]` and `meta.generated_at` are additive fields
 
+## Wave 25 Manager Priority Queue and SLA Contract
+
+### Manager Priority Queue Endpoint Contract
+
+- Endpoint:
+  - `GET /api/properties/priorities/queue`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Additive query params:
+  - `category` (optional: `provider_assignment|maintenance_follow_up|portfolio_review|quality_alert`)
+  - `severity` (optional: `high|medium|low`)
+  - `limit` (optional integer, bounded max)
+- Response shape:
+  - `data.items[]`:
+    - `id` (stable queue item id)
+    - `property_id` (number)
+    - `property_title` (string)
+    - `city` (string)
+    - `status` (string)
+    - `category` (queue taxonomy category)
+    - `severity` (`high|medium|low`)
+    - `sla_due_at` (nullable ISO-8601 UTC)
+    - `sla_state` (`on_track|at_risk|overdue|no_deadline`)
+    - `updated_at` (ISO-8601 UTC)
+    - `action` (`open_property|open_handoff|review_status`)
+  - `meta.contract = manager-priority-queue-v1`
+  - `meta.generated_at` (ISO-8601 UTC)
+  - `meta.source` (`database|in_memory`)
+  - `meta.filters` (echo of effective query filters)
+
+### Deterministic Queue Ordering Rules
+
+- Client-visible ordering is backend-owned:
+  - Primary: `severity` (`high` > `medium` > `low`)
+  - Secondary: ascending `sla_due_at` (`null` values last)
+  - Tertiary: descending `updated_at`
+  - Final tie-breaker: ascending `id`
+- Queue ordering must remain deterministic for identical filter inputs.
+
+### Error and Guardrail Semantics
+
+- `401 TOKEN_EXPIRED`:
+  - one refresh attempt path.
+- `401 TOKEN_INVALID|TOKEN_REVOKED`:
+  - deterministic session reset.
+- `403 ROLE_SCOPE_FORBIDDEN`:
+  - unauthorized roles cannot access manager queue.
+- `422 VALIDATION_ERROR`:
+  - invalid queue filter parameters.
+
+### Compatibility Notes
+
+- Wave 25 is additive:
+  - no endpoint removals
+  - Wave 24 dashboard summary contract remains unchanged
+  - queue endpoint extends manager dashboard parity without breaking prior consumers
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
