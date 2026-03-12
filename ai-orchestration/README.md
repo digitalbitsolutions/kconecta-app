@@ -4,8 +4,8 @@ Local, reproducible AI orchestration for semi-autonomous development using:
 
 - `Ollama` (local fallback/default)
 - `Google Antigravity/AG` (optional, when configured)
-- `OpenClaw` (primary coding executor for file modifications)
-- `Aider` (fallback executor when OpenClaw is unavailable or fails)
+- `Aider` (primary coding executor for file modifications)
+- `OpenClaw` (fallback executor when Aider is unavailable or fails)
 - `Windsurf` (deprecated; compatibility parsing only)
 - `git` branches/worktrees for agent isolation
 - `gh` CLI for draft PR workflow
@@ -20,7 +20,7 @@ This scaffold is designed to run entirely on a developer machine.
 ```text
 orchestrator.py
   -> preflight checks (git + ollama + models + tools)
-  -> executor selection (openclaw -> aider fallback)
+  -> executor selection (aider -> openclaw fallback)
   -> skill loading (agent defaults + task-specific skills)
   -> optional MCP calls for runtime/tool context
   -> local RAG context retrieval
@@ -76,7 +76,7 @@ ai-orchestration/
   - `deepseek-coder:6.7b`
   - `llama3.1:8b`
   - `mistral`
-- `OpenClaw` installed (`openclaw` in PATH) or `aider-chat` fallback (`aider` or `py -m aider.main`)
+- `Aider` installed (`aider` in PATH or `py -m aider.main`) and optional `OpenClaw` fallback (`openclaw`)
 - Optional but recommended: GitHub CLI (`gh`) authenticated
 - Optional for tracking: Jira Cloud project + API token
 - Optional external LLM credentials:
@@ -106,6 +106,7 @@ Copy-Item ai-orchestration/llm.providers.env.example ai-orchestration/.env.llm
 Executor environment variables:
 
 - `AI_EXECUTOR=auto|openclaw|aider|opencode` (default: `auto`)
+- `auto` selection prefers `aider` and falls back to `openclaw` if needed
 - `opencode` is accepted as a compatibility alias of `openclaw`
 - `AI_MAX_DIFF_FILES` (default: `25`)
 - `AI_MAX_DIFF_LINES` (default: `1200`)
@@ -430,11 +431,13 @@ The orchestration scaffold itself does not modify database data.
 
 - `OpenClaw not found`:
   - Install OpenClaw CLI and ensure `openclaw` is in PATH.
-  - Or set `AI_EXECUTOR=aider` to force fallback executor.
+  - Or keep default `AI_EXECUTOR=auto` / `AI_EXECUTOR=aider` (OpenClaw fallback disabled).
 - `OpenClaw detected but unsupported`:
-  - This orchestrator requires `openclaw run ...` support.
-  - If `openclaw run --help` fails, you likely installed a different OpenClaw CLI variant.
-  - Keep fallback executor (`aider`) until the coding-agent OpenClaw distribution is installed.
+  - This orchestrator requires one of these command surfaces:
+    - `openclaw run ...`
+    - `openclaw agent --local --message ...`
+  - If both fail on `--help`, you likely installed a different OpenClaw CLI variant.
+  - Keep Aider as primary executor until the coding-agent OpenClaw distribution is installed.
 - `Aider not found`:
   - Install `aider-chat` or use `py -m aider.main` fallback path.
 - `Aider timed out on long tasks`:

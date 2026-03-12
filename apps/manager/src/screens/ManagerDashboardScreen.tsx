@@ -1,9 +1,22 @@
 import React, { useCallback, useState } from "react";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { ApiError } from "../api/client";
-import { fetchPropertyPortfolio, type PortfolioKpis } from "../api/propertyApi";
+import {
+  fetchManagerDashboardSummary,
+  type ManagerDashboardPriorityItem,
+  type PortfolioKpis,
+} from "../api/propertyApi";
 import { clearSession, getSessionSnapshot } from "../auth/session";
 import KpiCard from "../components/KpiCard";
 import { managerEnv } from "../config/env";
@@ -12,6 +25,13 @@ import { borderRadius, colors, fontSizes, spacing } from "../theme/tokens";
 
 type DashboardNavigation = NativeStackNavigationProp<ManagerStackParamList, "ManagerDashboard">;
 
+type DashboardSummaryState = {
+  kpis: PortfolioKpis;
+  priorities: ManagerDashboardPriorityItem[];
+  generatedAt: string;
+  source: "database" | "in_memory";
+};
+
 const emptyKpis: PortfolioKpis = {
   activeProperties: 0,
   reservedProperties: 0,
@@ -19,47 +39,118 @@ const emptyKpis: PortfolioKpis = {
   providerMatchesPending: 0,
 };
 
+const emptySummary: DashboardSummaryState = {
+  kpis: emptyKpis,
+  priorities: [],
+  generatedAt: "",
+  source: "in_memory",
+};
+
+function formatIsoDate(iso: string | null): string {
+  if (!iso) {
+    return "No due date";
+  }
+
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return "No due date";
+  }
+
+  return date.toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function severityLabel(priority: ManagerDashboardPriorityItem): string {
+  if (priority.severity === "high") {
+    return "High";
+  }
+  if (priority.severity === "medium") {
+    return "Medium";
+  }
+  return "Low";
+}
+
+function severityStyle(priority: ManagerDashboardPriorityItem): object {
+  if (priority.severity === "high") {
+    return styles.priorityBadgeHigh;
+  }
+  if (priority.severity === "medium") {
+    return styles.priorityBadgeMedium;
+  }
+  return styles.priorityBadgeLow;
+}
+
 const ManagerDashboardScreen = () => {
   const navigation = useNavigation<DashboardNavigation>();
-  const [kpis, setKpis] = useState<PortfolioKpis>(emptyKpis);
+  const [summary, setSummary] = useState<DashboardSummaryState>(emptySummary);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasLoadedData, setHasLoadedData] = useState(false);
+
   const sessionSnapshot = getSessionSnapshot();
   const roleLabel = sessionSnapshot.role ?? "unknown";
 
-  const loadDashboard = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const payload = await fetchPropertyPortfolio({ page: 1, perPage: 25 });
-      setKpis(payload.kpis);
-    } catch (requestError) {
-      if (requestError instanceof ApiError) {
-        if (requestError.status === 401) {
-          navigation.reset({ index: 0, routes: [{ name: "SessionExpired" }] });
-          return;
-        }
-        if (requestError.status === 403) {
-          navigation.reset({ index: 0, routes: [{ name: "Unauthorized" }] });
-          return;
-        }
+  const loadDashboard = useCallback(
+    async (mode: "initial" | "refresh" = "initial") => {
+      if (mode === "refresh") {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
       }
 
-      const message = requestError instanceof Error ? requestError.message : "Unable to load manager dashboard.";
-      setError(message);
-      setKpis(emptyKpis);
-    } finally {
-      setLoading(false);
-    }
-  }, [navigation]);
+      setError(null);
+
+      try {
+        const payload = await fetchManagerDashboardSummary();
+        setSummary({
+          kpis: payload.kpis,
+          priorities: payload.priorities,
+          generatedAt: payload.meta.generatedAt,
+          source: payload.meta.source,
+        });
+        setHasLoadedData(true);
+      } catch (requestError) {
+        if (requestError instanceof ApiError) {
+          if (requestError.status === 401) {
+            navigation.reset({ index: 0, routes: [{ name: "SessionExpired" }] });
+            return;
+          }
+          if (requestError.status === 403) {
+            navigation.reset({ index: 0, routes: [{ name: "Unauthorized" }] });
+            return;
+          }
+        }
+
+        const message = requestError instanceof Error ? requestError.message : "Unable to load manager dashboard.";
+        setError(message);
+        if (!hasLoadedData) {
+          setSummary(emptySummary);
+        }
+      } finally {
+        if (mode === "refresh") {
+          setRefreshing(false);
+        } else {
+          setLoading(false);
+        }
+      }
+    },
+    [hasLoadedData, navigation]
+  );
 
   useFocusEffect(
     useCallback(() => {
-      loadDashboard();
+      loadDashboard("initial");
       return undefined;
     }, [loadDashboard])
   );
+
+  const onRefresh = useCallback(() => {
+    void loadDashboard("refresh");
+  }, [loadDashboard]);
 
   const onLogout = () => {
     clearSession();
@@ -69,36 +160,54 @@ const ManagerDashboardScreen = () => {
     });
   };
 
+  const showLoading = loading && !hasLoadedData;
+  const showEmptyPriorities = !showLoading && summary.priorities.length === 0;
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.title}>Manager Dashboard</Text>
         <Text style={styles.subtitle}>Track portfolio health and property operations.</Text>
 
-        {loading ? (
+        {showLoading ? (
           <View style={styles.loadingWrap}>
             <ActivityIndicator color={colors.brand} />
-            <Text style={styles.loadingText}>Loading dashboard metrics...</Text>
+            <Text style={styles.loadingText}>Loading dashboard summary...</Text>
           </View>
         ) : null}
 
-        {error ? (
+        {error && !hasLoadedData ? (
           <View style={styles.errorCard}>
             <Text style={styles.errorTitle}>Unable to load dashboard</Text>
             <Text style={styles.errorBody}>{error}</Text>
-            <Pressable style={styles.retryButton} onPress={loadDashboard}>
+            <Pressable style={styles.retryButton} onPress={() => void loadDashboard("initial")}>
               <Text style={styles.retryText}>Retry</Text>
             </Pressable>
           </View>
         ) : null}
 
+        {error && hasLoadedData ? (
+          <View style={styles.degradedCard}>
+            <Text style={styles.degradedTitle}>Showing last available dashboard snapshot</Text>
+            <Text style={styles.degradedBody}>{error}</Text>
+          </View>
+        ) : null}
+
         <View style={styles.kpiGrid}>
-          <KpiCard label="Active Properties" value={String(kpis.activeProperties)} helper="Current portfolio" />
-          <KpiCard label="Reserved" value={String(kpis.reservedProperties)} helper="Current pipeline" />
-          <KpiCard label="Avg. Time to Close" value={`${kpis.avgTimeToCloseDays}d`} helper="Contract metric" />
+          <KpiCard label="Active Properties" value={String(summary.kpis.activeProperties)} helper="Current portfolio" />
+          <KpiCard label="Reserved" value={String(summary.kpis.reservedProperties)} helper="Current pipeline" />
+          <KpiCard
+            label="Avg. Time to Close"
+            value={`${summary.kpis.avgTimeToCloseDays}d`}
+            helper="Contract metric"
+          />
           <KpiCard
             label="Provider Matches"
-            value={String(kpis.providerMatchesPending)}
+            value={String(summary.kpis.providerMatchesPending)}
             helper="Pending operations"
           />
         </View>
@@ -128,14 +237,32 @@ const ManagerDashboardScreen = () => {
             <Text style={styles.diagnosticsItem}>
               Token: {sessionSnapshot.hasToken ? `loaded (${sessionSnapshot.source})` : "missing"}
             </Text>
+            <Text style={styles.diagnosticsItem}>Summary source: {summary.source}</Text>
+            <Text style={styles.diagnosticsItem}>Generated at: {formatIsoDate(summary.generatedAt || null)}</Text>
           </View>
         ) : null}
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Today priorities</Text>
-          <Text style={styles.sectionItem}>- Review newly listed properties</Text>
-          <Text style={styles.sectionItem}>- Confirm provider assignment queue</Text>
-          <Text style={styles.sectionItem}>- Resolve maintenance alerts</Text>
+
+          {showEmptyPriorities ? (
+            <Text style={styles.emptyPriorityText}>No priorities pending. Pull to refresh to confirm latest state.</Text>
+          ) : null}
+
+          {summary.priorities.map((priority) => (
+            <View key={priority.id} style={styles.priorityItem}>
+              <View style={styles.priorityHeader}>
+                <Text style={styles.priorityTitle}>{priority.title}</Text>
+                <View style={[styles.priorityBadgeBase, severityStyle(priority)]}>
+                  <Text style={styles.priorityBadgeText}>{severityLabel(priority)}</Text>
+                </View>
+              </View>
+              <Text style={styles.priorityDescription}>{priority.description}</Text>
+              <Text style={styles.priorityMeta}>
+                Due: {formatIsoDate(priority.dueAt)} | Updated: {formatIsoDate(priority.updatedAt)}
+              </Text>
+            </View>
+          ))}
         </View>
 
         <Pressable style={styles.logoutAction} onPress={onLogout}>
@@ -188,6 +315,24 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   errorBody: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+    marginTop: spacing.xs,
+  },
+  degradedCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.warning,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+  },
+  degradedTitle: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
+  },
+  degradedBody: {
     color: colors.textSecondary,
     fontSize: fontSizes.sm,
     marginTop: spacing.xs,
@@ -268,10 +413,60 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: spacing.sm,
   },
-  sectionItem: {
+  emptyPriorityText: {
     color: colors.textSecondary,
     fontSize: fontSizes.sm,
     lineHeight: 22,
+  },
+  priorityItem: {
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.sm,
+    padding: spacing.md,
+  },
+  priorityHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  priorityTitle: {
+    color: colors.textPrimary,
+    flex: 1,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
+    marginRight: spacing.sm,
+  },
+  priorityDescription: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+    lineHeight: 20,
+    marginTop: spacing.xs,
+  },
+  priorityMeta: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.xs,
+    marginTop: spacing.sm,
+  },
+  priorityBadgeBase: {
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  priorityBadgeHigh: {
+    backgroundColor: colors.danger,
+  },
+  priorityBadgeMedium: {
+    backgroundColor: colors.warning,
+  },
+  priorityBadgeLow: {
+    backgroundColor: colors.border,
+  },
+  priorityBadgeText: {
+    color: colors.surface,
+    fontSize: fontSizes.xs,
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
   logoutAction: {
     alignItems: "center",
@@ -289,4 +484,3 @@ const styles = StyleSheet.create({
 });
 
 export default ManagerDashboardScreen;
-

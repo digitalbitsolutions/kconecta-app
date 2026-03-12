@@ -107,13 +107,17 @@ class PropertyService
         $dataset = $this->loadRows();
         $rows = $dataset["rows"];
         $summary = $this->buildKpis($rows);
+        $priorities = $this->buildDashboardPriorities($rows);
+        $generatedAt = $this->resolveGeneratedAt($priorities);
 
         return [
             "data" => [
                 "kpis" => $summary,
+                "priorities" => $priorities,
             ],
             "meta" => [
-                "contract" => "manager-portfolio-summary-v1",
+                "contract" => "manager-dashboard-summary-v1",
+                "generated_at" => $generatedAt,
                 "source" => $dataset["source"],
             ],
         ];
@@ -143,6 +147,142 @@ class PropertyService
             "avg_time_to_close_days" => $avgCloseDays,
             "provider_matches_pending" => $providerMatchesPending,
         ];
+    }
+
+    /**
+     * Build deterministic manager dashboard priorities feed for native clients.
+     */
+    private function buildDashboardPriorities(array $rows): array
+    {
+        if ($rows === []) {
+            return [];
+        }
+
+        $availableWithoutProvider = 0;
+        $reserved = 0;
+        $maintenance = 0;
+
+        foreach ($rows as $row) {
+            $status = strtolower((string) ($row["status"] ?? ""));
+            $providerId = (int) ($row["provider_id"] ?? 0);
+
+            if ($status === self::STATUS_AVAILABLE && $providerId <= 0) {
+                $availableWithoutProvider++;
+            }
+            if ($status === self::STATUS_RESERVED) {
+                $reserved++;
+            }
+            if ($status === self::STATUS_MAINTENANCE) {
+                $maintenance++;
+            }
+        }
+
+        $priorities = [];
+
+        if ($availableWithoutProvider > 0) {
+            $priorities[] = [
+                "id" => "priority-provider-assignment",
+                "category" => "provider_assignment",
+                "title" => "Provider assignments pending",
+                "description" => "{$availableWithoutProvider} properties need provider assignment",
+                "severity" => "high",
+                "due_at" => $this->buildPriorityTimestamp(180, 0),
+                "updated_at" => $this->buildPriorityTimestamp(120, 0),
+            ];
+        }
+
+        if ($maintenance > 0) {
+            $priorities[] = [
+                "id" => "priority-maintenance-follow-up",
+                "category" => "maintenance_follow_up",
+                "title" => "Maintenance follow-up required",
+                "description" => "{$maintenance} properties are in maintenance state",
+                "severity" => "high",
+                "due_at" => $this->buildPriorityTimestamp(240, 0),
+                "updated_at" => $this->buildPriorityTimestamp(140, 0),
+            ];
+        }
+
+        if ($reserved > 0) {
+            $priorities[] = [
+                "id" => "priority-portfolio-review",
+                "category" => "portfolio_review",
+                "title" => "Reserved pipeline review",
+                "description" => "{$reserved} reserved properties require progress review",
+                "severity" => "medium",
+                "due_at" => $this->buildPriorityTimestamp(360, 0),
+                "updated_at" => $this->buildPriorityTimestamp(100, 0),
+            ];
+        }
+
+        if (count($rows) >= 3) {
+            $priorities[] = [
+                "id" => "priority-quality-alert",
+                "category" => "quality_alert",
+                "title" => "Quality signal check",
+                "description" => "Review tenant and provider quality alerts for active operations",
+                "severity" => "low",
+                "due_at" => null,
+                "updated_at" => $this->buildPriorityTimestamp(80, 0),
+            ];
+        }
+
+        usort(
+            $priorities,
+            function (array $left, array $right): int {
+                $severityOrder = [
+                    "high" => 0,
+                    "medium" => 1,
+                    "low" => 2,
+                ];
+
+                $leftSeverity = $severityOrder[strtolower((string) ($left["severity"] ?? "low"))] ?? 3;
+                $rightSeverity = $severityOrder[strtolower((string) ($right["severity"] ?? "low"))] ?? 3;
+                if ($leftSeverity !== $rightSeverity) {
+                    return $leftSeverity <=> $rightSeverity;
+                }
+
+                $leftDue = $left["due_at"] ?? null;
+                $rightDue = $right["due_at"] ?? null;
+                if ($leftDue !== $rightDue) {
+                    if ($leftDue === null) {
+                        return 1;
+                    }
+                    if ($rightDue === null) {
+                        return -1;
+                    }
+                    return strcmp((string) $leftDue, (string) $rightDue);
+                }
+
+                return strcmp((string) ($right["updated_at"] ?? ""), (string) ($left["updated_at"] ?? ""));
+            }
+        );
+
+        return array_values($priorities);
+    }
+
+    private function resolveGeneratedAt(array $priorities): string
+    {
+        if ($priorities === []) {
+            return $this->buildPriorityTimestamp(60, 0);
+        }
+
+        $latest = (string) ($priorities[0]["updated_at"] ?? "");
+        foreach ($priorities as $priority) {
+            $updatedAt = (string) ($priority["updated_at"] ?? "");
+            if ($updatedAt > $latest) {
+                $latest = $updatedAt;
+            }
+        }
+
+        return $latest !== "" ? $latest : $this->buildPriorityTimestamp(60, 0);
+    }
+
+    private function buildPriorityTimestamp(int $minuteOffset, int $dayOffset): string
+    {
+        $baseTimestamp = strtotime("2026-01-01T08:00:00Z");
+        $offset = max(0, $minuteOffset) * 60 + max(0, $dayOffset) * 86400;
+        return gmdate("Y-m-d\\TH:i:s\\Z", $baseTimestamp + $offset);
     }
 
     public function findPropertyById(int $id): ?array

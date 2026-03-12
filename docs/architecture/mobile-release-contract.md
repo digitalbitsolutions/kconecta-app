@@ -748,7 +748,6 @@ Define the minimum environment and auth contract required for native app release
   - no endpoint removals
   - Wave 24 dashboard summary contract remains unchanged
   - queue endpoint extends manager dashboard parity without breaking prior consumers
-
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):

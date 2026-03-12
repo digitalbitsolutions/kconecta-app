@@ -391,7 +391,6 @@
 - Manager mobile module owns:
   - queue rendering states
   - route actions derived from backend `action` hints
-
 ## Compatibility Rules
 
 - Existing CRM contracts remain valid while native apps are onboarded.
