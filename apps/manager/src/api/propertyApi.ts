@@ -135,6 +135,35 @@ type PropertyAssignmentContextPayload = {
   };
 };
 
+type DashboardSummaryPayload = {
+  data: {
+    kpis: {
+      active_properties: number;
+      reserved_properties: number;
+      avg_time_to_close_days: number;
+      provider_matches_pending: number;
+    };
+    priorities: Array<{
+      id: string;
+      category:
+        | "portfolio_review"
+        | "provider_assignment"
+        | "maintenance_follow_up"
+        | "quality_alert";
+      title: string;
+      description: string;
+      severity: "low" | "medium" | "high";
+      due_at: string | null;
+      updated_at: string;
+    }>;
+  };
+  meta: {
+    contract: string;
+    generated_at: string;
+    source: "database" | "in_memory";
+  };
+};
+
 export type PropertyViewModel = {
   id: string;
   title: string;
@@ -230,6 +259,34 @@ export type PortfolioKpis = {
   reservedProperties: number;
   avgTimeToCloseDays: number;
   providerMatchesPending: number;
+};
+
+export type ManagerPrioritySeverity = "low" | "medium" | "high";
+
+export type ManagerPriorityCategory =
+  | "portfolio_review"
+  | "provider_assignment"
+  | "maintenance_follow_up"
+  | "quality_alert";
+
+export type ManagerDashboardPriorityItem = {
+  id: string;
+  category: ManagerPriorityCategory;
+  title: string;
+  description: string;
+  severity: ManagerPrioritySeverity;
+  dueAt: string | null;
+  updatedAt: string;
+};
+
+export type ManagerDashboardSummary = {
+  kpis: PortfolioKpis;
+  priorities: ManagerDashboardPriorityItem[];
+  meta: {
+    contract: string;
+    generatedAt: string;
+    source: "database" | "in_memory";
+  };
 };
 
 export type PropertyListQuery = {
@@ -344,6 +401,62 @@ function mapKpis(payload: PropertyListPayload): PortfolioKpis {
   };
 }
 
+function mapSummaryKpis(
+  payload: DashboardSummaryPayload["data"]["kpis"]
+): PortfolioKpis {
+  return {
+    activeProperties: payload.active_properties,
+    reservedProperties: payload.reserved_properties,
+    avgTimeToCloseDays: payload.avg_time_to_close_days,
+    providerMatchesPending: payload.provider_matches_pending,
+  };
+}
+
+function sortDashboardPriorities(
+  priorities: ManagerDashboardPriorityItem[]
+): ManagerDashboardPriorityItem[] {
+  const severityRank: Record<ManagerPrioritySeverity, number> = {
+    high: 0,
+    medium: 1,
+    low: 2,
+  };
+
+  return [...priorities].sort((left, right) => {
+    const bySeverity = severityRank[left.severity] - severityRank[right.severity];
+    if (bySeverity !== 0) {
+      return bySeverity;
+    }
+
+    if (left.dueAt !== right.dueAt) {
+      if (left.dueAt === null) {
+        return 1;
+      }
+      if (right.dueAt === null) {
+        return -1;
+      }
+      return left.dueAt.localeCompare(right.dueAt);
+    }
+
+    return right.updatedAt.localeCompare(left.updatedAt);
+  });
+}
+
+function mapDashboardPriorities(
+  priorities: DashboardSummaryPayload["data"]["priorities"]
+): ManagerDashboardPriorityItem[] {
+  const mapped = priorities.map((item) => ({
+    id: item.id,
+    category: item.category,
+    title: item.title,
+    description: item.description,
+    severity: item.severity,
+    dueAt: item.due_at,
+    updatedAt: item.updated_at,
+  }));
+
+  return sortDashboardPriorities(mapped);
+}
+
 function toMessage(payload: PropertyFormErrorPayload, status: number): string {
   if (typeof payload.error?.message === "string" && payload.error.message.trim().length > 0) {
     return payload.error.message;
@@ -377,6 +490,19 @@ export async function fetchPropertyPortfolio(
         managerId: payload.meta.filters.manager_id,
         search: payload.meta.filters.search,
       },
+    },
+  };
+}
+
+export async function fetchManagerDashboardSummary(): Promise<ManagerDashboardSummary> {
+  const payload = await requestJson<DashboardSummaryPayload>("/properties/summary");
+  return {
+    kpis: mapSummaryKpis(payload.data.kpis),
+    priorities: mapDashboardPriorities(payload.data.priorities),
+    meta: {
+      contract: payload.meta.contract,
+      generatedAt: payload.meta.generated_at,
+      source: payload.meta.source,
     },
   };
 }
