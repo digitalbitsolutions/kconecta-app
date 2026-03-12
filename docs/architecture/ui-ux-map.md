@@ -557,3 +557,43 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend summary/priorities payload implementation (`BE-022`).
 3. Manager dashboard/priorities UI wiring (`MOB-021`).
 4. Regression matrix for dashboard summary and priorities parity (`QA-023`).
+
+## Wave 25 Manager Priority Queue State Map
+
+### Dashboard Priority Queue States
+
+- `priority_queue_loading`
+  - Queue request in flight after dashboard shell is ready.
+  - Keep KPI block visible while queue resolves.
+- `priority_queue_ready`
+  - Render ordered queue items with severity and SLA badges.
+- `priority_queue_empty`
+  - Deterministic empty state with CTA to open full portfolio list.
+- `priority_queue_refreshing`
+  - Pull-to-refresh keeps current queue snapshot visible.
+  - Show non-blocking refresh indicator.
+- `priority_queue_error_fallback`
+  - If queue fails and no snapshot exists, render retry state.
+  - If snapshot exists, keep stale snapshot and show non-blocking error banner.
+- `priority_queue_filtering`
+  - Category/severity filter change keeps prior data visible until new payload arrives.
+- `priority_queue_unauthorized`
+  - On `403 ROLE_SCOPE_FORBIDDEN`, route to unauthorized state while session remains active.
+- `priority_queue_session_expired`
+  - On unrecoverable `401`, route to `SessionExpired`.
+
+### Queue Interaction Rules
+
+- Queue item action is deterministic per `action` field:
+  - `open_property` -> navigate `PropertyDetail`
+  - `open_handoff` -> navigate `ManagerToProviderHandoff`
+  - `review_status` -> navigate `PropertyList` with pre-applied status filter
+- Queue ordering displayed in UI must preserve backend order.
+- Refresh action never clears visible queue before new payload response.
+
+### Wave 25 Delivery Sequencing
+
+1. Priority queue contract and state map (`ARCH-021`).
+2. Backend queue endpoint and ordering guarantees (`BE-023`).
+3. Manager dashboard queue wiring (`MOB-022`).
+4. Regression matrix for queue/SLA parity (`QA-024`).
