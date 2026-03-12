@@ -107,19 +107,34 @@ class ExecutorService:
                     )
                 raise
 
-        result = self.aider.apply_patch(
-            worktree=worktree,
-            prompt=prompt,
-            files=files,
-            model=model,
-            agent_name=agent_name,
-        )
-        return ExecutorRunResult.from_command_result(
-            executor="aider",
-            result=result,
-            fallback_from=selection.fallback_from,
-            fallback_reason=selection.reason,
-        )
+        try:
+            result = self.aider.apply_patch(
+                worktree=worktree,
+                prompt=prompt,
+                files=files,
+                model=model,
+                agent_name=agent_name,
+            )
+            return ExecutorRunResult.from_command_result(
+                executor="aider",
+                result=result,
+                fallback_from=selection.fallback_from,
+                fallback_reason=selection.reason,
+            )
+        except Exception as exc:
+            if self._is_openclaw_available():
+                fallback_result = self.openclaw.apply_patch(
+                    worktree=worktree,
+                    prompt=prompt,
+                    files=files,
+                )
+                return ExecutorRunResult.from_command_result(
+                    executor="openclaw",
+                    result=fallback_result,
+                    fallback_from="aider",
+                    fallback_reason=str(exc),
+                )
+            raise
 
     def _select_executor(self) -> ExecutorSelection:
         raw = os.environ.get("AI_EXECUTOR", DEFAULT_EXECUTOR).strip().lower()
@@ -165,13 +180,13 @@ class ExecutorService:
                 "AI_EXECUTOR=aider but Aider is unavailable and no OpenClaw fallback was found."
             )
 
-        if openclaw_ok:
-            return ExecutorSelection(selected="openclaw")
         if aider_ok:
+            return ExecutorSelection(selected="aider")
+        if openclaw_ok:
             return ExecutorSelection(
-                selected="aider",
-                fallback_from="openclaw",
-                reason="OpenClaw CLI not available; fallback to Aider.",
+                selected="openclaw",
+                fallback_from="aider",
+                reason="Aider not available; fallback to OpenClaw.",
             )
         raise RuntimeError("No executor available. Install OpenClaw CLI or Aider.")
 
