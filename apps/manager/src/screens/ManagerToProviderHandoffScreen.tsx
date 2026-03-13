@@ -187,6 +187,17 @@ const ManagerToProviderHandoffScreen = () => {
                       {candidate.rating}
                     </Text>
                     <Pressable
+                      style={styles.secondaryAction}
+                      onPress={() =>
+                        navigation.navigate("ProviderProfile", {
+                          providerId: candidate.id,
+                          providerName: candidate.name,
+                        })
+                      }
+                    >
+                      <Text style={styles.secondaryActionText}>Review profile</Text>
+                    </Pressable>
+                    <Pressable
                       style={[styles.primaryAction, isAssigning && styles.actionDisabled]}
                       disabled={assigningId !== null}
                       onPress={() => assignCandidate(candidate.id)}
