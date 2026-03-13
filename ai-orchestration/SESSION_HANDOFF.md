@@ -1,54 +1,65 @@
-﻿# Session Handoff (2026-03-13)
+# Session Handoff (2026-03-13)
 
 ## Current State
 
 - Repository: `D:\still\kconecta-app`
 - Base branch policy: `main` protected (`PR required`, direct push blocked)
 - Backend runtime policy: Docker-only (`NO XAMPP`)
-- Executor policy:
-  - primary `AI_EXECUTOR=aider`
-  - runtime fallback `aider -> openclaw` available
-  - OpenClaw still considered controlled fallback, not primary
+- Execution policy:
+  - primary executor: `AI_EXECUTOR=aider`
+  - runtime fallback: `aider -> openclaw`
+  - OpenClaw remains controlled fallback, not primary
+- LLM mitigation policy:
+  - Google AG is now the preferred planner/reviewer for long tasks, contract decomposition, and scoped review before executor runs
+  - Ollama remains the local codegen/default fallback provider
 
 ## Progress Snapshot
 
-- Waves 22-25: completed and merged.
-- Wave 26:
-  - `DEV-130` (architect) -> Done
-  - `DEV-131` (backend) -> Done
-  - `DEV-132` (mobile) -> Done, PR draft `#118`
-  - `DEV-133` (qa) -> Done, PR draft `#119`
-  - Epic `DEV-129` -> Done
+- Waves 22-27: completed and merged.
+- Wave 27 merged sequence:
+  - `DEV-135` (architect) -> Done, PR `#123`
+  - `DEV-134` (backend) -> Done, PR `#124`
+  - `DEV-136` (mobile) -> Done, PR `#125`
+  - `DEV-137` (qa) -> Done, PR `#126`
+  - Epic `DEV-138` -> Done
 
 - Open PRs currently relevant:
-  - `#118` `[mobile] DEV-132 MOB-023 - Wire manager queue action completion flow` (draft)
-  - `#119` `[qa] DEV-133 QA-025 - Add Wave 26 queue action regression matrix` (draft)
+  - `#120` `[devops] docs - refresh session context after Wave 26` (draft)
+  - `#121` `[devops] chore - persist docker test policy and wave task artifacts` (draft)
+  - `#122` `[devops] docs - define Wave 27 manager property form tasks` (draft)
 
 ## What Was Executed In This Session
 
-1. Completed mobile queue action flow manually after Aider timeout:
-   - optimistic update
-   - rollback on failure
-   - retry/error per-item state
-   - session fallback routing (401/403)
-2. Pushed `agent/mobile` and opened draft PR `#118`.
-3. Completed QA Wave 26 manually after Aider timeout:
-   - new `Wave26RegressionMatrixTest.php`
-   - updated functional testing strategy for Wave 26
-4. Pushed `agent/qa` and opened draft PR `#119`.
-5. Jira transitions applied:
-   - `DEV-132` -> Done
-   - `DEV-133` -> Done
-   - `DEV-129` -> Done
+1. Cleaned `agent/architect` worktree from stray OpenClaw artifacts.
+2. Fixed `#123` review feedback:
+   - `meta.flow` aligned to `properties_create|properties_update`
+   - conflict code aligned to `PROPERTY_STATE_CONFLICT`
+   - rollout wording clarified so enriched fields stay additive during rollout
+3. Fixed `#124` backend pricing semantics:
+   - derived price no longer falls back to stale legacy `price` during edit recalculation
+   - DB row mapping now prefers explicit sale/rent/garage pricing before legacy scalar fallback
+4. Fixed `#125` mobile property editor behavior:
+   - edit flow no longer silently defaults nullable `propertyType` / `operationMode`
+   - canonical `price` now derives from selected `operationMode`
+5. Fixed `#126` QA readiness gate:
+   - readiness checks contract availability only
+   - validation/message drift now fails the suite instead of being skipped
+6. Resolved all review threads and merged `#123`, `#124`, `#125`, `#126`.
+7. Verified Jira clean after merge: no open Wave 27 issues remained.
 
 ## Known Risks / Blockers
 
-1. Aider still times out on some long QA flows.
-   - Recovery used: kill hung process + manual scoped edit in agent worktree.
+1. Aider can still timeout on long/scoped tasks.
+   - mitigation path:
+     - shorter prompts,
+     - partition by `files_scope`,
+     - adaptive retries/timeouts,
+     - Google AG for plan/review before execution,
+     - manual scoped recovery in agent worktree if needed
 2. OpenClaw fallback can create noisy untracked files (`.openclaw/*` and companion docs).
-   - Recovery used: `git clean -fd` in the affected agent worktree.
+   - recovery: clean only the affected worktree before continuing
 3. Docker QA command can report `No tests found` when filter targets backend repo test set mismatch.
-   - Must verify target backend path and test namespace before trusting filtered output.
+   - verify backend path and test namespace before trusting filtered output
 
 ## Guardrails (Do Not Break)
 
@@ -57,7 +68,7 @@
 - Keep `NO XAMPP` policy.
 - Use Docker for backend checks/tests.
 - Never run `php artisan test` directly on host.
-- Required test command: `py ai-orchestration/orchestrator.py backend-test-docker`.
+- Required backend test command: `py ai-orchestration/orchestrator.py backend-test-docker`.
 
 ## Resume Commands
 
@@ -69,11 +80,12 @@ $env:GIT_CONFIG_VALUE_0='*'
 $env:AI_EXECUTOR='aider'
 py ai-orchestration/orchestrator.py preflight
 gh pr list --state open --limit 20
+py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
 ```
 
 ## Next Natural Actions
 
-1. Move `#118` and `#119` from draft to ready.
-2. Approve and merge both PRs to `main`.
-3. Reconfirm Jira board reflects Wave 26 closed state.
-4. Open Wave 27 (epic + architect/backend/mobile/qa), set architect ticket to `In Progress`.
+1. Define Wave 28 (epic + architect/backend/mobile/qa).
+2. Use Google AG to decompose the next manager parity increment before execution.
+3. Keep `AI_EXECUTOR=aider` as primary executor and `openclaw` as controlled fallback only.
+4. Reconfirm Jira board shows the new wave in `To Do` / `In Progress` before starting execution.

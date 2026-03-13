@@ -1,39 +1,43 @@
-﻿# TODO Prioritario - Cierre Wave 26 / Apertura Wave 27
+# TODO Prioritario - Apertura Wave 28
 
 Fecha: 2026-03-13  
 Repo objetivo: `D:\still\kconecta-app`
 
 ## Estado actual
 
-- Wave 26: funcionalmente cerrada en Jira (`DEV-129..133` en Done).
-- PRs abiertos (draft):
-  - `#118` mobile (`DEV-132`)
-  - `#119` qa (`DEV-133`)
+- Wave 27: cerrada y mergeada (`DEV-134..138` en Done).
+- Jira open issues: `0`.
+- PRs abiertos solo de contexto/devops:
+  - `#120`
+  - `#121`
+  - `#122`
 
 ## P0 (inmediato)
 
-- [ ] Pasar `#118` y `#119` a ready for review.
-- [ ] Aprobar/mergear `#118`.
-- [ ] Aprobar/mergear `#119`.
-- [ ] Verificar board Jira post-merge (sin items Wave 26 en `In Progress`).
+- [ ] Definir Wave 28 (epic + architect/backend/mobile/qa).
+- [ ] Usar Google AG para descomponer la siguiente brecha de parity del manager app antes de ejecutar.
+- [ ] Crear task files de la nueva wave y abrir tickets Jira.
+- [ ] Iniciar sprint para que el board vuelva a mostrar `To Do` / `In Progress`.
 
-## P1 (siguiente ola)
+## P1 (ejecución siguiente)
 
-- [ ] Abrir Wave 27 (epic + architect/backend/mobile/qa).
-- [ ] Pasar ticket architect de Wave 27 a `In Progress`.
-- [ ] Ejecutar flujo architect -> backend -> mobile -> qa con PR draft por cada ticket.
+- [ ] Ejecutar architect de Wave 28.
+- [ ] Abrir PR draft del architect ticket.
+- [ ] Ejecutar backend -> mobile -> qa con PR draft por cada ticket.
 
 ## Bloqueos y mitigaciones
 
-- [ ] Aider timeout en tareas largas.
+- [ ] Aider puede seguir haciendo timeout en tareas largas.
   - Mitigación vigente:
     - prompts más cortos,
     - partición automática por scope,
     - retries/timeout adaptativo,
+    - Google AG para planning/review/contract reasoning,
     - recuperación manual por worktree si vuelve a colgarse.
-- [ ] OpenClaw fallback puede dejar archivos basura no trackeados.
+- [ ] OpenClaw fallback sigue bajo observación.
   - Mitigación:
-    - limpiar worktree afectado con `git clean -fd` antes de continuar.
+    - usarlo solo como fallback controlado,
+    - limpiar artefactos locales del worktree afectado si aparecen.
 
 ## Restricciones activas
 
@@ -54,4 +58,5 @@ $env:GIT_CONFIG_VALUE_0='*'
 $env:AI_EXECUTOR='aider'
 py ai-orchestration/orchestrator.py preflight
 gh pr list --state open --limit 20
+py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
 ```
