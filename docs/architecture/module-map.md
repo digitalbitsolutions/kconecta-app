@@ -466,6 +466,38 @@
   - grouped field presentation
   - client-side pre-validation and deterministic error rendering
 - CRM web parity remains source reference for field taxonomy, but native manager app consumes only the public API contract.
+
+## Wave 28 Manager Auth/Session UX Boundary
+
+### Auth Session Presentation Layer
+
+- Responsibilities:
+  - expose deterministic success metadata for manager login, refresh, and me flows
+  - keep auth-session-v1 envelope parity across success and failure paths
+  - separate debug/bootstrap helpers from production-shaped session bootstrap behavior
+- Main contracts:
+  - `POST /api/auth/login`
+  - `POST /api/auth/refresh`
+  - `GET /api/auth/me`
+- Success metadata baseline:
+  - `data.role`
+  - `data.scope[]`
+  - `data.subject`
+  - `data.email`
+  - `data.display_name` (additive)
+  - `meta.flow`
+  - `meta.reason`
+
+### Manager Login Session Shell Boundary
+
+- Responsibilities:
+  - start manager auth flow from blank credentials by default
+  - resolve persisted sessions through `auth/me` before mounting protected manager screens
+  - collapse invalid/expired/forbidden outcomes into deterministic `Login`, `SessionExpired`, or `Unauthorized` routes
+- Ownership notes:
+  - Auth Session module owns token lifecycle and success/error contract metadata
+  - Manager mobile module owns login form state, session restore UX, and recovery navigation
+  - Debug env bootstrap values remain opt-in local tooling, not a required runtime dependency
 ## Compatibility Rules
 
 - Existing CRM contracts remain valid while native apps are onboarded.

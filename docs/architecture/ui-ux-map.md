@@ -719,3 +719,55 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend enriched property create/edit payload implementation (`BE-023`).
 3. Manager property create/edit UI parity wiring (`MOB-024`).
 4. Regression matrix for enriched property form parity (`QA-026`).
+
+## Wave 28 Manager Auth/Session UX State Map
+
+### Login Screen States
+
+- `manager_login_idle`
+  - Email/password fields empty by default.
+  - Explicit local bootstrap values may prefill only when configured intentionally.
+- `manager_login_validation_error`
+  - Missing/invalid input is rejected before shell transition.
+  - Field-level copy stays attached to `email`/`password`.
+- `manager_login_submitting`
+  - Disable duplicate submit and keep current screen context.
+- `manager_login_invalid_credentials`
+  - API returned `401 INVALID_CREDENTIALS`.
+  - Preserve email field and prompt retry.
+- `manager_login_transport_error`
+  - Network/system failure with retryable copy.
+- `manager_login_success`
+  - Persist session tokens and transition into session restore validation.
+
+### Session Restore and Guard States
+
+- `manager_session_restore_pending`
+  - Persisted token exists; app calls `GET /api/auth/me`.
+- `manager_session_refresh_pending`
+  - First `401 TOKEN_EXPIRED` triggers one refresh path.
+- `manager_session_ready`
+  - Session resolved with manager/admin role; route to dashboard shell.
+- `manager_session_unauthorized`
+  - `403 ROLE_SCOPE_FORBIDDEN`; route to `Unauthorized`.
+- `manager_session_expired`
+  - Unrecoverable auth failure; route to `SessionExpired`.
+
+### Recovery Rules
+
+- `Unauthorized`
+  - Keep deterministic recovery CTA back to `Login`.
+  - Never leave stale protected screens mounted.
+- `SessionExpired`
+  - Hard-clears session snapshot.
+  - Primary CTA returns to `Login`.
+- Diagnostics visibility:
+  - local/staging may show stage + API context
+  - production login surface must not depend on diagnostic banners to complete auth flow
+
+### Wave 28 Delivery Sequencing
+
+1. Auth/session UX hardening contract (`ARCH-022`).
+2. Backend auth success metadata hardening (`BE-024`).
+3. Manager login/session UX hardening (`MOB-025`).
+4. Regression matrix for manager auth/session UX (`QA-027`).
