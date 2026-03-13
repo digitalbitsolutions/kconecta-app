@@ -1,0 +1,22 @@
+{
+  "id": "EPIC-W23",
+  "title": "Wave 23 - Manager property detail and timeline parity",
+  "description": "Extend manager parity with deterministic property detail timeline data so managers can understand assignment history and status transitions directly from the native app.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/wave23-manager-property-detail-timeline-parity-plan.md",
+    "ai-orchestration/tasks/"
+  ],
+  "acceptance_criteria": [
+    "Wave plan defines architect/backend/mobile/qa sequencing and release gates",
+    "Execution plan preserves Docker-only backend policy and AI executor policy",
+    "Execution plan includes PR/Jira traceability and merge gating"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave23",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript"
+  }
+}

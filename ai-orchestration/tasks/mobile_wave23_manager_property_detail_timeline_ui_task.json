@@ -1,0 +1,23 @@
+{
+  "id": "MOB-020",
+  "title": "Wire manager property detail and handoff screens to timeline API data",
+  "description": "Integrate manager property detail and handoff views with backend timeline payload so assignment history and state transitions are visible in native UI.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/screens/PropertyDetailScreen.tsx",
+    "apps/manager/src/screens/ManagerToProviderHandoffScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Property detail renders timeline events with deterministic timestamp/actor labels",
+    "Timeline supports empty state and refresh while preserving existing auth fallback behavior",
+    "Handoff screen reflects latest assignment event after successful provider assignment"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave23",
+    "executor_model": "ollama_chat/deepseek-coder:6.7b",
+    "stack": "react-native-with-typescript"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "BE-022",
+  "title": "Implement manager dashboard summary and priorities backend contract",
+  "description": "Extend manager summary endpoint to expose deterministic KPI + priorities feed required by native dashboard and preserve manager role/auth envelope behavior.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "routes/api.php",
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "Summary endpoint returns KPI block and priorities array with deterministic fields",
+    "Provider role and invalid token requests keep stable auth-session-v1 guardrail envelopes",
+    "Property API tests cover summary payload, priorities ordering, and auth/role guardrails"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave24",
+    "stack": "laravel-api",
+    "suite": "backend",
+    "domain": "manager-dashboard"
+  }
+}

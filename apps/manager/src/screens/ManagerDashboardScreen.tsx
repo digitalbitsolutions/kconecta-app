@@ -13,8 +13,11 @@ import {
 } from "react-native";
 import { ApiError } from "../api/client";
 import {
+  completeManagerPriorityQueueItem,
   fetchManagerDashboardSummary,
-  type ManagerDashboardPriorityItem,
+  fetchManagerPriorityQueue,
+  setManagerPortfolioLaunchContext,
+  type ManagerPriorityQueueItem,
   type PortfolioKpis,
 } from "../api/propertyApi";
 import { clearSession, getSessionSnapshot } from "../auth/session";
@@ -27,9 +30,13 @@ type DashboardNavigation = NativeStackNavigationProp<ManagerStackParamList, "Man
 
 type DashboardSummaryState = {
   kpis: PortfolioKpis;
-  priorities: ManagerDashboardPriorityItem[];
   generatedAt: string;
   source: "database" | "in_memory";
+};
+
+type QueueActionState = {
+  mode: "idle" | "pending" | "success" | "error";
+  message?: string;
 };
 
 const emptyKpis: PortfolioKpis = {
@@ -41,7 +48,6 @@ const emptyKpis: PortfolioKpis = {
 
 const emptySummary: DashboardSummaryState = {
   kpis: emptyKpis,
-  priorities: [],
   generatedAt: "",
   source: "in_memory",
 };
@@ -63,7 +69,7 @@ function formatIsoDate(iso: string | null): string {
   });
 }
 
-function severityLabel(priority: ManagerDashboardPriorityItem): string {
+function severityLabel(priority: ManagerPriorityQueueItem): string {
   if (priority.severity === "high") {
     return "High";
   }
@@ -73,7 +79,7 @@ function severityLabel(priority: ManagerDashboardPriorityItem): string {
   return "Low";
 }
 
-function severityStyle(priority: ManagerDashboardPriorityItem): object {
+function severityStyle(priority: ManagerPriorityQueueItem): object {
   if (priority.severity === "high") {
     return styles.priorityBadgeHigh;
   }
@@ -83,13 +89,41 @@ function severityStyle(priority: ManagerDashboardPriorityItem): object {
   return styles.priorityBadgeLow;
 }
 
+function queueTitle(item: ManagerPriorityQueueItem): string {
+  if (item.category === "provider_assignment") {
+    return "Provider assignment pending";
+  }
+  if (item.category === "maintenance_follow_up") {
+    return "Maintenance follow-up required";
+  }
+  if (item.category === "portfolio_review") {
+    return "Reserved pipeline review";
+  }
+  return "Quality signal check";
+}
+
+function queueActionLabel(item: ManagerPriorityQueueItem, state: QueueActionState | undefined): string {
+  if (item.completed) {
+    return "Completed";
+  }
+  if (state?.mode === "pending") {
+    return "Completing...";
+  }
+  if (state?.mode === "error") {
+    return "Retry completion";
+  }
+  return "Complete queue action";
+}
+
 const ManagerDashboardScreen = () => {
   const navigation = useNavigation<DashboardNavigation>();
   const [summary, setSummary] = useState<DashboardSummaryState>(emptySummary);
+  const [priorityQueue, setPriorityQueue] = useState<ManagerPriorityQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasLoadedData, setHasLoadedData] = useState(false);
+  const [queueActionState, setQueueActionState] = useState<Record<string, QueueActionState>>({});
 
   const sessionSnapshot = getSessionSnapshot();
   const roleLabel = sessionSnapshot.role ?? "unknown";
@@ -105,13 +139,17 @@ const ManagerDashboardScreen = () => {
       setError(null);
 
       try {
-        const payload = await fetchManagerDashboardSummary();
+        const [summaryPayload, queuePayload] = await Promise.all([
+          fetchManagerDashboardSummary(),
+          fetchManagerPriorityQueue({ limit: 15 }),
+        ]);
         setSummary({
-          kpis: payload.kpis,
-          priorities: payload.priorities,
-          generatedAt: payload.meta.generatedAt,
-          source: payload.meta.source,
+          kpis: summaryPayload.kpis,
+          generatedAt: summaryPayload.meta.generatedAt,
+          source: summaryPayload.meta.source,
         });
+        setPriorityQueue(queuePayload.items);
+        setQueueActionState({});
         setHasLoadedData(true);
       } catch (requestError) {
         if (requestError instanceof ApiError) {
@@ -129,6 +167,7 @@ const ManagerDashboardScreen = () => {
         setError(message);
         if (!hasLoadedData) {
           setSummary(emptySummary);
+          setPriorityQueue([]);
         }
       } finally {
         if (mode === "refresh") {
@@ -160,8 +199,86 @@ const ManagerDashboardScreen = () => {
     });
   };
 
+  const openQueueInPortfolio = useCallback(
+    (item: ManagerPriorityQueueItem) => {
+      setManagerPortfolioLaunchContext({
+        status: item.status,
+        search: item.propertyTitle,
+        city: item.city,
+      });
+      navigation.navigate("PropertyList");
+    },
+    [navigation]
+  );
+
+  const onCompleteQueueItem = useCallback(
+    async (item: ManagerPriorityQueueItem) => {
+      if (item.completed) {
+        return;
+      }
+
+      const nowIso = new Date().toISOString();
+      const optimisticItem: ManagerPriorityQueueItem = {
+        ...item,
+        completed: true,
+        completedAt: nowIso,
+        resolutionCode: "resolved",
+        updatedAt: nowIso,
+        action: "open_property",
+      };
+
+      setQueueActionState((previous) => ({
+        ...previous,
+        [item.id]: { mode: "pending" },
+      }));
+      setPriorityQueue((previous) =>
+        previous.map((queueItem) => (queueItem.id === item.id ? optimisticItem : queueItem))
+      );
+
+      try {
+        const committedItem = await completeManagerPriorityQueueItem(item.id, {
+          resolutionCode: "resolved",
+        });
+        setPriorityQueue((previous) =>
+          previous.map((queueItem) => (queueItem.id === item.id ? committedItem : queueItem))
+        );
+        setQueueActionState((previous) => ({
+          ...previous,
+          [item.id]: { mode: "success", message: "Queue item completed." },
+        }));
+      } catch (actionError) {
+        setPriorityQueue((previous) =>
+          previous.map((queueItem) => (queueItem.id === item.id ? item : queueItem))
+        );
+
+        if (actionError instanceof ApiError) {
+          if (actionError.status === 401) {
+            navigation.reset({ index: 0, routes: [{ name: "SessionExpired" }] });
+            return;
+          }
+          if (actionError.status === 403) {
+            navigation.reset({ index: 0, routes: [{ name: "Unauthorized" }] });
+            return;
+          }
+        }
+
+        const message =
+          actionError instanceof ApiError && actionError.status === 409
+            ? `Conflict: ${actionError.message}`
+            : actionError instanceof Error
+              ? actionError.message
+              : "Unable to complete queue action.";
+        setQueueActionState((previous) => ({
+          ...previous,
+          [item.id]: { mode: "error", message },
+        }));
+      }
+    },
+    [navigation]
+  );
+
   const showLoading = loading && !hasLoadedData;
-  const showEmptyPriorities = !showLoading && summary.priorities.length === 0;
+  const showEmptyQueue = !showLoading && priorityQueue.length === 0;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -243,24 +360,65 @@ const ManagerDashboardScreen = () => {
         ) : null}
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Today priorities</Text>
+          <Text style={styles.sectionTitle}>Priority queue</Text>
 
-          {showEmptyPriorities ? (
-            <Text style={styles.emptyPriorityText}>No priorities pending. Pull to refresh to confirm latest state.</Text>
+          {showEmptyQueue ? (
+            <Text style={styles.emptyPriorityText}>No priority queue items. Pull to refresh to confirm latest state.</Text>
           ) : null}
 
-          {summary.priorities.map((priority) => (
-            <View key={priority.id} style={styles.priorityItem}>
+          {priorityQueue.map((priority) => (
+            <View
+              key={priority.id}
+              style={[styles.priorityItem, priority.completed && styles.priorityItemCompleted]}
+            >
               <View style={styles.priorityHeader}>
-                <Text style={styles.priorityTitle}>{priority.title}</Text>
+                <Text style={styles.priorityTitle}>{queueTitle(priority)}</Text>
                 <View style={[styles.priorityBadgeBase, severityStyle(priority)]}>
                   <Text style={styles.priorityBadgeText}>{severityLabel(priority)}</Text>
                 </View>
               </View>
-              <Text style={styles.priorityDescription}>{priority.description}</Text>
-              <Text style={styles.priorityMeta}>
-                Due: {formatIsoDate(priority.dueAt)} | Updated: {formatIsoDate(priority.updatedAt)}
+              <Text style={styles.priorityDescription}>
+                {priority.propertyTitle} | {priority.city} | {priority.category}
               </Text>
+              <Text style={styles.priorityMeta}>
+                SLA: {priority.slaState} | Due: {formatIsoDate(priority.slaDueAt)} | Updated: {formatIsoDate(priority.updatedAt)}
+              </Text>
+
+              <Pressable style={styles.priorityActionButton} onPress={() => openQueueInPortfolio(priority)}>
+                <Text style={styles.priorityActionText}>Open in portfolio</Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.priorityCompletionButton,
+                  priority.completed && styles.priorityCompletionButtonDone,
+                  queueActionState[priority.id]?.mode === "pending" && styles.actionDisabled,
+                ]}
+                disabled={priority.completed || queueActionState[priority.id]?.mode === "pending"}
+                onPress={() => void onCompleteQueueItem(priority)}
+              >
+                <Text style={styles.priorityCompletionText}>
+                  {queueActionLabel(priority, queueActionState[priority.id])}
+                </Text>
+              </Pressable>
+
+              {priority.completedAt ? (
+                <Text style={styles.priorityCompletionMeta}>
+                  Completed: {formatIsoDate(priority.completedAt)}{priority.resolutionCode ? ` | ${priority.resolutionCode}` : ""}
+                </Text>
+              ) : null}
+
+              {queueActionState[priority.id]?.message ? (
+                <Text
+                  style={
+                    queueActionState[priority.id]?.mode === "error"
+                      ? styles.priorityActionError
+                      : styles.priorityActionSuccess
+                  }
+                >
+                  {queueActionState[priority.id]?.message}
+                </Text>
+              ) : null}
             </View>
           ))}
         </View>
@@ -425,6 +583,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     padding: spacing.md,
   },
+  priorityItemCompleted: {
+    backgroundColor: colors.background,
+    borderColor: colors.accent,
+  },
   priorityHeader: {
     alignItems: "center",
     flexDirection: "row",
@@ -467,6 +629,55 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
     fontWeight: "700",
     textTransform: "uppercase",
+  },
+  priorityActionButton: {
+    alignItems: "center",
+    backgroundColor: colors.brand,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  priorityActionText: {
+    color: colors.surface,
+    fontSize: fontSizes.xs,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  priorityCompletionButton: {
+    alignItems: "center",
+    borderColor: colors.accent,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  priorityCompletionButtonDone: {
+    backgroundColor: colors.border,
+    borderColor: colors.border,
+  },
+  priorityCompletionText: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.xs,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  priorityCompletionMeta: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.xs,
+    marginTop: spacing.sm,
+  },
+  priorityActionSuccess: {
+    color: colors.accent,
+    fontSize: fontSizes.xs,
+    marginTop: spacing.xs,
+  },
+  priorityActionError: {
+    color: colors.danger,
+    fontSize: fontSizes.xs,
+    marginTop: spacing.xs,
+  },
+  actionDisabled: {
+    opacity: 0.6,
   },
   logoutAction: {
     alignItems: "center",

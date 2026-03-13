@@ -1,0 +1,24 @@
+{
+  "id": "ARCH-020",
+  "title": "Define Wave 24 manager dashboard summary and priorities contract",
+  "description": "Extend architecture docs with manager dashboard summary payload contract, deterministic priorities feed schema, and UI state transitions for loading, empty, degraded, and refresh flows.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Contract defines /properties/summary payload including KPI block and priorities list shape",
+    "Contract defines deterministic priorities taxonomy and timestamp semantics",
+    "UI state map defines dashboard load, refresh, empty priorities, and fallback error transitions"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave24",
+    "stack": "react-native-with-typescript",
+    "suite": "architecture",
+    "domain": "manager-dashboard"
+  }
+}

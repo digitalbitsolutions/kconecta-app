@@ -12,7 +12,12 @@ import {
   View,
 } from "react-native";
 import { ApiError } from "../api/client";
-import { fetchPropertyPortfolio, type PropertyStatus, type PropertyViewModel } from "../api/propertyApi";
+import {
+  consumeManagerPortfolioLaunchContext,
+  fetchPropertyPortfolio,
+  type PropertyStatus,
+  type PropertyViewModel,
+} from "../api/propertyApi";
 import PropertyListItem from "../components/PropertyListItem";
 import type { ManagerStackParamList } from "../navigation";
 import { borderRadius, colors, fontSizes, spacing } from "../theme/tokens";
@@ -68,12 +73,24 @@ const PropertyListScreen = () => {
   );
 
   const fetchPage = useCallback(
-    async (nextPage: number, append: boolean): Promise<void> => {
+    async (
+      nextPage: number,
+      append: boolean,
+      override?: {
+        status: StatusFilter;
+        city: string;
+        search: string;
+      }
+    ): Promise<void> => {
+      const effectiveStatus = override ? override.status : statusFilter;
+      const effectiveCity = (override ? override.city : normalizedCity).trim();
+      const effectiveSearch = (override ? override.search : normalizedSearch).trim();
+
       try {
         const payload = await fetchPropertyPortfolio({
-          status: statusFilter === "all" ? undefined : statusFilter,
-          city: normalizedCity || undefined,
-          search: normalizedSearch || undefined,
+          status: effectiveStatus === "all" ? undefined : effectiveStatus,
+          city: effectiveCity || undefined,
+          search: effectiveSearch || undefined,
           page: nextPage,
           perPage: PAGE_SIZE,
         });
@@ -139,9 +156,27 @@ const PropertyListScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
+      const launchContext = consumeManagerPortfolioLaunchContext();
+      if (launchContext) {
+        const nextStatus: StatusFilter = launchContext.status ?? "all";
+        const nextCity = launchContext.city ?? "";
+        const nextSearch = launchContext.search ?? "";
+        setStatusFilter(nextStatus);
+        setCity(nextCity);
+        setSearch(nextSearch);
+        setLoading(true);
+        setError(null);
+        void fetchPage(1, false, {
+          status: nextStatus,
+          city: nextCity,
+          search: nextSearch,
+        }).finally(() => setLoading(false));
+        return undefined;
+      }
+
       void loadFirstPage();
       return undefined;
-    }, [loadFirstPage])
+    }, [fetchPage, loadFirstPage])
   );
 
   return (

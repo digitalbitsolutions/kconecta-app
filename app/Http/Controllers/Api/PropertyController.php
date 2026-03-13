@@ -113,6 +113,126 @@ class PropertyController extends Controller
         return response()->json($payload, 200);
     }
 
+    public function priorityQueue(Request $request): JsonResponse
+    {
+        if (!$this->apiAccessService->isAuthorized($request)) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_TOKEN_INVALID,
+                    "Unauthorized",
+                    "properties_priority_queue",
+                    "token_invalid",
+                    false
+                ),
+                401
+            );
+        }
+
+        if (!$this->hasAllowedRole($request, ["manager", "admin"])) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_ROLE_SCOPE_FORBIDDEN,
+                    "Forbidden",
+                    "properties_priority_queue",
+                    "role_scope_forbidden",
+                    false
+                ),
+                403
+            );
+        }
+
+        $validated = $request->validate([
+            "category" => [
+                "nullable",
+                "string",
+                "in:" . implode(",", [
+                    "provider_assignment",
+                    "maintenance_follow_up",
+                    "portfolio_review",
+                    "quality_alert",
+                ]),
+            ],
+            "severity" => [
+                "nullable",
+                "string",
+                "in:high,medium,low",
+            ],
+            "limit" => ["nullable", "integer", "min:1", "max:100"],
+        ]);
+
+        $payload = $this->propertyService->priorityQueue([
+            "category" => $validated["category"] ?? null,
+            "severity" => $validated["severity"] ?? null,
+            "limit" => $validated["limit"] ?? null,
+        ]);
+
+        return response()->json($payload, 200);
+    }
+
+    public function priorityQueueComplete(Request $request, string $queueItemId): JsonResponse
+    {
+        if (!$this->apiAccessService->isAuthorized($request)) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_TOKEN_INVALID,
+                    "Unauthorized",
+                    "properties_priority_queue_complete",
+                    "token_invalid",
+                    false
+                ),
+                401
+            );
+        }
+
+        if (!$this->hasAllowedRole($request, ["manager", "admin"])) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_ROLE_SCOPE_FORBIDDEN,
+                    "Forbidden",
+                    "properties_priority_queue_complete",
+                    "role_scope_forbidden",
+                    false
+                ),
+                403
+            );
+        }
+
+        $validator = Validator::make(
+            $request->all(),
+            [
+                "resolution_code" => ["sometimes", "string", "in:assigned,deferred,resolved,dismissed"],
+                "note" => ["sometimes", "string", "max:300"],
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => "VALIDATION_ERROR",
+                        "message" => "Validation failed",
+                        "fields" => $validator->errors()->toArray(),
+                    ],
+                    "meta" => [
+                        "contract" => "manager-priority-queue-action-v1",
+                        "flow" => "properties_priority_queue_complete",
+                        "reason" => "validation_error",
+                        "retryable" => true,
+                    ],
+                ],
+                422
+            );
+        }
+
+        $result = $this->propertyService->completePriorityQueueItem(
+            $queueItemId,
+            $validator->validated(),
+            $this->resolveManagerId($request)
+        );
+
+        return $this->queueActionResponse("properties_priority_queue_complete", $result);
+    }
+
     public function show(Request $request, int $id): JsonResponse
     {
         if (!$this->apiAccessService->isAuthorized($request)) {
@@ -742,6 +862,62 @@ class PropertyController extends Controller
                 ],
             ],
             (int) ($result["status"] ?? 409)
+        );
+    }
+
+    private function queueActionResponse(string $flow, array $result): JsonResponse
+    {
+        if (($result["ok"] ?? false) === true) {
+            return response()->json(
+                [
+                    "data" => [
+                        "item" => $result["data"],
+                    ],
+                    "meta" => [
+                        "contract" => "manager-priority-queue-action-v1",
+                        "flow" => $flow,
+                        "reason" => $result["reason"] ?? "queue_item_completed",
+                    ],
+                ],
+                200
+            );
+        }
+
+        $status = (int) ($result["status"] ?? 409);
+        if ($status === 404) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => $result["code"] ?? "QUEUE_ITEM_NOT_FOUND",
+                        "message" => $result["message"] ?? "Queue item not found",
+                    ],
+                    "meta" => [
+                        "contract" => "manager-priority-queue-action-v1",
+                        "flow" => $flow,
+                        "reason" => $result["reason"] ?? "queue_item_not_found",
+                        "retryable" => (bool) ($result["retryable"] ?? false),
+                    ],
+                    "queue_item_id" => $result["queue_item_id"] ?? null,
+                ],
+                404
+            );
+        }
+
+        return response()->json(
+            [
+                "error" => [
+                    "code" => $result["code"] ?? "QUEUE_ACTION_CONFLICT",
+                    "message" => $result["message"] ?? "Queue action conflict",
+                ],
+                "meta" => [
+                    "contract" => "manager-priority-queue-action-v1",
+                    "flow" => $flow,
+                    "reason" => $result["reason"] ?? "queue_conflict",
+                    "retryable" => (bool) ($result["retryable"] ?? true),
+                ],
+                "queue_item_id" => $result["queue_item_id"] ?? null,
+            ],
+            $status
         );
     }
 }

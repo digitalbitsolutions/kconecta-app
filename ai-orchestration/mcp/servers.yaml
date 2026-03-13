@@ -3,6 +3,8 @@ policy:
   disallow:
     - xampp
     - host_php
+    - host_php_artisan_test
+  mandatory_backend_test_command: "py ai-orchestration/orchestrator.py backend-test-docker"
 
 servers:
   git:

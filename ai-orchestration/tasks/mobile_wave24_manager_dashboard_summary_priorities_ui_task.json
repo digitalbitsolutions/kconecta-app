@@ -1,0 +1,24 @@
+{
+  "id": "MOB-021",
+  "title": "Wire manager dashboard to summary and priorities API data",
+  "description": "Integrate manager dashboard screen with summary endpoint KPI and priorities feed, including deterministic loading/empty/error states and pull-to-refresh behavior.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/screens/ManagerDashboardScreen.tsx",
+    "apps/manager/src/navigation/index.tsx"
+  ],
+  "acceptance_criteria": [
+    "Dashboard uses summary API contract for KPI cards and priorities list",
+    "Dashboard supports refresh with deterministic loading and degraded-state UX",
+    "Auth fallback behavior remains stable for 401 session-expired and 403 unauthorized routes"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave24",
+    "stack": "react-native-with-typescript",
+    "suite": "mobile",
+    "domain": "manager-dashboard"
+  }
+}

@@ -20,6 +20,7 @@ class PropertyService
     private const MAX_DB_ROWS = 500;
     private static array $runtimeOverrides = [];
     private static array $runtimeCreated = [];
+    private static array $runtimeQueueCompletions = [];
 
     /**
      * Returns property list payload with DB-first retrieval.
@@ -121,6 +122,299 @@ class PropertyService
                 "source" => $dataset["source"],
             ],
         ];
+    }
+
+    public function priorityQueue(array $filters = []): array
+    {
+        $dataset = $this->loadRows();
+        $items = $this->buildPriorityQueueItems($dataset["rows"]);
+
+        $filtered = array_values(
+            array_filter(
+                $items,
+                static function (array $item) use ($filters): bool {
+                    if (
+                        !empty($filters["category"]) &&
+                        strcasecmp((string) ($item["category"] ?? ""), (string) $filters["category"]) !== 0
+                    ) {
+                        return false;
+                    }
+                    if (
+                        !empty($filters["severity"]) &&
+                        strcasecmp((string) ($item["severity"] ?? ""), (string) $filters["severity"]) !== 0
+                    ) {
+                        return false;
+                    }
+
+                    return true;
+                }
+            )
+        );
+
+        $limit = null;
+        if (isset($filters["limit"]) && $filters["limit"] !== null) {
+            $limit = max(1, min(100, (int) $filters["limit"]));
+            $filtered = array_slice($filtered, 0, $limit);
+        }
+
+        return [
+            "data" => [
+                "items" => array_values($filtered),
+            ],
+            "meta" => [
+                "contract" => "manager-priority-queue-v1",
+                "generated_at" => $this->resolveGeneratedAt($filtered),
+                "source" => $dataset["source"],
+                "filters" => [
+                    "category" => $filters["category"] ?? null,
+                    "severity" => $filters["severity"] ?? null,
+                    "limit" => $limit,
+                ],
+                "count" => count($filtered),
+            ],
+        ];
+    }
+
+    public function completePriorityQueueItem(
+        string $queueItemId,
+        array $payload = [],
+        ?string $managerId = null
+    ): array {
+        $normalizedQueueItemId = trim($queueItemId);
+        if ($normalizedQueueItemId === "") {
+            return [
+                "ok" => false,
+                "status" => 404,
+                "reason" => "queue_item_not_found",
+                "code" => "QUEUE_ITEM_NOT_FOUND",
+                "message" => "Queue item not found",
+                "queue_item_id" => $queueItemId,
+                "retryable" => false,
+            ];
+        }
+
+        $dataset = $this->loadRows();
+        $items = $this->buildPriorityQueueItems($dataset["rows"]);
+
+        $target = null;
+        foreach ($items as $item) {
+            if ((string) ($item["id"] ?? "") === $normalizedQueueItemId) {
+                $target = $item;
+                break;
+            }
+        }
+
+        if ($target === null) {
+            return [
+                "ok" => false,
+                "status" => 404,
+                "reason" => "queue_item_not_found",
+                "code" => "QUEUE_ITEM_NOT_FOUND",
+                "message" => "Queue item not found",
+                "queue_item_id" => $normalizedQueueItemId,
+                "retryable" => false,
+            ];
+        }
+
+        if ((bool) ($target["completed"] ?? false)) {
+            return [
+                "ok" => false,
+                "status" => 409,
+                "reason" => "queue_item_already_completed",
+                "code" => "QUEUE_ACTION_CONFLICT",
+                "message" => "Queue item is already completed",
+                "queue_item_id" => $normalizedQueueItemId,
+                "retryable" => true,
+            ];
+        }
+
+        $normalizedNote = isset($payload["note"]) ? trim((string) $payload["note"]) : null;
+        if ($normalizedNote === "") {
+            $normalizedNote = null;
+        }
+
+        $normalizedResolutionCode = isset($payload["resolution_code"])
+            ? strtolower(trim((string) $payload["resolution_code"]))
+            : null;
+        if ($normalizedResolutionCode === "") {
+            $normalizedResolutionCode = null;
+        }
+
+        $completedAt = now()->toIso8601String();
+        self::$runtimeQueueCompletions[$normalizedQueueItemId] = [
+            "completed" => true,
+            "completed_at" => $completedAt,
+            "resolution_code" => $normalizedResolutionCode,
+            "note" => $normalizedNote,
+            "completed_by" => $managerId !== null && trim($managerId) !== "" ? trim($managerId) : null,
+        ];
+
+        $updatedItem = $this->applyQueueCompletionState($target);
+
+        return [
+            "ok" => true,
+            "status" => 200,
+            "reason" => "queue_item_completed",
+            "data" => $updatedItem,
+        ];
+    }
+
+    private function buildPriorityQueueItems(array $rows): array
+    {
+        $items = [];
+
+        foreach ($rows as $row) {
+            $propertyId = (int) ($row["id"] ?? 0);
+            if ($propertyId <= 0) {
+                continue;
+            }
+
+            $status = strtolower((string) ($row["status"] ?? self::STATUS_AVAILABLE));
+            $providerId = (int) ($row["provider_id"] ?? 0);
+            $item = [
+                "id" => "",
+                "property_id" => $propertyId,
+                "property_title" => (string) ($row["title"] ?? "Property {$propertyId}"),
+                "city" => (string) ($row["city"] ?? "Unknown"),
+                "status" => $status,
+                "category" => "portfolio_review",
+                "severity" => "low",
+                "sla_due_at" => null,
+                "sla_state" => "no_deadline",
+                "updated_at" => $this->buildQueueTimestamp(70, $propertyId),
+                "action" => "open_property",
+                "completed" => false,
+                "completed_at" => null,
+                "resolution_code" => null,
+                "note" => null,
+            ];
+
+            if ($status === self::STATUS_AVAILABLE && $providerId <= 0) {
+                $item["id"] = "priority-provider-assignment-{$propertyId}";
+                $item["category"] = "provider_assignment";
+                $item["severity"] = "high";
+                $item["sla_due_at"] = $this->buildQueueTimestamp(95, $propertyId);
+                $item["updated_at"] = $this->buildQueueTimestamp(75, $propertyId);
+                $item["action"] = "open_handoff";
+            } elseif ($status === self::STATUS_MAINTENANCE) {
+                $item["id"] = "priority-maintenance-follow-up-{$propertyId}";
+                $item["category"] = "maintenance_follow_up";
+                $item["severity"] = "high";
+                $item["sla_due_at"] = $this->buildQueueTimestamp(130, $propertyId);
+                $item["updated_at"] = $this->buildQueueTimestamp(72, $propertyId);
+                $item["action"] = "review_status";
+            } elseif ($status === self::STATUS_RESERVED) {
+                $item["id"] = "priority-portfolio-review-{$propertyId}";
+                $item["category"] = "portfolio_review";
+                $item["severity"] = "medium";
+                $item["sla_due_at"] = $this->buildQueueTimestamp(210, $propertyId);
+                $item["updated_at"] = $this->buildQueueTimestamp(88, $propertyId);
+                $item["action"] = "open_property";
+            } else {
+                $item["id"] = "priority-quality-alert-{$propertyId}";
+                $item["category"] = "quality_alert";
+                $item["severity"] = "low";
+                $item["sla_due_at"] = null;
+                $item["updated_at"] = $this->buildQueueTimestamp(66, $propertyId);
+                $item["action"] = "review_status";
+            }
+
+            $item["sla_state"] = $this->resolveQueueSlaState($item["sla_due_at"]);
+            $item = $this->applyQueueCompletionState($item);
+            $items[] = $item;
+        }
+
+        usort($items, [$this, "comparePriorityQueueItems"]);
+
+        return array_values($items);
+    }
+
+    private function buildQueueTimestamp(int $baseMinuteOffset, int $propertyId): string
+    {
+        $deterministicOffset = max(0, $baseMinuteOffset) + (($propertyId % 11) * 7);
+        return $this->buildPriorityTimestamp($deterministicOffset, 0);
+    }
+
+    private function resolveQueueSlaState(?string $dueAt): string
+    {
+        if ($dueAt === null || trim($dueAt) === "") {
+            return "no_deadline";
+        }
+
+        $dueTimestamp = strtotime($dueAt);
+        if ($dueTimestamp === false) {
+            return "no_deadline";
+        }
+
+        $referenceTimestamp = strtotime("2026-01-01T11:00:00Z");
+        if ($dueTimestamp < $referenceTimestamp) {
+            return "overdue";
+        }
+        if (($dueTimestamp - $referenceTimestamp) <= 3600) {
+            return "at_risk";
+        }
+
+        return "on_track";
+    }
+
+    private function comparePriorityQueueItems(array $left, array $right): int
+    {
+        $leftCompleted = (bool) ($left["completed"] ?? false);
+        $rightCompleted = (bool) ($right["completed"] ?? false);
+        if ($leftCompleted !== $rightCompleted) {
+            return $leftCompleted ? 1 : -1;
+        }
+
+        $severityOrder = [
+            "high" => 0,
+            "medium" => 1,
+            "low" => 2,
+        ];
+
+        $leftSeverity = $severityOrder[strtolower((string) ($left["severity"] ?? "low"))] ?? 3;
+        $rightSeverity = $severityOrder[strtolower((string) ($right["severity"] ?? "low"))] ?? 3;
+        if ($leftSeverity !== $rightSeverity) {
+            return $leftSeverity <=> $rightSeverity;
+        }
+
+        $leftDue = $left["sla_due_at"] ?? null;
+        $rightDue = $right["sla_due_at"] ?? null;
+        if ($leftDue !== $rightDue) {
+            if ($leftDue === null) {
+                return 1;
+            }
+            if ($rightDue === null) {
+                return -1;
+            }
+            return strcmp((string) $leftDue, (string) $rightDue);
+        }
+
+        $updatedComparison = strcmp((string) ($right["updated_at"] ?? ""), (string) ($left["updated_at"] ?? ""));
+        if ($updatedComparison !== 0) {
+            return $updatedComparison;
+        }
+
+        return strcmp((string) ($left["id"] ?? ""), (string) ($right["id"] ?? ""));
+    }
+
+    private function applyQueueCompletionState(array $item): array
+    {
+        $queueItemId = (string) ($item["id"] ?? "");
+        if ($queueItemId === "" || !isset(self::$runtimeQueueCompletions[$queueItemId])) {
+            return $item;
+        }
+
+        $completion = self::$runtimeQueueCompletions[$queueItemId];
+        $item["completed"] = (bool) ($completion["completed"] ?? false);
+        $item["completed_at"] = $completion["completed_at"] ?? null;
+        $item["resolution_code"] = $completion["resolution_code"] ?? null;
+        $item["note"] = $completion["note"] ?? null;
+        if ($item["completed"] === true) {
+            $item["updated_at"] = $completion["completed_at"] ?? ($item["updated_at"] ?? null);
+            $item["action"] = "open_property";
+        }
+
+        return $item;
     }
 
     private function buildKpis(array $rows): array
