@@ -1,0 +1,24 @@
+{
+  "id": "ARCH-024",
+  "title": "Define Wave 30 manager provider directory/profile contract",
+  "description": "Extend architecture docs with the manager-facing provider directory and provider profile contract, including list/detail payload expectations, route ownership, and UI state map for manager navigation from directory to provider profile.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Architecture docs define manager provider directory list and provider detail contract expectations",
+    "UI state map covers loading, empty, success, forbidden, unauthorized, and retry states",
+    "Module map clarifies backend vs mobile ownership for provider directory/profile flow"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave30",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-directory",
+    "planner": "google-ag"
+  }
+}

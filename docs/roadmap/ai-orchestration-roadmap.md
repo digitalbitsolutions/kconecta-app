@@ -16,15 +16,20 @@ Completed:
 - OpenClaw available as controlled fallback when Aider fails.
 - MCP, RAG, and Skills v1 active.
 - Docker-only backend runtime/testing policy established (`NO XAMPP`).
-- Waves 1-27 completed and merged to `main`.
-
-Wave 27 closure:
-
-- `#123` architect merged
-- `#124` backend merged
-- `#125` mobile merged
-- `#126` qa merged
-- Jira clean after merge (`DEV-134..138` Done)
+- Waves 1-28 completed and merged to `main`.
+- Wave 29 executed and ready for review:
+  - `#131` architect ready
+  - `#132` backend ready
+  - `#133` mobile ready
+  - `#134` qa ready
+  - Jira transitions executed for `DEV-144..148`
+- Wave 30 planning artifacts defined:
+  - `wave30_epic_manager_provider_directory_task.json`
+  - `architect_wave30_manager_provider_directory_contract_task.json`
+  - `backend_wave30_manager_provider_directory_contract_task.json`
+  - `mobile_wave30_manager_provider_directory_ux_task.json`
+  - `qa_wave30_manager_provider_directory_regression_task.json`
+  - `docs/roadmap/wave30-manager-provider-directory-plan.md`
 
 Platform hardening:
 
@@ -46,13 +51,13 @@ Platform hardening:
 
 - Laravel contracts for manager/provider parity.
 - Deterministic auth/role/error envelopes.
-- Next focus: Wave 28 backend scope.
+- Next focus: Wave 30 backend scope (manager provider directory/detail parity).
 
 ### Phase 3: Mobile Delivery (In Progress)
 
 - React Native manager/providers scaffold operating.
 - Manager flows integrated across dashboard/list/detail/handoff/editor.
-- Next focus: Wave 28 mobile scope.
+- Next focus: Wave 30 mobile scope (manager provider directory/profile flow).
 
 ### Phase 4: QA + Security (In Progress)
 
@@ -76,10 +81,10 @@ Platform hardening:
 
 ## Next Milestones
 
-1. Define Wave 28 (epic + architect/backend/mobile/qa).
-2. Use Google AG to shape the next manager parity increment before execution.
-3. Open the new Jira wave so `To Do` / `In Progress` return to the board.
-4. Execute full cycle architect -> backend -> mobile -> qa with draft PRs.
+1. Merge Wave 29 PRs `#131`, `#132`, `#133`, `#134`.
+2. Open Wave 30 in Jira from the new task files.
+3. Move `ARCH-024` to `In Progress` so the board shows active work again.
+4. Execute Wave 30 architect -> backend -> mobile -> qa with Google AG-assisted planning and Aider execution.
 
 ## Status Notes
 

@@ -1,0 +1,25 @@
+{
+  "id": "MOB-027",
+  "title": "Implement manager provider directory and profile flow",
+  "description": "Add manager-side provider directory and provider profile screens, wire them to provider list/detail API contracts, and connect navigation from manager flows into provider profile review.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/providerApi.ts",
+    "apps/manager/src/navigation/index.tsx",
+    "apps/manager/src/screens/ManagerProviderDirectoryScreen.tsx",
+    "apps/manager/src/screens/ProviderProfileScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Manager app can load provider directory list with deterministic loading/empty/error states",
+    "Manager can open provider profile detail from directory list",
+    "Unauthorized/forbidden flows route to existing manager recovery screens"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave30",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-directory",
+    "planner": "google-ag"
+  }
+}

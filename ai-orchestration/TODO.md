@@ -1,27 +1,41 @@
-# TODO Prioritario - Apertura Wave 28
+# TODO Prioritario - Cierre Wave 29 / Apertura Wave 30
 
 Fecha: 2026-03-13  
 Repo objetivo: `D:\still\kconecta-app`
 
 ## Estado actual
 
-- Wave 27: cerrada y mergeada (`DEV-134..138` en Done).
-- Jira open issues: `0`.
-- PRs abiertos solo de contexto/devops:
+- Wave 29: ejecutada end-to-end y lista para merge.
+- PRs abiertos de Wave 29:
+  - `#131`
+  - `#132`
+  - `#133`
+  - `#134`
+- PRs abiertos de contexto/devops:
   - `#120`
   - `#121`
   - `#122`
+- Wave 30: task files y plan ya definidos en `agent/devops-context`.
 
 ## P0 (inmediato)
 
-- [ ] Definir Wave 28 (epic + architect/backend/mobile/qa).
-- [ ] Usar Google AG para descomponer la siguiente brecha de parity del manager app antes de ejecutar.
-- [ ] Crear task files de la nueva wave y abrir tickets Jira.
-- [ ] Iniciar sprint para que el board vuelva a mostrar `To Do` / `In Progress`.
+- [ ] Mergear Wave 29:
+  - `#131` architect
+  - `#132` backend
+  - `#133` mobile
+  - `#134` qa
+- [ ] Verificar Jira con `DEV-144..148` cerrado de forma consistente en board/summary.
+- [ ] Abrir Wave 30 en Jira desde los task files:
+  - `EPIC-W30`
+  - `ARCH-024`
+  - `BE-026`
+  - `MOB-027`
+  - `QA-029`
+- [ ] Poner `ARCH-024` en `In Progress`.
 
 ## P1 (ejecución siguiente)
 
-- [ ] Ejecutar architect de Wave 28.
+- [ ] Ejecutar architect de Wave 30 con apoyo de Google AG para contrato y state map.
 - [ ] Abrir PR draft del architect ticket.
 - [ ] Ejecutar backend -> mobile -> qa con PR draft por cada ticket.
 
