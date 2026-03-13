@@ -12,6 +12,7 @@
     "provider:start": "npm run start --workspace apps/providers",
     "provider:android": "npm run android --workspace apps/providers",
     "provider:ios": "npm run ios --workspace apps/providers",
+    "backend:test:docker": "py ai-orchestration/orchestrator.py backend-test-docker",
     "mobile:typecheck": "npm run typecheck --workspace apps/manager && npm run typecheck --workspace apps/providers",
     "mobile:doctor": "npm run doctor --workspace apps/manager && npm run doctor --workspace apps/providers"
   }

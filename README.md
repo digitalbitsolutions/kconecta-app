@@ -76,6 +76,23 @@ docker volume inspect kconecta-app
 - MySQL port: `3307` (o `KC_DB_PORT`)
 - Adminer: `http://localhost:8086` (o `KC_ADMINER_PORT`)
 
+## Backend tests (Docker-only, sin XAMPP)
+
+Este repo **no** debe ejecutar `php artisan test` en el host.
+El comando correcto para pruebas Laravel del CRM es:
+
+```powershell
+npm run backend:test:docker
+```
+
+Internamente ejecuta:
+
+```powershell
+py ai-orchestration/orchestrator.py backend-test-docker
+```
+
+El orquestador resuelve el backend CRM y corre `artisan test` dentro de contenedor Docker (`app/php`), evitando dependencias de XAMPP o PHP local.
+
 ## AI Orchestration
 
 La fabrica local AI esta documentada en:

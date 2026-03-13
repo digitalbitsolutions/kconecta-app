@@ -53,6 +53,7 @@
 - Always use `agent/*` branch -> PR -> review -> merge.
 - Keep `NO XAMPP` policy.
 - Use Docker for backend checks/tests.
+- Never run `php artisan test` directly on host. Use `py ai-orchestration/orchestrator.py backend-test-docker`.
 - Avoid destructive Git commands.
 
 ## Resume Commands

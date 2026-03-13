@@ -128,6 +128,7 @@ Automation:
 2. Keep `AI_EXECUTOR=aider` as operational default; keep OpenClaw as controlled fallback.
 3. Continue manager parity waves (Wave 25+) after dashboard summary/priorities baseline.
 4. Keep Docker-only backend runtime for tests (no XAMPP path).
+   - Mandatory command for test execution: `py ai-orchestration/orchestrator.py backend-test-docker` (never host `php artisan test`).
 5. Maintain PR-only merge discipline on protected `main`.
 
 Status update:

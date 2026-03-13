@@ -39,6 +39,7 @@ Repo objetivo: `D:\still\kconecta-app`
 
 - [x] NO usar XAMPP.
 - [x] Solo Docker para backend runtime/tests.
+- [x] No usar `php artisan test` directo en host (usar `backend-test-docker`).
 - [x] No comandos destructivos de Git.
 - [x] No push directo a `main` (solo PR flow).
 
