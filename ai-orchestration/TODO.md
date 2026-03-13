@@ -1,45 +1,46 @@
-# TODO Prioritario - Wave 24
+﻿# TODO Prioritario - Cierre Wave 26 / Apertura Wave 27
 
-Fecha: 2026-03-12  
+Fecha: 2026-03-13  
 Repo objetivo: `D:\still\kconecta-app`
 
 ## Estado actual
 
-- Wave 23: cerrada y mergeada.
-- Wave 24: parcialmente cerrada.
-- PRs abiertos: ninguno.
-- Últimos merges relevantes:
-  - `#104` architect (`DEV-119`)
-  - `#105` backend (`DEV-121`)
-  - `#107` devops (fallback `aider -> openclaw`)
-  - `#108` fix CI (tests duplicados)
+- Wave 26: funcionalmente cerrada en Jira (`DEV-129..133` en Done).
+- PRs abiertos (draft):
+  - `#118` mobile (`DEV-132`)
+  - `#119` qa (`DEV-133`)
 
 ## P0 (inmediato)
 
-- [ ] Ejecutar `DEV-122` (mobile / `MOB-021`) con `AI_EXECUTOR=aider`.
-- [ ] Abrir PR draft de mobile y actualizar Jira (`In Progress` -> `In Review`).
-- [ ] Ejecutar ticket QA de Wave 24 y abrir PR QA.
-- [ ] Mergear mobile + QA y cerrar epic Wave 24 en Jira.
+- [ ] Pasar `#118` y `#119` a ready for review.
+- [ ] Aprobar/mergear `#118`.
+- [ ] Aprobar/mergear `#119`.
+- [ ] Verificar board Jira post-merge (sin items Wave 26 en `In Progress`).
 
 ## P1 (siguiente ola)
 
-- [ ] Abrir Wave 25 (epic + architect/backend/mobile/qa).
-- [ ] Mantener visible `To Do` + `In Progress` en Board al iniciar sprint.
-- [ ] Vincular cada PR al ticket Jira (`DEV-xxx`) para trazabilidad en Code panel.
+- [ ] Abrir Wave 27 (epic + architect/backend/mobile/qa).
+- [ ] Pasar ticket architect de Wave 27 a `In Progress`.
+- [ ] Ejecutar flujo architect -> backend -> mobile -> qa con PR draft por cada ticket.
 
 ## Bloqueos y mitigaciones
 
-- [ ] OpenClaw fallback sigue en observación.
-  - Estado: fallback se activa, pero esta variante puede intentar editar fuera de `files_scope`.
-  - Mitigación: mantener `AI_EXECUTOR=aider` por defecto en ejecución real.
-- [ ] Aider puede tardar en tareas largas.
-  - Mitigación ya aplicada: prompt corto, partición por scope, timeouts/retries por agente, timeout-recovery.
+- [ ] Aider timeout en tareas largas.
+  - Mitigación vigente:
+    - prompts más cortos,
+    - partición automática por scope,
+    - retries/timeout adaptativo,
+    - recuperación manual por worktree si vuelve a colgarse.
+- [ ] OpenClaw fallback puede dejar archivos basura no trackeados.
+  - Mitigación:
+    - limpiar worktree afectado con `git clean -fd` antes de continuar.
 
 ## Restricciones activas
 
 - [x] NO usar XAMPP.
-- [x] Solo Docker para backend runtime/tests.
-- [x] No usar `php artisan test` directo en host (usar `backend-test-docker`).
+- [x] Solo Docker para runtime/tests de backend.
+- [x] No usar `php artisan test` directo en host.
+- [x] Usar `py ai-orchestration/orchestrator.py backend-test-docker`.
 - [x] No comandos destructivos de Git.
 - [x] No push directo a `main` (solo PR flow).
 
@@ -53,5 +54,4 @@ $env:GIT_CONFIG_VALUE_0='*'
 $env:AI_EXECUTOR='aider'
 py ai-orchestration/orchestrator.py preflight
 gh pr list --state open --limit 20
-py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
 ```

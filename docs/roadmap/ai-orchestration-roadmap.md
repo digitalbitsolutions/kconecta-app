@@ -1,10 +1,10 @@
-# AI Orchestration Roadmap (kconecta-app)
+﻿# AI Orchestration Roadmap (kconecta-app)
 
 ## Objective
 
 Build a local AI software factory for the CRM ecosystem with isolated agent execution, controlled merges, and traceable delivery.
 
-## Current Status (2026-03-12)
+## Current Status (2026-03-13)
 
 Completed:
 
@@ -14,55 +14,24 @@ Completed:
 - Aider integration for controlled file edits.
 - Human approval gate before merge.
 - MCP, RAG, and Skills v1.
-- Docker local stack for DB (`kconecta-app` volume).
-- Initial PR wave merged:
-  - PR #1 backend docs
-  - PR #2 devops CI
-  - PR #3 mobile scaffold
-  - PR #4 architecture docs
-- Wave 2 merged:
-  - PR #5 backend provider API
-  - PR #6 QA provider/auth smoke tests
-  - PR #7 mobile UI/UX baseline
-- Wave 3 merged:
-  - PR #8 architecture multi-app strategy
-  - PR #9 backend property API skeleton
-  - PR #10 manager mobile dashboard and property flows
-  - PR #11 QA property API smoke tests
-  - PR #12 devops dockerized PHP lint in CI
-  - PR #13 wave 3 task definitions tracked
-  - PR #14 orchestration log/roadmap update
-- Wave 4 merged:
-  - PR #17 backend property detail endpoint
-  - PR #16 QA property detail tests
-  - PR #15 manager app API client integration
-- Wave 5-8 merged:
-  - PR #19, #21, #22, #20 release env + token gate
-  - PR #23, #24, #25, #26 providers integration
-  - PR #27, #28 functional test strategy and API flow tests
-  - PR #29, #30, #31, #32 bugfix and regression hardening
-  - PR #33 release notes publication
-- Jira integration v1 (optional) added to orchestrator CLI.
-- Wave 9 started:
-  - DB-first provider/property retrieval with fallback controls.
-  - API `meta.source` contract in list endpoints.
-  - QA smoke suite aligned with data-source metadata.
-- Waves 10-16 completed and merged to `main` (manager parity foundation).
-- Wave 22 closed and merged (manager portfolio filters + pagination parity).
-- Wave 23 closed and merged (manager property detail + timeline parity).
-- Wave 24 partially closed:
-  - merged: `DEV-119` (architect, PR `#104`)
-  - merged: `DEV-121` (backend, PR `#105`)
-  - pending: mobile + QA closeout
-- Aider hardening applied in orchestrator:
-  - shorter execution prompts per task
-  - automatic change partitioning by files scope
-  - adaptive timeout/retry policy by agent
-  - policy visibility in `preflight` via `aider_agent_policies`
-- Executor strategy updated:
-  - `AI_EXECUTOR=auto` now selects `aider`
-  - runtime fallback `aider -> openclaw` implemented
-  - OpenClaw fallback remains in observation until edit-scope reliability is hardened
+- Docker local stack for backend runtime/tests (no XAMPP).
+- Waves 1-25 completed and merged to `main`.
+- Wave 26 delivery completed at ticket level:
+  - `DEV-130` architect Done
+  - `DEV-131` backend Done
+  - `DEV-132` mobile Done (PR `#118` open draft)
+  - `DEV-133` qa Done (PR `#119` open draft)
+  - epic `DEV-129` Done
+
+Platform hardening:
+
+- Aider improvements in orchestrator:
+  - shorter prompts per task,
+  - automatic partitioning by `files_scope`,
+  - adaptive retries/timeouts by agent.
+- Executor routing:
+  - `AI_EXECUTOR=auto` -> `aider` primary.
+  - `openclaw` enabled as controlled fallback.
 
 ## Delivery Phases
 
@@ -74,31 +43,26 @@ Completed:
 
 ### Phase 2: Backend Delivery (In Progress)
 
-- Implement Laravel provider/property endpoints and service layer.
-- Add request validation and response resources.
-- Add migration-safe schema updates.
-- Define API auth and role scopes against CRM backend.
-- Current focus: Wave 24 manager dashboard summary/priorities data contract evolution.
+- Laravel contracts for manager/provider parity.
+- Deterministic auth/role/error envelopes.
+- Current focus moves to Wave 27 backend scope.
 
 ### Phase 3: Mobile Delivery (In Progress)
 
-- Expand React Native module structure.
-- Add shared API client and typed models. (Done for manager property flows)
-- Integrate auth/session handling and role-aware navigation. (Pending)
-- Implement providers, properties, and service-order flows.
-- Current focus: Wave 24 dashboard summary/priorities UI wiring (`MOB-021`).
+- React Native manager/providers scaffold in operation.
+- Manager API flows integrated across dashboard/list/detail/handoff.
+- Current focus moves to Wave 27 mobile scope.
 
 ### Phase 4: QA + Security (In Progress)
 
-- Add API and mobile smoke tests.
-- Add regression suites for critical business flows.
-- Add security checks for auth and access control.
+- Regression matrices added per wave.
+- Wave 26 matrix added (`Wave26RegressionMatrixTest.php`).
+- Continue enforcing deterministic guardrails in new waves.
 
 ### Phase 5: Release Orchestration (In Progress)
 
-- Harden CI with mandatory checks for all agent PRs.
-- Add release tagging and changelog generation.
-- Define rollback procedures and staging validation gates.
+- CI checks + protected `main` + manual approval before merge.
+- Continue PR-only workflow and traceability in Jira.
 
 ## Jira Tracking Model (Recommended)
 
@@ -124,16 +88,15 @@ Automation:
 
 ## Next Milestones
 
-1. Close Wave 24 end-to-end (mobile + QA tickets) with PR merge + Jira transitions.
-2. Keep `AI_EXECUTOR=aider` as operational default; keep OpenClaw as controlled fallback.
-3. Continue manager parity waves (Wave 25+) after dashboard summary/priorities baseline.
-4. Keep Docker-only backend runtime for tests (no XAMPP path).
-   - Mandatory command for test execution: `py ai-orchestration/orchestrator.py backend-test-docker` (never host `php artisan test`).
-5. Maintain PR-only merge discipline on protected `main`.
+1. Move PRs `#118` and `#119` to Ready and merge both.
+2. Validate Jira board reflects full Wave 26 closure.
+3. Open Wave 27 (epic + architect/backend/mobile/qa).
+4. Execute full cycle architect -> backend -> mobile -> qa with draft PRs.
+5. Keep Docker-only backend testing policy:
+   - `py ai-orchestration/orchestrator.py backend-test-docker`
 
-Status update:
+## Status Notes
 
-- Jira environment remains active and board/timeline tracking is stable.
-- Main branch protection is enforced and validated (direct push rejected by rule).
-- Repository baseline includes merged waves through Wave 23, with Wave 24 in progress.
-- CI blocker from duplicate test methods was fixed in PR `#108`.
+- Main branch protection is active and direct push is rejected by policy.
+- Aider timeout risk still exists for long tasks; manual worktree recovery remains the safe fallback.
+- OpenClaw fallback is available but still under behavioral observation.
