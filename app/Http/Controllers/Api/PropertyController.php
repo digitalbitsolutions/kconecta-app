@@ -497,6 +497,14 @@ class PropertyController extends Controller
             $this->resolveManagerId($request)
         );
 
+        if (($result["ok"] ?? false) === true) {
+            $result["assignment_evidence"] = $this->propertyService->buildAssignmentEvidencePayload(
+                $id,
+                $result["data"],
+                $provider
+            );
+        }
+
         return $this->handoffMutationResponse("properties_assign_provider", $result, $providerId);
     }
 
@@ -899,14 +907,21 @@ class PropertyController extends Controller
     ): JsonResponse
     {
         if (($result["ok"] ?? false) === true) {
+            $data = [
+                "property" => $result["data"],
+                "property_id" => (int) ($result["data"]["id"] ?? 0),
+                "provider_id" => (int) (($result["data"]["provider_id"] ?? $providerId) ?? 0),
+                "assigned_at" => $result["data"]["assigned_at"] ?? now()->toIso8601String(),
+            ];
+
+            if (is_array($result["assignment_evidence"] ?? null)) {
+                $data["assignment"] = $result["assignment_evidence"]["assignment"] ?? null;
+                $data["latest_timeline_event"] = $result["assignment_evidence"]["latest_timeline_event"] ?? null;
+            }
+
             return response()->json(
                 [
-                    "data" => [
-                        "property" => $result["data"],
-                        "property_id" => (int) ($result["data"]["id"] ?? 0),
-                        "provider_id" => (int) (($result["data"]["provider_id"] ?? $providerId) ?? 0),
-                        "assigned_at" => $result["data"]["assigned_at"] ?? now()->toIso8601String(),
-                    ],
+                    "data" => $data,
                     "meta" => [
                         "contract" => "manager-provider-handoff-v1",
                         "flow" => $flow,

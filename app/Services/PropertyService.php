@@ -956,6 +956,28 @@ class PropertyService
     }
 
     /**
+     * Build additive assignment evidence payload for manager handoff success responses.
+     */
+    public function buildAssignmentEvidencePayload(int $propertyId, array $property, ?array $provider): array
+    {
+        $assignmentContextPayload = $this->buildAssignmentContextPayload($propertyId, $property, $provider);
+        $timelineEvents = $this->buildTimelineEvents($property);
+        $latestAssignmentEvent = null;
+
+        foreach ($timelineEvents as $event) {
+            if (($event["type"] ?? null) === "assignment") {
+                $latestAssignmentEvent = $event;
+                break;
+            }
+        }
+
+        return [
+            "assignment" => $assignmentContextPayload["data"]["assignment"] ?? null,
+            "latest_timeline_event" => $latestAssignmentEvent,
+        ];
+    }
+
+    /**
      * Load property rows from database first, with in-memory fallback.
      */
     private function loadRows(): array
