@@ -182,6 +182,10 @@ type PriorityQueuePayload = {
       sla_state: "on_track" | "at_risk" | "overdue" | "no_deadline";
       updated_at: string;
       action: "open_property" | "open_handoff" | "review_status";
+      completed?: boolean;
+      completed_at?: string | null;
+      resolution_code?: string | null;
+      note?: string | null;
     }>;
   };
   meta: {
@@ -194,6 +198,17 @@ type PriorityQueuePayload = {
       limit: number | null;
     };
     count: number;
+  };
+};
+
+type PriorityQueueCompletionPayload = {
+  data: {
+    item: PriorityQueuePayload["data"]["items"][number];
+  };
+  meta: {
+    contract: string;
+    flow: string;
+    reason: string;
   };
 };
 
@@ -324,6 +339,7 @@ export type ManagerDashboardSummary = {
 
 export type ManagerPriorityQueueAction = "open_property" | "open_handoff" | "review_status";
 export type ManagerPriorityQueueSlaState = "on_track" | "at_risk" | "overdue" | "no_deadline";
+export type ManagerPriorityQueueResolutionCode = "assigned" | "deferred" | "resolved" | "dismissed";
 
 export type ManagerPriorityQueueItem = {
   id: string;
@@ -337,6 +353,10 @@ export type ManagerPriorityQueueItem = {
   slaState: ManagerPriorityQueueSlaState;
   updatedAt: string;
   action: ManagerPriorityQueueAction;
+  completed: boolean;
+  completedAt: string | null;
+  resolutionCode: ManagerPriorityQueueResolutionCode | null;
+  note: string | null;
 };
 
 export type ManagerPriorityQueueResult = {
@@ -358,6 +378,11 @@ export type PriorityQueueQuery = {
   category?: ManagerPriorityCategory;
   severity?: ManagerPrioritySeverity;
   limit?: number;
+};
+
+export type PriorityQueueCompletionInput = {
+  resolutionCode?: ManagerPriorityQueueResolutionCode;
+  note?: string;
 };
 
 export type ManagerPortfolioLaunchContext = {
@@ -537,7 +562,13 @@ function mapDashboardPriorities(
 function mapPriorityQueueItems(
   items: PriorityQueuePayload["data"]["items"]
 ): ManagerPriorityQueueItem[] {
-  return items.map((item) => ({
+  return items.map(mapPriorityQueueItem);
+}
+
+function mapPriorityQueueItem(
+  item: PriorityQueuePayload["data"]["items"][number]
+): ManagerPriorityQueueItem {
+  return {
     id: item.id,
     propertyId: String(item.property_id),
     propertyTitle: item.property_title,
@@ -549,7 +580,11 @@ function mapPriorityQueueItems(
     slaState: item.sla_state,
     updatedAt: item.updated_at,
     action: item.action,
-  }));
+    completed: item.completed === true,
+    completedAt: item.completed_at ?? null,
+    resolutionCode: (item.resolution_code as ManagerPriorityQueueResolutionCode | null) ?? null,
+    note: item.note ?? null,
+  };
 }
 
 let managerPortfolioLaunchContext: ManagerPortfolioLaunchContext | null = null;
@@ -643,6 +678,29 @@ export async function fetchManagerPriorityQueue(
       filters: payload.meta.filters,
     },
   };
+}
+
+export async function completeManagerPriorityQueueItem(
+  queueItemId: string,
+  input: PriorityQueueCompletionInput = {}
+): Promise<ManagerPriorityQueueItem> {
+  const body: Record<string, unknown> = {};
+  if (input.resolutionCode) {
+    body.resolution_code = input.resolutionCode;
+  }
+  if (typeof input.note === "string") {
+    body.note = input.note;
+  }
+
+  const payload = await requestJson<PriorityQueueCompletionPayload>(
+    `/properties/priorities/queue/${encodeURIComponent(queueItemId)}/complete`,
+    {
+      method: "POST",
+      body,
+    }
+  );
+
+  return mapPriorityQueueItem(payload.data.item);
 }
 
 export async function fetchProperties(query: PropertyListQuery = {}): Promise<PropertyViewModel[]> {
