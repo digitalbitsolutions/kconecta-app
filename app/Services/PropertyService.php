@@ -835,7 +835,7 @@ class PropertyService
                 array_key_exists("garage_price", $payload)
             )
         ) {
-            $nextDerivedPrice = $this->resolveDisplayPrice($updated);
+            $nextDerivedPrice = $this->resolveDisplayPrice($updated, false);
             if ($nextDerivedPrice !== ($property["price"] ?? null)) {
                 $updated["price"] = $nextDerivedPrice;
                 $changed = true;
@@ -1191,6 +1191,12 @@ class PropertyService
             )
         );
 
+        $derivedPrice = $this->resolveDisplayPrice([
+            "sale_price" => $salePrice,
+            "rental_price" => $rentalPrice,
+            "garage_price" => $garagePrice,
+        ], false);
+
         return $this->applyRuntimeOverrides([
             "id" => $id,
             "title" => $title !== null && $title !== "" ? $title : "Property {$id}",
@@ -1211,11 +1217,7 @@ class PropertyService
             "elevator" => $elevator,
             "manager_id" => $managerId,
             "provider_id" => $providerId,
-            "price" => $price ?? $this->resolveDisplayPrice([
-                "sale_price" => $salePrice,
-                "rental_price" => $rentalPrice,
-                "garage_price" => $garagePrice,
-            ]),
+            "price" => $derivedPrice ?? $price,
             "updated_at" => $updatedAt,
         ]);
     }
@@ -1623,9 +1625,14 @@ class PropertyService
         return $payload;
     }
 
-    private function resolveDisplayPrice(array $property): ?float
+    private function resolveDisplayPrice(array $property, bool $includeLegacyPrice = true): ?float
     {
-        foreach (["sale_price", "rental_price", "garage_price", "price"] as $field) {
+        $fields = ["sale_price", "rental_price", "garage_price"];
+        if ($includeLegacyPrice) {
+            $fields[] = "price";
+        }
+
+        foreach ($fields as $field) {
             $value = $this->asFloat($property[$field] ?? null);
             if ($value !== null) {
                 return $value;
