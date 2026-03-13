@@ -492,6 +492,31 @@ Validate end-to-end functional behavior of native app API contracts before relea
 4. `DEV-142` -> Mobile manager login/session recovery UX hardening.
 5. `DEV-143` -> Regression matrix + API assertions in `tests/Feature/Api/Wave28RegressionMatrixTest.php`.
 
+## Wave 29 Manager Provider Handoff Evidence Matrix
+
+1. Assignment evidence success path (`DEV-145`, `DEV-146`, `DEV-148`, `DEV-147`)
+  - `POST /api/properties/{id}/assign-provider` returns additive success evidence under `manager-provider-handoff-v1`.
+  - Success payload includes:
+    - `data.assignment`
+    - `data.latest_timeline_event`
+  - `data.assignment.provider` exposes deterministic provider snapshot fields used by manager mobile without a follow-up detail fetch.
+2. Guardrail and recovery behavior (`DEV-145`, `DEV-148`, `DEV-147`)
+  - Inactive provider still returns `409 ASSIGNMENT_CONFLICT` with `reason=provider_inactive`.
+  - Provider role access still returns `403 ROLE_SCOPE_FORBIDDEN`.
+  - Invalid/expired token still returns deterministic `401` auth-session envelope on assignment route.
+3. Cross-wave baseline safety (`DEV-147`)
+  - Wave 21 assignment-context still resolves assigned state after assignment mutation.
+  - Wave 24 dashboard summary contract remains stable.
+  - Wave 28 manager auth/session invalid-token baseline remains stable while assignment evidence is introduced.
+
+## Wave 29 Ticket Mapping
+
+1. `DEV-144` -> Wave 29 orchestration epic and rollout tracking.
+2. `DEV-146` -> Manager provider handoff evidence contract and UX state map.
+3. `DEV-145` -> Backend additive assignment evidence payload implementation.
+4. `DEV-148` -> Mobile manager handoff success evidence UX integration.
+5. `DEV-147` -> Regression matrix + API assertions in `tests/Feature/Api/Wave29RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -521,6 +546,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 23. Run Wave 26 queue completion regression suite and record success/conflict/validation + forbidden/unauthorized evidence.
 24. Run Wave 27 manager property form parity regression suite and record enriched create/edit/validation/conflict guardrail evidence.
 25. Run Wave 28 manager auth/session UX regression suite and record success metadata parity plus login/session recovery evidence.
+26. Run Wave 29 manager handoff evidence regression suite and record additive assignment evidence plus recovery guardrail stability.
 
 ## Entry Criteria
 

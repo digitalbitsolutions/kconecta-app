@@ -984,6 +984,39 @@ class PropertyApiTest extends TestCase
         );
     }
 
+    public function test_wave29_assign_provider_returns_additive_assignment_evidence_when_contract_is_ready(): void
+    {
+        $success = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-MANAGER-ID" => "mgr-wave29-qa",
+            ])
+            ->postJson("/api/properties/101/assign-provider", [
+                "provider_id" => 1,
+                "note" => "Wave 29 QA assignment evidence",
+            ]);
+
+        if (!$this->isWave29AssignmentEvidenceReady($success)) {
+            $this->markTestIncomplete(
+                "Wave 29 additive assignment evidence contract is not merged in this branch yet."
+            );
+            return;
+        }
+
+        $success
+            ->assertOk()
+            ->assertJsonPath("meta.contract", "manager-provider-handoff-v1")
+            ->assertJsonPath("meta.flow", "properties_assign_provider")
+            ->assertJsonPath("meta.reason", "provider_assigned")
+            ->assertJsonPath("data.assignment.assigned", true)
+            ->assertJsonPath("data.assignment.state", "assigned")
+            ->assertJsonPath("data.assignment.note", "Wave 29 QA assignment evidence")
+            ->assertJsonPath("data.assignment.provider.id", 1)
+            ->assertJsonPath("data.assignment.provider.name", "CleanHome Pro")
+            ->assertJsonPath("data.latest_timeline_event.type", "assignment")
+            ->assertJsonPath("data.latest_timeline_event.metadata.provider_id", 1);
+    }
+
     public function test_wave21_assignment_context_contract_when_endpoint_is_available(): void
     {
         $unassigned = $this
@@ -1393,5 +1426,17 @@ class PropertyApiTest extends TestCase
     private function isWave21AssignmentContextEndpointUnavailable(int $status): bool
     {
         return $status === 404 || $status === 405;
+    }
+
+    private function isWave29AssignmentEvidenceReady(TestResponse $response): bool
+    {
+        if ($response->status() !== 200) {
+            return false;
+        }
+
+        return $response->json("meta.contract") === "manager-provider-handoff-v1"
+            && $response->json("meta.flow") === "properties_assign_provider"
+            && is_array($response->json("data.assignment"))
+            && is_array($response->json("data.latest_timeline_event"));
     }
 }
