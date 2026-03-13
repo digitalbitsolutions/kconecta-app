@@ -498,6 +498,46 @@
   - Auth Session module owns token lifecycle and success/error contract metadata
   - Manager mobile module owns login form state, session restore UX, and recovery navigation
   - Debug env bootstrap values remain opt-in local tooling, not a required runtime dependency
+
+## Wave 29 Manager Handoff Evidence Boundary
+
+### Assignment Evidence Composition Layer
+
+- Responsibilities:
+  - enrich `POST /api/properties/{id}/assign-provider` success payload with enough assignment evidence for manager mobile confirmation
+  - keep legacy success fields intact while adding assignment snapshot and latest assignment timeline event
+  - ensure evidence payload is deterministic and derived from the same backend mutation transaction
+- Main contracts:
+  - `POST /api/properties/{id}/assign-provider`
+  - dependent read models reused for composition:
+    - assignment state owned by Property module
+    - provider snapshot owned by Provider module
+    - latest assignment event owned by Property timeline composition
+
+### Ownership Rules
+
+- Property module owns:
+  - assignment mutation
+  - authoritative `assigned_at`, `note`, and assigned property state
+  - latest assignment timeline event serialization
+- Provider module owns:
+  - provider snapshot fields returned inside assignment evidence:
+    - `id`
+    - `name`
+    - `category`
+    - `city`
+    - `status`
+    - `rating`
+- Manager mobile module owns:
+  - rendering success evidence in handoff UI
+  - preserving retry/recovery states on conflict/validation/transport failures
+  - optional post-navigation property detail refresh
+
+### Boundary Decision
+
+- Assignment confirmation evidence is backend-owned.
+- Manager mobile must not reconstruct assignment evidence by issuing an immediate second `GET /api/properties/{id}` just to infer success.
+- Property detail refresh remains a separate read concern for long-lived consistency, not part of mutation confirmation responsibility.
 ## Compatibility Rules
 
 - Existing CRM contracts remain valid while native apps are onboarded.

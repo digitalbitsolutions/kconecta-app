@@ -964,6 +964,79 @@ Define the minimum environment and auth contract required for native app release
   - no endpoint removals
   - no breaking removal of existing token fields
   - success metadata is enriched so manager mobile can render deterministic login/session UX without dev-first assumptions
+
+## Wave 29 Manager Provider Handoff Evidence Contract
+
+### Assignment Success Evidence Rules
+
+- Endpoint remains:
+  - `POST /api/properties/{id}/assign-provider`
+- Allowed roles remain:
+  - `manager`
+  - `admin`
+- Existing success fields remain backward compatible:
+  - `data.property_id`
+  - `data.provider_id`
+  - `data.assigned_at`
+  - `data.property`
+  - `meta.contract = manager-provider-handoff-v1`
+  - `meta.flow = properties_assign_provider`
+  - `meta.reason = provider_assigned`
+
+### Additive Success Payload
+
+- Success response adds assignment evidence so manager mobile can confirm mutation outcome without a follow-up property-detail fetch:
+  - `data.assignment`
+    - `assigned` (`true`)
+    - `state` (`assigned`)
+    - `assigned_at` (ISO-8601 UTC)
+    - `note` (nullable string)
+    - `provider`
+      - `id`
+      - `name`
+      - `category`
+      - `city`
+      - `status`
+      - `rating`
+  - `data.latest_timeline_event`
+    - `id`
+    - `type` (`assignment`)
+    - `occurred_at` (ISO-8601 UTC)
+    - `actor`
+    - `summary`
+    - `metadata`
+
+### Mobile Consumption Rules
+
+- Manager handoff screen must treat `assign-provider` response as the primary success source.
+- Mobile must not require `GET /api/properties/{id}` immediately after assignment just to render success evidence.
+- Property detail refresh remains allowed after navigation, but it is a secondary consistency step, not a success prerequisite.
+- If additive evidence fields are missing during rollout:
+  - use existing success path
+  - mark response as partial evidence in diagnostics-only mode
+  - keep navigation deterministic back to property detail
+
+### Error and Recovery Semantics
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt path, then retry assignment once.
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`.
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - keep authenticated state explicit and route to `Unauthorized`.
+- `409 ASSIGNMENT_CONFLICT`
+  - keep manager on handoff surface.
+  - preserve selected provider + note input.
+  - show deterministic reload/retry CTA.
+- `422 VALIDATION_ERROR`
+  - keep current inputs and show deterministic validation copy.
+
+### Compatibility Notes
+
+- Wave 29 is additive over Wave 19 and Wave 21:
+  - no endpoint removals
+  - no breaking field removals from `manager-provider-handoff-v1`
+  - `assignment` and `latest_timeline_event` are additive fields in assignment success payload
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):

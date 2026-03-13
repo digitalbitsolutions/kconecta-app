@@ -771,3 +771,52 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend auth success metadata hardening (`BE-024`).
 3. Manager login/session UX hardening (`MOB-025`).
 4. Regression matrix for manager auth/session UX (`QA-027`).
+
+## Wave 29 Manager Handoff Evidence State Map
+
+### Manager Handoff States
+
+- `handoff_loading`
+  - Load provider candidates for current property context.
+- `handoff_ready`
+  - Show provider candidates and optional assignment note input.
+- `handoff_assigning`
+  - Assignment mutation in flight; disable duplicate submit.
+- `handoff_success_evidence_ready`
+  - Render provider snapshot, assigned timestamp, note, and latest assignment event directly from assignment success payload.
+  - Allow deterministic CTA back to property detail.
+- `handoff_success_navigation_pending`
+  - Success evidence already rendered locally.
+  - Property detail refresh is scheduled after navigation, but success confirmation does not depend on it.
+- `handoff_validation_error`
+  - Keep selected provider and note input.
+  - Show deterministic validation copy.
+- `handoff_conflict`
+  - Preserve current context and show reload/retry CTA.
+- `handoff_forbidden`
+  - Route to `Unauthorized` while keeping auth state explicit.
+- `handoff_session_expired`
+  - Route to `SessionExpired` after unrecoverable auth failure.
+- `handoff_transport_error`
+  - Keep current screen context and allow retry without clearing local note input.
+
+### Wave 29 Interaction Rules
+
+- Assignment success must no longer depend on a follow-up `PropertyDetail` fetch to show evidence.
+- Success surface minimum evidence:
+  - assigned provider identity
+  - assigned timestamp
+  - assignment note (if present)
+  - latest assignment timeline event summary
+- Navigation rule:
+  - user may return to property detail immediately after success evidence is rendered.
+  - property detail then performs its own non-blocking refresh for long-lived consistency.
+- Recovery rule:
+  - conflict/validation/transport failures keep the handoff route mounted and preserve current draft inputs.
+
+### Wave 29 Delivery Sequencing
+
+1. Assignment evidence contract and state map (`ARCH-023`).
+2. Backend assignment evidence payload enrichment (`BE-025`).
+3. Manager handoff evidence UX wiring (`MOB-026`).
+4. Regression matrix for assignment evidence and recovery (`QA-028`).
