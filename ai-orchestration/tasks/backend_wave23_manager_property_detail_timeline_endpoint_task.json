@@ -1,0 +1,24 @@
+{
+  "id": "BE-021",
+  "title": "Implement manager property detail timeline backend contract",
+  "description": "Enhance manager property detail endpoint to expose deterministic timeline events for assignment and status changes required by native manager detail and handoff flows.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "routes/api.php",
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "Property detail response includes timeline array with deterministic event shape",
+    "Timeline includes assignment and status transition events in descending chronological order",
+    "Property API tests cover timeline payload, unknown property, and role/auth guardrails"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave23",
+    "executor_model": "ollama_chat/deepseek-coder:6.7b",
+    "stack": "laravel-api"
+  }
+}
