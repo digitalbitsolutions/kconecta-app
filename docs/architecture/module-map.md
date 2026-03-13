@@ -32,8 +32,10 @@
   - Weekly availability slot orchestration for provider workflows.
   - Identity-bound availability writes for provider self-scope.
   - Provider quality indicators (rating, active status).
+  - Manager-facing provider directory and profile read projections.
 - Main contracts:
-  - `/api/providers/{id}` (self/admin reads)
+  - `/api/providers` (manager/admin directory reads)
+  - `/api/providers/{id}` (manager/admin detail reads, provider self-read remains valid)
   - `/api/providers/{id}/availability` (read and mutate with role guard)
 
 ### Admin Module
@@ -65,7 +67,7 @@
 
 ## Surface to Module Mapping
 
-- `manager-app` -> Property Module + Auth Session Module.
+- `manager-app` -> Property Module + Provider Module + Auth Session Module.
 - `provider-app` -> Provider Module + Auth Session Module.
 - `admin-surface` -> Admin Module + Auth Session Module.
 
@@ -538,6 +540,40 @@
 - Assignment confirmation evidence is backend-owned.
 - Manager mobile must not reconstruct assignment evidence by issuing an immediate second `GET /api/properties/{id}` just to infer success.
 - Property detail refresh remains a separate read concern for long-lived consistency, not part of mutation confirmation responsibility.
+
+## Wave 30 Manager Provider Directory Boundary
+
+### Provider Directory/Profile Read Layer
+
+- Responsibilities:
+  - expose deterministic provider directory results for manager role
+  - expose provider profile detail read model for manager review surfaces
+  - normalize filters, pagination metadata, and not-found semantics for native consumption
+- Main contracts:
+  - `GET /api/providers`
+  - `GET /api/providers/{id}`
+
+### Ownership Rules
+
+- Provider module owns:
+  - provider directory list serialization
+  - provider profile detail serialization
+  - service/coverage/availability summary read composition
+  - role guard semantics for manager/admin reads
+- Manager mobile module owns:
+  - directory filter state
+  - navigation from directory to provider profile
+  - retry and empty-state rendering
+- Auth Session module owns:
+  - `401` recovery path
+  - unauthorized/session-expired transitions
+
+### Boundary Decision
+
+- Wave 30 establishes provider directory/profile parity as backend-owned read contracts.
+- Manager mobile must not reconstruct provider profile by stitching together handoff payloads, property assignment context, or partial provider previews.
+- Directory list payload is a preview contract; profile detail remains the authoritative read surface.
+
 ## Compatibility Rules
 
 - Existing CRM contracts remain valid while native apps are onboarded.
