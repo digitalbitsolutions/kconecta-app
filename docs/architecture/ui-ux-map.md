@@ -557,3 +557,78 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend summary/priorities payload implementation (`BE-022`).
 3. Manager dashboard/priorities UI wiring (`MOB-021`).
 4. Regression matrix for dashboard summary and priorities parity (`QA-023`).
+
+## Wave 25 Manager Priority Queue State Map
+
+### Dashboard Priority Queue States
+
+- `priority_queue_loading`
+  - Queue request in flight after dashboard shell is ready.
+  - Keep KPI block visible while queue resolves.
+- `priority_queue_ready`
+  - Render ordered queue items with severity and SLA badges.
+- `priority_queue_empty`
+  - Deterministic empty state with CTA to open full portfolio list.
+- `priority_queue_refreshing`
+  - Pull-to-refresh keeps current queue snapshot visible.
+  - Show non-blocking refresh indicator.
+- `priority_queue_error_fallback`
+  - If queue fails and no snapshot exists, render retry state.
+  - If snapshot exists, keep stale snapshot and show non-blocking error banner.
+- `priority_queue_filtering`
+  - Category/severity filter change keeps prior data visible until new payload arrives.
+- `priority_queue_unauthorized`
+  - On `403 ROLE_SCOPE_FORBIDDEN`, route to unauthorized state while session remains active.
+- `priority_queue_session_expired`
+  - On unrecoverable `401`, route to `SessionExpired`.
+
+### Queue Interaction Rules
+
+- Queue item action is deterministic per `action` field:
+  - `open_property` -> navigate `PropertyDetail`
+  - `open_handoff` -> navigate `ManagerToProviderHandoff`
+  - `review_status` -> navigate `PropertyList` with pre-applied status filter
+- Queue ordering displayed in UI must preserve backend order.
+- Refresh action never clears visible queue before new payload response.
+
+### Wave 25 Delivery Sequencing
+
+1. Priority queue contract and state map (`ARCH-021`).
+2. Backend queue endpoint and ordering guarantees (`BE-023`).
+3. Manager dashboard queue wiring (`MOB-022`).
+4. Regression matrix for queue/SLA parity (`QA-024`).
+
+## Wave 26 Manager Queue Action Completion State Map
+
+### Queue Completion Mutation States
+
+- `queue_action_idle`
+  - Queue row displays deterministic CTA from backend `action` hint.
+- `queue_action_submitting`
+  - Selected queue item enters local busy state.
+  - Row-level CTA is disabled while preserving global dashboard interactivity.
+- `queue_action_success`
+  - Queue row updates to completed state with completion timestamp.
+  - Optional optimistic removal from active list if completion filter excludes resolved items.
+- `queue_action_conflict`
+  - On `409 QUEUE_ACTION_CONFLICT`, row displays deterministic conflict banner with refresh CTA.
+- `queue_action_validation_error`
+  - On `422 VALIDATION_ERROR`, show inline validation copy for completion note/code.
+- `queue_action_unauthorized`
+  - On `403 ROLE_SCOPE_FORBIDDEN`, route to existing unauthorized state shell.
+- `queue_action_session_expired`
+  - On unrecoverable `401`, route to `SessionExpired`.
+
+### Queue Completion Interaction Rules
+
+- Completion action is item-scoped; other queue rows remain interactive.
+- `queue_action_submitting` must not block pull-to-refresh for the full dashboard.
+- If optimistic completion fails, row returns to previous deterministic state with error context.
+- Success state emits local analytics event for manager queue throughput metrics.
+
+### Wave 26 Delivery Sequencing
+
+1. Queue completion mutation contract and UX state map (`ARCH-016`).
+2. Backend queue completion endpoint and deterministic guardrails (`BE-021`).
+3. Manager dashboard queue completion wiring (`MOB-023`).
+4. Regression matrix for queue completion + cross-wave baseline safety (`QA-025`).

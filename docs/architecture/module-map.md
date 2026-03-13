@@ -355,6 +355,79 @@
   - Backend owns classification and timestamps (`due_at`, `updated_at`).
   - Manager mobile module consumes ordered feed and applies non-breaking local presentation only.
 
+## Wave 25 Manager Priority Queue Boundary
+
+### Priority Queue Composition Layer
+
+- Responsibilities:
+  - Transform dashboard priorities into actionable queue items bound to property context.
+  - Attach SLA semantics (`sla_due_at`, `sla_state`) for manager triage.
+  - Preserve deterministic ordering for stable native rendering.
+- Main contracts:
+  - `GET /api/properties/priorities/queue`
+  - Existing dependency:
+    - `GET /api/properties/summary` (Wave 24 source taxonomy alignment)
+
+### Queue Filter and Ordering Layer
+
+- Responsibilities:
+  - Normalize additive filters (`category`, `severity`, `limit`).
+  - Enforce deterministic queue ordering before payload serialization.
+  - Keep filter echo metadata for reproducible client refreshes.
+- Ordering policy:
+  - `severity` desc
+  - `sla_due_at` asc (`null` last)
+  - `updated_at` desc
+  - `id` asc
+
+### Ownership Notes
+
+- Property module owns:
+  - queue item derivation
+  - SLA state classification
+  - filter normalization and ordering guarantees
+- Auth Session module owns:
+  - role guard and deterministic unauthorized/session envelopes
+- Manager mobile module owns:
+  - queue rendering states
+  - route actions derived from backend `action` hints
+
+## Wave 26 Manager Queue Action Completion Boundary
+
+### Queue Action Mutation Layer
+
+- Responsibilities:
+  - Resolve manager queue completion mutation for actionable queue items.
+  - Apply deterministic completion metadata (`completed`, `completed_at`, `resolution_code`, `note`).
+  - Enforce idempotent-safe conflict semantics for repeated queue actions.
+- Main contracts:
+  - `POST /api/properties/priorities/queue/{queue_item_id}/complete`
+  - Existing dependency:
+    - `GET /api/properties/priorities/queue` (Wave 25 queue snapshot source)
+
+### Queue Completion Validation and Conflict Layer
+
+- Responsibilities:
+  - Validate bounded completion payload fields (`resolution_code`, `note`).
+  - Emit deterministic envelopes for not-found/conflict/validation outcomes.
+  - Preserve manager-only role guard and auth-session envelope invariants.
+- Guardrail contract outcomes:
+  - `401 TOKEN_INVALID|TOKEN_EXPIRED`
+  - `403 ROLE_SCOPE_FORBIDDEN`
+  - `404 QUEUE_ITEM_NOT_FOUND`
+  - `409 QUEUE_ACTION_CONFLICT`
+  - `422 VALIDATION_ERROR`
+
+### Ownership Notes
+
+- Property module owns:
+  - queue completion mutation semantics
+  - completion conflict detection and deterministic reason codes
+- Auth Session module owns:
+  - token/role envelope consistency for mutation route
+- Manager mobile module owns:
+  - optimistic completion UX state
+  - retry and fallback navigation for mutation failures
 ## Compatibility Rules
 
 - Existing CRM contracts remain valid while native apps are onboarded.

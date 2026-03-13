@@ -118,6 +118,23 @@ class CommandRunner:
                 "XAMPP usage is blocked by policy. Use Docker-based commands instead."
             )
 
+        # Never allow `php artisan test` on host/shell. It must run in Docker.
+        host_artisan_test = "php artisan test" in joined
+        dockerized_artisan_test = any(
+            token in joined
+            for token in (
+                "docker compose",
+                "docker-compose",
+                "docker exec",
+                "backend-test-docker",
+            )
+        )
+        if host_artisan_test and not dockerized_artisan_test:
+            raise RuntimeError(
+                "Direct `php artisan test` on host is blocked by policy. "
+                "Use `py ai-orchestration/orchestrator.py backend-test-docker`."
+            )
+
         allow_host_php = os.environ.get("AI_ALLOW_HOST_PHP", "").strip().lower() in {
             "1",
             "true",

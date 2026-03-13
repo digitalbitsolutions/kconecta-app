@@ -1124,6 +1124,44 @@ class PropertyApiTest extends TestCase
         $this->assertSame($expected, $items, "Priority queue must be deterministic for identical inputs.");
     }
 
+    public function test_manager_priority_queue_exposes_valid_sla_and_action_fields(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue");
+
+        $response->assertOk();
+        $items = $response->json("data.items", []);
+        $this->assertNotEmpty($items);
+
+        foreach ($items as $item) {
+            $this->assertContains(
+                strtolower((string) ($item["category"] ?? "")),
+                ["provider_assignment", "maintenance_follow_up", "portfolio_review", "quality_alert"]
+            );
+            $this->assertContains(
+                strtolower((string) ($item["severity"] ?? "")),
+                ["high", "medium", "low"]
+            );
+            $this->assertContains(
+                strtolower((string) ($item["sla_state"] ?? "")),
+                ["on_track", "at_risk", "overdue", "no_deadline"]
+            );
+            $this->assertContains(
+                strtolower((string) ($item["action"] ?? "")),
+                ["open_handoff", "open_property", "review_status"]
+            );
+
+            $slaDueAt = $item["sla_due_at"] ?? null;
+            if ($slaDueAt === null) {
+                $this->assertSame("no_deadline", strtolower((string) ($item["sla_state"] ?? "")));
+                continue;
+            }
+
+            $this->assertNotSame("", trim((string) $slaDueAt));
+        }
+    }
+
     public function test_manager_priority_queue_supports_filter_and_limit_query_params(): void
     {
         $response = $this
@@ -1157,7 +1195,8 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
             ->assertJsonPath("meta.contract", "auth-session-v1")
             ->assertJsonPath("meta.flow", "properties_priority_queue")
-            ->assertJsonPath("meta.reason", "role_scope_forbidden");
+            ->assertJsonPath("meta.reason", "role_scope_forbidden")
+            ->assertJsonPath("meta.retryable", false);
     }
 
     public function test_invalid_bearer_token_returns_unauthorized_for_priority_queue_endpoint(): void
@@ -1171,7 +1210,8 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("error.code", "TOKEN_INVALID")
             ->assertJsonPath("meta.contract", "auth-session-v1")
             ->assertJsonPath("meta.flow", "properties_priority_queue")
-            ->assertJsonPath("meta.reason", "token_invalid");
+            ->assertJsonPath("meta.reason", "token_invalid")
+            ->assertJsonPath("meta.retryable", false);
     }
 
     public function test_priority_queue_rejects_invalid_filter_values(): void
