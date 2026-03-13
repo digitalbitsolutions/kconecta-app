@@ -464,6 +464,34 @@ Validate end-to-end functional behavior of native app API contracts before relea
 4. `DEV-136` -> Mobile manager property form parity UI/API integration.
 5. `DEV-137` -> Regression matrix + API assertions in `tests/Feature/Api/Wave27RegressionMatrixTest.php`.
 
+## Wave 28 Manager Auth/Session UX Hardening Matrix
+
+1. Manager login-first UX hardening (`DEV-140`, `DEV-142`, `DEV-143`)
+  - Manager login screen starts blank by default unless explicit bootstrap env values are provided.
+  - Invalid credentials map to deterministic login UX feedback without exposing raw backend errors.
+  - Diagnostics footer is only shown when `EXPO_PUBLIC_SHOW_ENV_DIAGNOSTICS` enables it.
+2. Auth success metadata parity (`DEV-140`, `DEV-143`)
+  - `POST /api/auth/login` success payload exposes `subject`, `email`, `display_name`, `role`, `scope`.
+  - `POST /api/auth/refresh` success payload exposes the same deterministic subject/identity fields.
+  - `POST /api/auth/logout` success payload preserves `auth-session-v1` metadata with `flow=logout` and `reason=logout_success`.
+  - `GET /api/auth/me` success payload exposes `display_name` for manager runtime bootstrapping.
+3. Unauthorized and session-expired recovery (`DEV-142`, `DEV-143`)
+  - Manager unauthorized route only offers deterministic return-to-login recovery.
+  - Manager session-expired route clears local session and routes back to login.
+  - Provider-scope session against manager runtime still returns `403 ROLE_SCOPE_FORBIDDEN`.
+4. Cross-wave baseline safety (`DEV-143`)
+  - Wave 20 `/api/auth/me` invalid-token contract remains stable.
+  - Wave 24 dashboard summary contract remains stable.
+  - Wave 27 property form parity contract remains stable while auth/session UX hardening is introduced.
+
+## Wave 28 Ticket Mapping
+
+1. `DEV-139` -> Wave 28 orchestration epic and rollout tracking.
+2. `DEV-141` -> Manager auth/session UX hardening architecture contract.
+3. `DEV-140` -> Backend auth success metadata hardening.
+4. `DEV-142` -> Mobile manager login/session recovery UX hardening.
+5. `DEV-143` -> Regression matrix + API assertions in `tests/Feature/Api/Wave28RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -492,6 +520,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 22. Run Wave 25 priority queue regression suite and record SLA fields/order + queue guardrail evidence.
 23. Run Wave 26 queue completion regression suite and record success/conflict/validation + forbidden/unauthorized evidence.
 24. Run Wave 27 manager property form parity regression suite and record enriched create/edit/validation/conflict guardrail evidence.
+25. Run Wave 28 manager auth/session UX regression suite and record success metadata parity plus login/session recovery evidence.
 
 ## Entry Criteria
 
