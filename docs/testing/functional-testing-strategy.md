@@ -358,6 +358,42 @@ Validate end-to-end functional behavior of native app API contracts before relea
 4. `DEV-122` -> Mobile manager dashboard summary/priorities UI integration.
 5. `DEV-123` -> Regression matrix + API assertions in `tests/Feature/Api/Wave24RegressionMatrixTest.php`.
 
+## Wave 25 Manager Priority Queue Matrix
+
+1. Priority queue contract parity (`DEV-126`, `DEV-127`, `DEV-128`)
+  - `GET /api/properties/priorities/queue` returns deterministic envelope with:
+    - `data.items[]`
+    - `meta.contract=manager-priority-queue-v1`
+    - `meta.generated_at`
+    - `meta.filters`
+    - `meta.count`
+  - Queue items expose SLA fields required by manager triage:
+    - `sla_due_at`
+    - `sla_state` (`on_track|at_risk|overdue|no_deadline`)
+  - Ordering remains deterministic:
+    - severity (`high` > `medium` > `low`)
+    - ascending `sla_due_at` (`null` values last)
+    - descending `updated_at`
+    - ascending `id` as deterministic tiebreaker
+2. Session and role guardrails (`DEV-126`, `DEV-128`)
+  - Provider role access to queue route returns `403 ROLE_SCOPE_FORBIDDEN`.
+  - Invalid token against queue route returns deterministic `401 TOKEN_INVALID`.
+  - Forbidden/unauthorized responses preserve `auth-session-v1` envelope metadata.
+3. Cross-wave baseline safety (`DEV-128`)
+  - Wave 20 `/api/auth/me` unauthorized contract remains stable.
+  - Wave 21 assignment-context role guard remains stable.
+  - Wave 22 portfolio filter/pagination contract remains stable.
+  - Wave 23 property detail timeline contract remains stable.
+  - Wave 24 dashboard summary/priorities contract remains stable while queue payload is introduced.
+
+## Wave 25 Ticket Mapping
+
+1. `DEV-124` -> Wave 25 orchestration epic and rollout tracking.
+2. `DEV-125` -> Manager priority queue architecture contract and UX state map.
+3. `DEV-126` -> Backend priority queue endpoint + SLA contract implementation.
+4. `DEV-127` -> Mobile manager dashboard queue integration and portfolio launch context.
+5. `DEV-128` -> Regression matrix + API assertions in `tests/Feature/Api/Wave25RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -383,6 +419,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 19. Run Wave 22 portfolio filter/pagination regression suite and record filter echoes, pagination boundaries, and guardrail evidence.
 20. Run Wave 23 property detail timeline regression suite and record timeline ordering plus detail guardrail evidence.
 21. Run Wave 24 dashboard summary/priorities regression suite and record ordering + summary guardrail evidence.
+22. Run Wave 25 priority queue regression suite and record SLA fields/order + queue guardrail evidence.
 
 ## Entry Criteria
 
