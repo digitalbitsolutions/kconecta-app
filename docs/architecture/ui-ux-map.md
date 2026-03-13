@@ -632,3 +632,90 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend queue completion endpoint and deterministic guardrails (`BE-021`).
 3. Manager dashboard queue completion wiring (`MOB-023`).
 4. Regression matrix for queue completion + cross-wave baseline safety (`QA-025`).
+
+## Wave 27 Manager Property Form Parity State Map
+
+### Property Form Screen States
+
+- `property_form_create_idle`
+  - Empty create form with deterministic defaults for `status` and `operation_mode`.
+- `property_form_edit_loading`
+  - Existing property payload is loading before edit inputs become interactive.
+- `property_form_edit_ready`
+  - Existing property payload is mapped into grouped editor sections.
+- `property_form_submitting`
+  - Save mutation in flight; submit CTA disabled while inputs remain visible.
+- `property_form_validation_error`
+  - Inline field errors rendered from `error.fields` without clearing current inputs.
+- `property_form_conflict`
+  - On `409 PROPERTY_FORM_CONFLICT`, show retry/reload CTA while preserving user draft snapshot.
+- `property_form_save_success`
+  - Navigate deterministically to `PropertyDetail` with refreshed property context.
+- `property_form_unauthorized`
+  - On `403 ROLE_SCOPE_FORBIDDEN`, route to existing unauthorized shell.
+- `property_form_session_expired`
+  - On unrecoverable `401`, route to `SessionExpired`.
+- `property_form_load_error`
+  - Edit flow failed to load existing property; show deterministic retry state.
+
+### Field Taxonomy and UX Grouping
+
+- `identity_section`
+  - `title`
+  - `description`
+- `location_section`
+  - `address`
+  - `city`
+  - `postal_code`
+- `commercial_section`
+  - `property_type`
+  - `operation_mode`
+  - `status`
+- `pricing_section`
+  - `sale_price`
+  - `rental_price`
+  - `garage_price_category_id`
+  - `garage_price`
+- `characteristics_section`
+  - `bedrooms`
+  - `bathrooms`
+  - `rooms`
+  - `elevator`
+
+### Form Interaction Rules
+
+- Edit and create flows share the same canonical field taxonomy.
+- Conditional fields must remain deterministic:
+  - hide or disable `sale_price` when `operation_mode = rent`
+  - hide or disable `rental_price` when `operation_mode = sale`
+  - require/show garage pricing only for garage-capable property types
+  - require/show residential counters only for residential property types
+- Validation errors must map one-to-one to visible inputs and never collapse unrelated sections.
+- Successful save routes to `PropertyDetail`; create flow must not return to stale form screen.
+- Conflict state preserves local form draft until user explicitly reloads.
+
+### Create/Edit Transition Rules
+
+- `property_form_create_idle -> property_form_submitting`
+  - on save attempt with locally valid input.
+- `property_form_edit_loading -> property_form_edit_ready`
+  - after property payload resolves successfully.
+- `property_form_submitting -> property_form_validation_error`
+  - on `422 VALIDATION_ERROR`.
+- `property_form_submitting -> property_form_conflict`
+  - on `409 PROPERTY_FORM_CONFLICT`.
+- `property_form_submitting -> property_form_unauthorized`
+  - on `403 ROLE_SCOPE_FORBIDDEN`.
+- `property_form_submitting -> property_form_session_expired`
+  - on unrecoverable `401`.
+- `property_form_submitting -> property_form_save_success`
+  - on create/update success.
+- `property_form_edit_loading -> property_form_load_error`
+  - on deterministic load failure not caused by session expiry.
+
+### Wave 27 Delivery Sequencing
+
+1. Property form parity contract and UX state map (`ARCH-021`).
+2. Backend enriched property create/edit payload implementation (`BE-023`).
+3. Manager property create/edit UI parity wiring (`MOB-024`).
+4. Regression matrix for enriched property form parity (`QA-026`).

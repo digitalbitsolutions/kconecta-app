@@ -428,6 +428,44 @@
 - Manager mobile module owns:
   - optimistic completion UX state
   - retry and fallback navigation for mutation failures
+
+## Wave 27 Manager Property Form Parity Boundary
+
+### Property Form Schema Composition Layer
+
+- Responsibilities:
+  - Define canonical create/edit schema for manager property inventory.
+  - Normalize legacy CRM field taxonomy into stable mobile contract groups.
+  - Keep create and edit payloads additive over the current minimal property mutation contract.
+- Main contracts:
+  - `POST /api/properties`
+  - `PATCH /api/properties/{id}`
+
+### Property Form Validation Orchestration Layer
+
+- Responsibilities:
+  - Enforce deterministic required and conditional validation rules for enriched property inputs.
+  - Emit field-keyed `422 VALIDATION_ERROR` envelopes aligned to mobile input ids.
+  - Protect manager scope ownership for create/edit mutations.
+- Guardrails:
+  - `401` auth envelope from Auth Session Module.
+  - `403 ROLE_SCOPE_FORBIDDEN` for unauthorized roles/scopes.
+  - `404 PROPERTY_NOT_FOUND` for edit targets outside allowed scope.
+  - `409 PROPERTY_FORM_CONFLICT` for stale or conflicting edits.
+
+### Ownership Notes
+
+- Property module owns:
+  - canonical property form schema
+  - conditional pricing and characteristics validation
+  - create/edit persistence semantics and response shaping
+- Auth Session module owns:
+  - session expiry and role envelope invariants
+- Manager mobile module owns:
+  - local form draft state
+  - grouped field presentation
+  - client-side pre-validation and deterministic error rendering
+- CRM web parity remains source reference for field taxonomy, but native manager app consumes only the public API contract.
 ## Compatibility Rules
 
 - Existing CRM contracts remain valid while native apps are onboarded.
