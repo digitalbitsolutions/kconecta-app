@@ -1,0 +1,23 @@
+{
+  "id": "MOB-023",
+  "title": "Wire manager queue action completion flow in dashboard",
+  "description": "Integrate queue action completion API in manager dashboard, including optimistic update, retry/error handling, and deterministic UX state transitions for resolved queue items.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/screens/ManagerDashboardScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Queue cards expose action CTA wired to backend completion endpoint",
+    "Resolved queue item updates in-place with deterministic loading/success/error UX",
+    "Unauthorized/session-expired responses route to existing auth/session fallback paths"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave26",
+    "stack": "react-native-with-typescript",
+    "suite": "mobile",
+    "domain": "manager-queue-completion"
+  }
+}

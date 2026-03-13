@@ -1,0 +1,24 @@
+{
+  "id": "EPIC-W25",
+  "title": "Wave 25 - Manager priority queue and SLA parity",
+  "description": "Coordinate Wave 25 delivery for manager priority queue parity: actionable priority items, SLA metadata, and deterministic manager-facing queue states across API and native UI.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/ai-orchestration-roadmap.md",
+    "docs/roadmap/wave25-manager-priority-queue-plan.md",
+    "ai-orchestration/README.md"
+  ],
+  "acceptance_criteria": [
+    "Wave 25 roadmap includes architect/backend/mobile/qa sequence with PR discipline",
+    "Epic definition captures manager priority queue objective with SLA semantics",
+    "Cross-wave guardrails for Waves 20-24 remain explicitly tracked"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave25",
+    "stack": "react-native-with-typescript",
+    "suite": "orchestration",
+    "domain": "manager-priority-queue"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "BE-021",
+  "title": "Implement manager queue action completion endpoint",
+  "description": "Add manager queue action completion endpoint and service mutation path to resolve queue items with deterministic state, role/auth guardrails, and response envelope metadata.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "routes/api.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "POST action endpoint resolves queue item by id and returns deterministic contract metadata",
+    "Forbidden and unauthorized envelopes remain auth-session-v1 and deterministic for manager-only access",
+    "Queue read endpoint reflects updated completion state after successful action"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave26",
+    "stack": "laravel",
+    "suite": "backend",
+    "domain": "manager-queue-completion"
+  }
+}

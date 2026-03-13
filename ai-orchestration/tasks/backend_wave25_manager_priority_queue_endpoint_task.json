@@ -1,0 +1,25 @@
+{
+  "id": "BE-023",
+  "title": "Implement manager priority queue endpoint contract",
+  "description": "Add backend manager priority queue endpoint with deterministic ordering, SLA metadata, and stable auth/role envelopes for native dashboard integration.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "routes/api.php",
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "Queue endpoint returns actionable manager items with severity and SLA fields",
+    "Queue response ordering is deterministic and covered by tests",
+    "Unauthorized and forbidden responses keep auth-session-v1 envelope consistency"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave25",
+    "stack": "laravel-api",
+    "suite": "backend",
+    "domain": "manager-priority-queue"
+  }
+}

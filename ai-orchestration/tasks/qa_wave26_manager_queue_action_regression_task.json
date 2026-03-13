@@ -1,0 +1,24 @@
+{
+  "id": "QA-025",
+  "title": "Add Wave 26 manager queue action completion regression matrix",
+  "description": "Extend QA matrix for queue completion contract, deterministic envelopes, and cross-wave baseline safety while preserving Waves 20-25 manager behavior.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/Wave26RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix covers queue action success/conflict/validation and envelope metadata",
+    "API tests assert deterministic forbidden/unauthorized envelopes for queue action endpoint",
+    "Wave 20-25 baselines remain stable after Wave 26 additions"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave26",
+    "stack": "qa-core",
+    "suite": "qa",
+    "domain": "manager-queue-completion"
+  }
+}

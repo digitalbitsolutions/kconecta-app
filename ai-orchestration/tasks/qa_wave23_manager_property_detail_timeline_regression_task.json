@@ -1,0 +1,23 @@
+{
+  "id": "QA-022",
+  "title": "Add Wave 23 manager property detail timeline regression matrix",
+  "description": "Expand QA coverage for manager property detail timeline payload and UI consumption while preserving Wave 20-22 auth, assignment-context, and filter baselines.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/Wave23RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix includes timeline payload contract checks and ordering guarantees",
+    "API tests assert deterministic timeline metadata plus unauthorized/forbidden envelopes",
+    "Wave 20-22 manager baselines remain stable after Wave 23 coverage is added"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave23",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "stack": "qa-core"
+  }
+}

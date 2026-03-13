@@ -1,0 +1,24 @@
+{
+  "id": "ARCH-016",
+  "title": "Define Wave 26 manager queue action completion contract",
+  "description": "Extend architecture contracts with queue action completion semantics, response envelopes, UX state transitions, and backward compatibility notes for manager dashboard queue flows.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/module-map.md",
+    "docs/architecture/ui-ux-map.md"
+  ],
+  "acceptance_criteria": [
+    "Contract defines queue action endpoint request/response and deterministic error envelopes",
+    "UI state map covers loading, optimistic update, conflict, unauthorized, and retry states",
+    "Cross-wave compatibility section documents Wave 24/25 dashboard + queue baseline guarantees"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave26",
+    "stack": "architecture",
+    "suite": "architecture",
+    "domain": "manager-queue-completion"
+  }
+}

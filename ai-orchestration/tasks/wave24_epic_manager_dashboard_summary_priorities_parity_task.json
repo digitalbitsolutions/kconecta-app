@@ -1,0 +1,24 @@
+{
+  "id": "EPIC-W24",
+  "title": "Wave 24 - Manager dashboard summary and priorities parity",
+  "description": "Coordinate Wave 24 delivery for manager dashboard API parity: summary KPIs, deterministic priorities feed, and cross-wave regression safety for manager session/property flows.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/ai-orchestration-roadmap.md",
+    "docs/roadmap/wave24-manager-dashboard-summary-priorities-plan.md",
+    "ai-orchestration/README.md"
+  ],
+  "acceptance_criteria": [
+    "Wave 24 roadmap includes architect/backend/mobile/qa sequencing and PR strategy",
+    "Epic definition captures dashboard summary contract and priorities feed parity objective",
+    "Cross-wave guardrails for Wave 20-23 are explicitly tracked in rollout checklist"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave24",
+    "stack": "react-native-with-typescript",
+    "suite": "orchestration",
+    "domain": "manager-dashboard"
+  }
+}

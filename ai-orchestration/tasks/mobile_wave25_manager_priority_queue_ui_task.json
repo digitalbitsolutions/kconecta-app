@@ -1,0 +1,24 @@
+{
+  "id": "MOB-022",
+  "title": "Wire manager dashboard priority queue to backend endpoint",
+  "description": "Integrate manager dashboard priorities section with priority queue endpoint and render deterministic queue states with refresh and degraded handling.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/screens/ManagerDashboardScreen.tsx",
+    "apps/manager/src/screens/PropertyListScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Dashboard loads priority queue items from API instead of static placeholders",
+    "Queue supports deterministic loading, empty, refresh, and degraded states",
+    "Priority action opens manager portfolio with matching filter context"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave25",
+    "stack": "react-native-with-typescript",
+    "suite": "mobile",
+    "domain": "manager-priority-queue"
+  }
+}

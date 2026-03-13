@@ -1,0 +1,32 @@
+{
+  "id": "EPIC-W26",
+  "title": "Wave 26 - Manager queue action completion and resolution loop",
+  "description": "Coordinate architecture, backend, mobile, and QA delivery for queue action completion flows so manager users can resolve queue items and keep dashboard parity with CRM operations.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/module-map.md",
+    "docs/architecture/ui-ux-map.md",
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "routes/api.php",
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/screens/ManagerDashboardScreen.tsx",
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/Wave26RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Queue actions can be completed through deterministic API contract with role/auth guards",
+    "Manager dashboard queue UI reflects completion state changes without hard refresh",
+    "Regression suite proves Wave 20-25 manager contracts remain stable after Wave 26 rollout"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave26",
+    "stack": "react-native-with-typescript",
+    "suite": "orchestration",
+    "domain": "manager-queue-completion"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "QA-024",
+  "title": "Add Wave 25 manager priority queue regression matrix",
+  "description": "Extend QA coverage for manager priority queue endpoint and dashboard queue rendering while preserving Wave 20-24 manager flow baselines.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/Wave25RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix covers queue payload, SLA fields, and ordering guarantees",
+    "API tests assert deterministic unauthorized and forbidden envelopes for queue route",
+    "Wave 20-24 manager baselines remain stable after Wave 25 additions"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave25",
+    "stack": "qa-core",
+    "suite": "qa",
+    "domain": "manager-priority-queue"
+  }
+}
