@@ -164,6 +164,39 @@ type DashboardSummaryPayload = {
   };
 };
 
+type PriorityQueuePayload = {
+  data: {
+    items: Array<{
+      id: string;
+      property_id: number;
+      property_title: string;
+      city: string;
+      status: PropertyStatus;
+      category:
+        | "portfolio_review"
+        | "provider_assignment"
+        | "maintenance_follow_up"
+        | "quality_alert";
+      severity: "low" | "medium" | "high";
+      sla_due_at: string | null;
+      sla_state: "on_track" | "at_risk" | "overdue" | "no_deadline";
+      updated_at: string;
+      action: "open_property" | "open_handoff" | "review_status";
+    }>;
+  };
+  meta: {
+    contract: string;
+    generated_at: string;
+    source: "database" | "in_memory";
+    filters: {
+      category: string | null;
+      severity: string | null;
+      limit: number | null;
+    };
+    count: number;
+  };
+};
+
 export type PropertyViewModel = {
   id: string;
   title: string;
@@ -287,6 +320,50 @@ export type ManagerDashboardSummary = {
     generatedAt: string;
     source: "database" | "in_memory";
   };
+};
+
+export type ManagerPriorityQueueAction = "open_property" | "open_handoff" | "review_status";
+export type ManagerPriorityQueueSlaState = "on_track" | "at_risk" | "overdue" | "no_deadline";
+
+export type ManagerPriorityQueueItem = {
+  id: string;
+  propertyId: string;
+  propertyTitle: string;
+  city: string;
+  status: PropertyStatus;
+  category: ManagerPriorityCategory;
+  severity: ManagerPrioritySeverity;
+  slaDueAt: string | null;
+  slaState: ManagerPriorityQueueSlaState;
+  updatedAt: string;
+  action: ManagerPriorityQueueAction;
+};
+
+export type ManagerPriorityQueueResult = {
+  items: ManagerPriorityQueueItem[];
+  meta: {
+    contract: string;
+    generatedAt: string;
+    source: "database" | "in_memory";
+    count: number;
+    filters: {
+      category: string | null;
+      severity: string | null;
+      limit: number | null;
+    };
+  };
+};
+
+export type PriorityQueueQuery = {
+  category?: ManagerPriorityCategory;
+  severity?: ManagerPrioritySeverity;
+  limit?: number;
+};
+
+export type ManagerPortfolioLaunchContext = {
+  status?: PropertyStatus;
+  search?: string;
+  city?: string;
 };
 
 export type PropertyListQuery = {
@@ -457,6 +534,36 @@ function mapDashboardPriorities(
   return sortDashboardPriorities(mapped);
 }
 
+function mapPriorityQueueItems(
+  items: PriorityQueuePayload["data"]["items"]
+): ManagerPriorityQueueItem[] {
+  return items.map((item) => ({
+    id: item.id,
+    propertyId: String(item.property_id),
+    propertyTitle: item.property_title,
+    city: item.city,
+    status: item.status,
+    category: item.category,
+    severity: item.severity,
+    slaDueAt: item.sla_due_at,
+    slaState: item.sla_state,
+    updatedAt: item.updated_at,
+    action: item.action,
+  }));
+}
+
+let managerPortfolioLaunchContext: ManagerPortfolioLaunchContext | null = null;
+
+export function setManagerPortfolioLaunchContext(context: ManagerPortfolioLaunchContext): void {
+  managerPortfolioLaunchContext = context;
+}
+
+export function consumeManagerPortfolioLaunchContext(): ManagerPortfolioLaunchContext | null {
+  const snapshot = managerPortfolioLaunchContext;
+  managerPortfolioLaunchContext = null;
+  return snapshot;
+}
+
 function toMessage(payload: PropertyFormErrorPayload, status: number): string {
   if (typeof payload.error?.message === "string" && payload.error.message.trim().length > 0) {
     return payload.error.message;
@@ -503,6 +610,37 @@ export async function fetchManagerDashboardSummary(): Promise<ManagerDashboardSu
       contract: payload.meta.contract,
       generatedAt: payload.meta.generated_at,
       source: payload.meta.source,
+    },
+  };
+}
+
+export async function fetchManagerPriorityQueue(
+  query: PriorityQueueQuery = {}
+): Promise<ManagerPriorityQueueResult> {
+  const params = new URLSearchParams();
+  if (query.category) {
+    params.set("category", query.category);
+  }
+  if (query.severity) {
+    params.set("severity", query.severity);
+  }
+  if (typeof query.limit === "number") {
+    params.set("limit", String(query.limit));
+  }
+
+  const suffix = params.toString();
+  const endpoint =
+    suffix.length > 0 ? `/properties/priorities/queue?${suffix}` : "/properties/priorities/queue";
+  const payload = await requestJson<PriorityQueuePayload>(endpoint);
+
+  return {
+    items: mapPriorityQueueItems(payload.data.items),
+    meta: {
+      contract: payload.meta.contract,
+      generatedAt: payload.meta.generated_at,
+      source: payload.meta.source,
+      count: payload.meta.count,
+      filters: payload.meta.filters,
     },
   };
 }
