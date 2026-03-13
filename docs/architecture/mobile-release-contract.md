@@ -964,6 +964,170 @@ Define the minimum environment and auth contract required for native app release
   - no endpoint removals
   - no breaking removal of existing token fields
   - success metadata is enriched so manager mobile can render deterministic login/session UX without dev-first assumptions
+
+## Wave 29 Manager Provider Handoff Evidence Contract
+
+### Assignment Success Evidence Rules
+
+- Endpoint remains:
+  - `POST /api/properties/{id}/assign-provider`
+- Allowed roles remain:
+  - `manager`
+  - `admin`
+- Existing success fields remain backward compatible:
+  - `data.property_id`
+  - `data.provider_id`
+  - `data.assigned_at`
+  - `data.property`
+  - `meta.contract = manager-provider-handoff-v1`
+  - `meta.flow = properties_assign_provider`
+  - `meta.reason = provider_assigned`
+
+### Additive Success Payload
+
+- Success response adds assignment evidence so manager mobile can confirm mutation outcome without a follow-up property-detail fetch:
+  - `data.assignment`
+    - `assigned` (`true`)
+    - `state` (`assigned`)
+    - `assigned_at` (ISO-8601 UTC)
+    - `note` (nullable string)
+    - `provider`
+      - `id`
+      - `name`
+      - `category`
+      - `city`
+      - `status`
+      - `rating`
+  - `data.latest_timeline_event`
+    - `id`
+    - `type` (`assignment`)
+    - `occurred_at` (ISO-8601 UTC)
+    - `actor`
+    - `summary`
+    - `metadata`
+
+### Mobile Consumption Rules
+
+- Manager handoff screen must treat `assign-provider` response as the primary success source.
+- Mobile must not require `GET /api/properties/{id}` immediately after assignment just to render success evidence.
+- Property detail refresh remains allowed after navigation, but it is a secondary consistency step, not a success prerequisite.
+- If additive evidence fields are missing during rollout:
+  - use existing success path
+  - mark response as partial evidence in diagnostics-only mode
+  - keep navigation deterministic back to property detail
+
+### Error and Recovery Semantics
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt path, then retry assignment once.
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`.
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - keep authenticated state explicit and route to `Unauthorized`.
+- `409 ASSIGNMENT_CONFLICT`
+  - keep manager on handoff surface.
+  - preserve selected provider + note input.
+  - show deterministic reload/retry CTA.
+- `422 VALIDATION_ERROR`
+  - keep current inputs and show deterministic validation copy.
+
+### Compatibility Notes
+
+- Wave 29 is additive over Wave 19 and Wave 21:
+  - no endpoint removals
+  - no breaking field removals from `manager-provider-handoff-v1`
+  - `assignment` and `latest_timeline_event` are additive fields in assignment success payload
+
+## Wave 30 Manager Provider Directory and Profile Contract
+
+### Provider Directory Read Contract
+
+- Endpoint:
+  - `GET /api/providers`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Provider role behavior:
+  - existing provider self-service reads remain valid for provider runtime
+  - manager directory contract must not require provider-role tokens
+- Request query parameters:
+  - `search` (free-text, optional)
+  - `city` (optional)
+  - `category` (optional)
+  - `status` (optional)
+  - `page` (optional, integer)
+  - `per_page` (optional, integer)
+- Success response minimum shape:
+  - `data[]`
+    - `id`
+    - `name`
+    - `category`
+    - `city`
+    - `status`
+    - `rating`
+    - `availability_summary`
+      - `label`
+      - `next_open_slot` (nullable)
+    - `services_preview[]`
+  - `meta.contract = manager-provider-directory-v1`
+  - `meta.filters`
+  - `meta.pagination`
+  - `meta.source`
+
+### Provider Profile Detail Contract
+
+- Endpoint:
+  - `GET /api/providers/{id}`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Success response minimum shape:
+  - `data.id`
+  - `data.name`
+  - `data.category`
+  - `data.city`
+  - `data.status`
+  - `data.rating`
+  - `data.bio` (nullable)
+  - `data.phone` (nullable/masked by policy)
+  - `data.email` (nullable/masked by policy)
+  - `data.services[]`
+  - `data.coverage[]`
+  - `data.availability_summary`
+  - `data.metrics`
+    - `completed_jobs`
+    - `response_time_hours`
+    - `customer_score`
+  - `meta.contract = manager-provider-directory-v1`
+  - `meta.source`
+
+### Manager Mobile Consumption Rules
+
+- Manager directory and provider profile remain read-only surfaces in Wave 30.
+- Manager app must be able to render provider list cards from `GET /api/providers` without composing profile data from unrelated property or handoff payloads.
+- Provider profile screen must accept list payload as preview context, but authoritative detail rendering comes from `GET /api/providers/{id}`.
+- Empty list responses are valid business outcomes and must not be treated as transport failures.
+
+### Error and Recovery Semantics
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt, then retry current read once.
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`.
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - keep authenticated state explicit and route to `Unauthorized`.
+- `404 PROVIDER_NOT_FOUND`
+  - keep manager app authenticated and render deterministic profile not-found state.
+- transport/server errors
+  - keep current screen mounted and expose retry CTA without clearing filter state.
+
+### Compatibility Notes
+
+- Wave 30 is additive over existing provider reads and manager parity flows:
+  - no endpoint removals
+  - no breaking removal of provider detail fields already consumed by provider runtime
+  - `manager-provider-directory-v1` standardizes manager-facing list/detail payload expectations without changing auth lifecycle contracts
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):

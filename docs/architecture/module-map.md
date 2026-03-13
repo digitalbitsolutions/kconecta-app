@@ -32,8 +32,10 @@
   - Weekly availability slot orchestration for provider workflows.
   - Identity-bound availability writes for provider self-scope.
   - Provider quality indicators (rating, active status).
+  - Manager-facing provider directory and profile read projections.
 - Main contracts:
-  - `/api/providers/{id}` (self/admin reads)
+  - `/api/providers` (manager/admin directory reads)
+  - `/api/providers/{id}` (manager/admin detail reads, provider self-read remains valid)
   - `/api/providers/{id}/availability` (read and mutate with role guard)
 
 ### Admin Module
@@ -65,7 +67,7 @@
 
 ## Surface to Module Mapping
 
-- `manager-app` -> Property Module + Auth Session Module.
+- `manager-app` -> Property Module + Provider Module + Auth Session Module.
 - `provider-app` -> Provider Module + Auth Session Module.
 - `admin-surface` -> Admin Module + Auth Session Module.
 
@@ -498,6 +500,80 @@
   - Auth Session module owns token lifecycle and success/error contract metadata
   - Manager mobile module owns login form state, session restore UX, and recovery navigation
   - Debug env bootstrap values remain opt-in local tooling, not a required runtime dependency
+
+## Wave 29 Manager Handoff Evidence Boundary
+
+### Assignment Evidence Composition Layer
+
+- Responsibilities:
+  - enrich `POST /api/properties/{id}/assign-provider` success payload with enough assignment evidence for manager mobile confirmation
+  - keep legacy success fields intact while adding assignment snapshot and latest assignment timeline event
+  - ensure evidence payload is deterministic and derived from the same backend mutation transaction
+- Main contracts:
+  - `POST /api/properties/{id}/assign-provider`
+  - dependent read models reused for composition:
+    - assignment state owned by Property module
+    - provider snapshot owned by Provider module
+    - latest assignment event owned by Property timeline composition
+
+### Ownership Rules
+
+- Property module owns:
+  - assignment mutation
+  - authoritative `assigned_at`, `note`, and assigned property state
+  - latest assignment timeline event serialization
+- Provider module owns:
+  - provider snapshot fields returned inside assignment evidence:
+    - `id`
+    - `name`
+    - `category`
+    - `city`
+    - `status`
+    - `rating`
+- Manager mobile module owns:
+  - rendering success evidence in handoff UI
+  - preserving retry/recovery states on conflict/validation/transport failures
+  - optional post-navigation property detail refresh
+
+### Boundary Decision
+
+- Assignment confirmation evidence is backend-owned.
+- Manager mobile must not reconstruct assignment evidence by issuing an immediate second `GET /api/properties/{id}` just to infer success.
+- Property detail refresh remains a separate read concern for long-lived consistency, not part of mutation confirmation responsibility.
+
+## Wave 30 Manager Provider Directory Boundary
+
+### Provider Directory/Profile Read Layer
+
+- Responsibilities:
+  - expose deterministic provider directory results for manager role
+  - expose provider profile detail read model for manager review surfaces
+  - normalize filters, pagination metadata, and not-found semantics for native consumption
+- Main contracts:
+  - `GET /api/providers`
+  - `GET /api/providers/{id}`
+
+### Ownership Rules
+
+- Provider module owns:
+  - provider directory list serialization
+  - provider profile detail serialization
+  - service/coverage/availability summary read composition
+  - role guard semantics for manager/admin reads
+- Manager mobile module owns:
+  - directory filter state
+  - navigation from directory to provider profile
+  - retry and empty-state rendering
+- Auth Session module owns:
+  - `401` recovery path
+  - unauthorized/session-expired transitions
+
+### Boundary Decision
+
+- Wave 30 establishes provider directory/profile parity as backend-owned read contracts.
+- Manager mobile must not reconstruct provider profile by stitching together handoff payloads, property assignment context, or partial provider previews.
+- Directory list payload is a preview contract; profile detail remains the authoritative read surface.
+
 ## Compatibility Rules
 
 - Existing CRM contracts remain valid while native apps are onboarded.

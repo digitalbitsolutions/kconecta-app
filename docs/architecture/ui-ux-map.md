@@ -20,7 +20,8 @@ Define the first production-shaped mobile information architecture for manager a
 3. `PropertiesList`
 4. `PropertyDetail`
 5. `ProviderLookup`
-6. `SessionExpired`
+6. `ProviderProfile`
+7. `SessionExpired`
 
 ### Provider App
 
@@ -40,6 +41,7 @@ Define the first production-shaped mobile information architecture for manager a
 | Manager | PropertiesList | List | `GET /api/properties` |
 | Manager | PropertyDetail | Detail | `GET /api/properties/{id}` |
 | Manager | ProviderLookup | Search/List | `GET /api/providers` |
+| Manager | ProviderProfile | Detail | `GET /api/providers/{id}` |
 | Provider | AuthStack | Entry/Auth | `POST /api/auth/login` |
 | Provider | ProviderDashboard | Dashboard | `GET /api/providers/{id}` |
 | Provider | AvailabilityEditor | Form | `PATCH /api/providers/{id}/availability` |
@@ -771,3 +773,105 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend auth success metadata hardening (`BE-024`).
 3. Manager login/session UX hardening (`MOB-025`).
 4. Regression matrix for manager auth/session UX (`QA-027`).
+
+## Wave 29 Manager Handoff Evidence State Map
+
+### Manager Handoff States
+
+- `handoff_loading`
+  - Load provider candidates for current property context.
+- `handoff_ready`
+  - Show provider candidates and optional assignment note input.
+- `handoff_assigning`
+  - Assignment mutation in flight; disable duplicate submit.
+- `handoff_success_evidence_ready`
+  - Render provider snapshot, assigned timestamp, note, and latest assignment event directly from assignment success payload.
+  - Allow deterministic CTA back to property detail.
+- `handoff_success_navigation_pending`
+  - Success evidence already rendered locally.
+  - Property detail refresh is scheduled after navigation, but success confirmation does not depend on it.
+- `handoff_validation_error`
+  - Keep selected provider and note input.
+  - Show deterministic validation copy.
+- `handoff_conflict`
+  - Preserve current context and show reload/retry CTA.
+- `handoff_forbidden`
+  - Route to `Unauthorized` while keeping auth state explicit.
+- `handoff_session_expired`
+  - Route to `SessionExpired` after unrecoverable auth failure.
+- `handoff_transport_error`
+  - Keep current screen context and allow retry without clearing local note input.
+
+### Wave 29 Interaction Rules
+
+- Assignment success must no longer depend on a follow-up `PropertyDetail` fetch to show evidence.
+- Success surface minimum evidence:
+  - assigned provider identity
+  - assigned timestamp
+  - assignment note (if present)
+  - latest assignment timeline event summary
+- Navigation rule:
+  - user may return to property detail immediately after success evidence is rendered.
+  - property detail then performs its own non-blocking refresh for long-lived consistency.
+- Recovery rule:
+  - conflict/validation/transport failures keep the handoff route mounted and preserve current draft inputs.
+
+### Wave 29 Delivery Sequencing
+
+1. Assignment evidence contract and state map (`ARCH-023`).
+2. Backend assignment evidence payload enrichment (`BE-025`).
+3. Manager handoff evidence UX wiring (`MOB-026`).
+4. Regression matrix for assignment evidence and recovery (`QA-028`).
+
+## Wave 30 Manager Provider Directory and Profile State Map
+
+### Manager Directory States
+
+- `provider_directory_loading`
+  - Initial manager provider list fetch in flight.
+- `provider_directory_ready`
+  - Render provider cards with filters and pagination metadata.
+- `provider_directory_empty`
+  - Render deterministic zero-state when no providers match current filters.
+- `provider_directory_filtering`
+  - Preserve visible results while non-blocking filter refresh runs.
+- `provider_directory_error_retryable`
+  - Keep current filter inputs and show retry CTA.
+- `provider_directory_forbidden`
+  - Route to `Unauthorized` while keeping auth state explicit.
+- `provider_directory_session_expired`
+  - Route to `SessionExpired` after unrecoverable auth failure.
+
+### Manager Provider Profile States
+
+- `provider_profile_loading`
+  - Fetch provider detail by id.
+- `provider_profile_ready`
+  - Render deterministic profile sections:
+    - identity
+    - services
+    - coverage
+    - availability summary
+    - performance metrics
+- `provider_profile_not_found`
+  - Render deterministic missing-provider state with back CTA to directory.
+- `provider_profile_error_retryable`
+  - Keep navigation context and allow retry.
+- `provider_profile_forbidden`
+  - Route to `Unauthorized`.
+- `provider_profile_session_expired`
+  - Route to `SessionExpired`.
+
+### Wave 30 Interaction Rules
+
+- Manager enters provider directory from existing provider lookup/navigation entrypoint.
+- Directory filters and search must survive retry and back-navigation from profile detail.
+- Provider profile is read-only in Wave 30; no mutation CTA is part of this flow.
+- Directory list payload can seed optimistic preview UI, but profile screen must hydrate detail from its dedicated endpoint.
+
+### Wave 30 Delivery Sequencing
+
+1. Directory/profile contract and state map (`ARCH-024`).
+2. Backend provider directory/detail hardening (`BE-026`).
+3. Manager provider directory/profile UX wiring (`MOB-027`).
+4. Regression matrix for manager provider directory/profile parity (`QA-029`).
