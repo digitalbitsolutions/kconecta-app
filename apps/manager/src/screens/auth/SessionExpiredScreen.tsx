@@ -29,9 +29,12 @@ const SessionExpiredScreen = () => {
         <Text style={styles.body}>
           Your session has expired. Please log in again to continue using manager features.
         </Text>
+        <Text style={styles.helper}>
+          Returning to login clears the local session so the next sign-in starts from a clean state.
+        </Text>
 
         <Pressable style={styles.primaryAction} onPress={onReauthenticate}>
-          <Text style={styles.primaryActionText}>Re-authenticate</Text>
+          <Text style={styles.primaryActionText}>Return to Login</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -61,6 +64,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSizes.sm,
     lineHeight: 22,
+    marginTop: spacing.sm,
+  },
+  helper: {
+    color: colors.textMuted,
+    fontSize: fontSizes.xs,
+    lineHeight: 18,
     marginTop: spacing.sm,
   },
   primaryAction: {
