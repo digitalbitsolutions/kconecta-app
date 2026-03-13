@@ -129,6 +129,21 @@ type AssignProviderPayload = {
     provider_id: number;
     assigned_at: string;
     property: PropertyRecord;
+    assignment?: {
+      assigned: boolean;
+      provider: {
+        id: number;
+        name: string;
+        category: string | null;
+        city: string | null;
+        status: string | null;
+        rating: number | null;
+      } | null;
+      assigned_at: string | null;
+      note: string | null;
+      state: "unassigned" | "assigned" | "provider_missing";
+    } | null;
+    latest_timeline_event?: ApiPropertyTimelineEvent | null;
   };
   meta: {
     contract: string;
@@ -296,6 +311,8 @@ export type ProviderAssignmentResult = {
   providerId: string;
   assignedAt: string;
   property: PropertyViewModel;
+  assignment: PropertyAssignmentContext | null;
+  latestTimelineEvent: PropertyTimelineEvent | null;
 };
 
 export type AssignmentProviderSnapshot = {
@@ -992,11 +1009,42 @@ export async function assignProviderToProperty(
     }
   );
 
+  const assignment = payload.data.assignment;
+  const assignmentProvider = assignment?.provider ?? null;
+
   return {
     propertyId: String(payload.data.property_id),
     providerId: String(payload.data.provider_id),
     assignedAt: payload.data.assigned_at,
     property: toViewModel(payload.data.property),
+    assignment:
+      assignment !== null && assignment !== undefined
+        ? {
+            propertyId: String(payload.data.property_id),
+            assigned: assignment.assigned,
+            state: assignment.state,
+            assignedAt: assignment.assigned_at,
+            note: assignment.note,
+            provider:
+              assignmentProvider !== null
+                ? {
+                    id: String(assignmentProvider.id),
+                    name: assignmentProvider.name,
+                    category: assignmentProvider.category ?? "General",
+                    city: assignmentProvider.city ?? "Unknown",
+                    status: assignmentProvider.status ?? "unknown",
+                    rating:
+                      typeof assignmentProvider.rating === "number"
+                        ? assignmentProvider.rating.toFixed(1)
+                        : "n/a",
+                  }
+                : null,
+          }
+        : null,
+    latestTimelineEvent:
+      payload.data.latest_timeline_event !== null && payload.data.latest_timeline_event !== undefined
+        ? mapTimelineEvent(payload.data.latest_timeline_event)
+        : null,
   };
 }
 
