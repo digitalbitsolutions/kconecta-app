@@ -14,9 +14,9 @@ import {
 import { ApiError } from "../api/client";
 import {
   assignProviderToProperty,
-  fetchPropertyById,
   fetchProviderCandidates,
   type PropertyTimelineEvent,
+  type ProviderAssignmentResult,
   type ProviderCandidate,
 } from "../api/propertyApi";
 import type { ManagerStackParamList } from "../navigation";
@@ -39,11 +39,14 @@ const ManagerToProviderHandoffScreen = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [latestTimelineEvent, setLatestTimelineEvent] = useState<PropertyTimelineEvent | null>(null);
+  const [assignmentResult, setAssignmentResult] = useState<ProviderAssignmentResult | null>(null);
 
   const loadCandidates = useCallback(async () => {
     setLoading(true);
     setError(null);
     setSuccess(null);
+    setAssignmentResult(null);
+    setLatestTimelineEvent(null);
 
     try {
       const payload = await fetchProviderCandidates(propertyId);
@@ -70,7 +73,7 @@ const ManagerToProviderHandoffScreen = () => {
   }, [navigation, propertyId]);
 
   useEffect(() => {
-    loadCandidates();
+    void loadCandidates();
   }, [loadCandidates]);
 
   const assignCandidate = useCallback(
@@ -78,20 +81,17 @@ const ManagerToProviderHandoffScreen = () => {
       setAssigningId(providerId);
       setError(null);
       setSuccess(null);
+      setAssignmentResult(null);
       setLatestTimelineEvent(null);
 
       try {
         const payload = await assignProviderToProperty(propertyId, providerId, note);
-        const detail = await fetchPropertyById(propertyId);
-        const assignmentEvent =
-          detail.timeline.find((event) => event.type === "assignment") ?? detail.timeline[0] ?? null;
-        setLatestTimelineEvent(assignmentEvent);
-        setSuccess(`Provider #${payload.providerId} assigned successfully.`);
-        navigation.navigate("PropertyDetail", {
-          propertyId,
-          propertyTitle: propertyTitle ?? `Property #${propertyId}`,
-        });
-        return;
+        const selectedCandidate = candidates.find((candidate) => candidate.id === providerId);
+        const assignedProviderName =
+          payload.assignment?.provider?.name ?? selectedCandidate?.name ?? `Provider #${payload.providerId}`;
+        setAssignmentResult(payload);
+        setLatestTimelineEvent(payload.latestTimelineEvent);
+        setSuccess(`${assignedProviderName} assigned successfully.`);
       } catch (mutationError) {
         if (mutationError instanceof ApiError) {
           if (mutationError.status === 401) {
@@ -111,7 +111,7 @@ const ManagerToProviderHandoffScreen = () => {
         setAssigningId(null);
       }
     },
-    [navigation, note, propertyId]
+    [candidates, navigation, note, propertyId]
   );
 
   const formatTimelineSubtitle = useCallback((occurredAt: string, actor: string): string => {
@@ -119,30 +119,32 @@ const ManagerToProviderHandoffScreen = () => {
     const formattedTimestamp = Number.isNaN(timestamp.getTime())
       ? occurredAt
       : timestamp.toLocaleString("es-ES");
-    return `${actor} · ${formattedTimestamp}`;
+    return `${actor} | ${formattedTimestamp}`;
   }, []);
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
-        <Text style={styles.title}>Manager to Provider Handoff</Text>
+          <Text style={styles.title}>Manager to Provider Handoff</Text>
           <Text style={styles.body}>
-            Choose an active provider for this property. This flow is now connected to assignment APIs.
+            Choose an active provider for this property. This flow is now connected to assignment
+            APIs.
           </Text>
 
-        <View style={styles.metaBlock}>
-          <Text style={styles.metaLabel}>Property</Text>
+          <View style={styles.metaBlock}>
+            <Text style={styles.metaLabel}>Property</Text>
             <Text style={styles.metaValue}>
               {propertyTitle?.trim().length ? `${propertyTitle} (#${propertyId})` : `#${propertyId}`}
             </Text>
-        </View>
+          </View>
 
           <TextInput
             value={note}
             onChangeText={setNote}
             placeholder="Optional assignment note"
             placeholderTextColor={colors.textMuted}
+            editable={assignmentResult === null}
             style={styles.noteInput}
           />
 
@@ -163,14 +165,14 @@ const ManagerToProviderHandoffScreen = () => {
             </View>
           ) : null}
 
-          {!loading && !error && candidates.length === 0 ? (
+          {!loading && !error && assignmentResult === null && candidates.length === 0 ? (
             <View style={styles.metaBlock}>
               <Text style={styles.metaLabel}>Candidates</Text>
               <Text style={styles.metaValue}>No active providers available for assignment.</Text>
             </View>
           ) : null}
 
-          {!loading && !error && candidates.length > 0 ? (
+          {!loading && !error && assignmentResult === null && candidates.length > 0 ? (
             <View style={styles.candidateList}>
               {candidates.map((candidate) => {
                 const isPreferred = preselectedProviderId === candidate.id;
@@ -181,7 +183,8 @@ const ManagerToProviderHandoffScreen = () => {
                       {candidate.name} {isPreferred ? "(suggested)" : ""}
                     </Text>
                     <Text style={styles.candidateBody}>
-                      #{candidate.id} | {candidate.category} | {candidate.city} | rating {candidate.rating}
+                      #{candidate.id} | {candidate.category} | {candidate.city} | rating{" "}
+                      {candidate.rating}
                     </Text>
                     <Pressable
                       style={[styles.primaryAction, isAssigning && styles.actionDisabled]}
@@ -200,6 +203,26 @@ const ManagerToProviderHandoffScreen = () => {
 
           {success ? <Text style={styles.successText}>{success}</Text> : null}
 
+          {assignmentResult?.assignment ? (
+            <View style={styles.timelineCard}>
+              <Text style={styles.timelineTitle}>Assignment evidence</Text>
+              <Text style={styles.timelineSummary}>
+                {assignmentResult.assignment.provider?.name ??
+                  `Provider #${assignmentResult.providerId}`}
+              </Text>
+              <Text style={styles.timelineMeta}>State: {assignmentResult.assignment.state}</Text>
+              <Text style={styles.timelineMeta}>
+                Assigned at: {assignmentResult.assignment.assignedAt ?? assignmentResult.assignedAt}
+              </Text>
+              <Text style={styles.timelineMeta}>
+                Note:{" "}
+                {assignmentResult.assignment.note?.trim().length
+                  ? assignmentResult.assignment.note
+                  : "-"}
+              </Text>
+            </View>
+          ) : null}
+
           {latestTimelineEvent ? (
             <View style={styles.timelineCard}>
               <Text style={styles.timelineTitle}>Latest assignment event</Text>
@@ -210,17 +233,19 @@ const ManagerToProviderHandoffScreen = () => {
             </View>
           ) : null}
 
-        <Pressable
-          style={styles.secondaryAction}
+          <Pressable
+            style={styles.secondaryAction}
             onPress={() =>
               navigation.navigate("PropertyDetail", {
                 propertyId,
                 propertyTitle: propertyTitle ?? `Property #${propertyId}`,
               })
             }
-        >
-            <Text style={styles.secondaryActionText}>Back to Property Detail</Text>
-        </Pressable>
+          >
+            <Text style={styles.secondaryActionText}>
+              {assignmentResult ? "Return to Property Detail" : "Back to Property Detail"}
+            </Text>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
