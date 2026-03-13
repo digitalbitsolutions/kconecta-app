@@ -3,15 +3,42 @@ import { managerEnv } from "../config/env";
 import { ApiError, getApiBaseUrl, requestJson } from "./client";
 
 export type PropertyStatus = "available" | "reserved" | "maintenance";
+export type PropertyOperationMode = "sale" | "rent" | "both";
 
 export type PropertyRecord = {
   id: number;
   title: string;
+  description?: string | null;
+  address?: string | null;
   city: string;
+  postal_code?: string | null;
   status: PropertyStatus;
+  property_type?: string | null;
+  operation_mode?: PropertyOperationMode | string | null;
+  pricing?: {
+    sale_price?: number | null;
+    rental_price?: number | null;
+    garage_price_category_id?: number | null;
+    garage_price?: number | null;
+  };
+  characteristics?: {
+    bedrooms?: number | null;
+    bathrooms?: number | null;
+    rooms?: number | null;
+    elevator?: boolean | null;
+  };
+  sale_price?: number | null;
+  rental_price?: number | null;
+  garage_price_category_id?: number | null;
+  garage_price?: number | null;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  rooms?: number | null;
+  elevator?: boolean | null;
   manager_id: string;
   provider_id?: number | null;
-  price: number;
+  price: number | null;
+  updated_at?: string | null;
 };
 
 type ApiPropertyTimelineEvent = {
@@ -218,6 +245,7 @@ export type PropertyViewModel = {
   city: string;
   status: PropertyStatus;
   price: string;
+  rawPrice: number | null;
   managerId: string;
 };
 
@@ -233,6 +261,24 @@ export type PropertyTimelineEvent = {
 };
 
 export type PropertyDetailViewModel = PropertyViewModel & {
+  description: string | null;
+  address: string | null;
+  postalCode: string | null;
+  propertyType: string | null;
+  operationMode: PropertyOperationMode | null;
+  pricing: {
+    salePrice: number | null;
+    rentalPrice: number | null;
+    garagePriceCategoryId: number | null;
+    garagePrice: number | null;
+  };
+  characteristics: {
+    bedrooms: number | null;
+    bathrooms: number | null;
+    rooms: number | null;
+    elevator: boolean | null;
+  };
+  updatedAt: string | null;
   timeline: PropertyTimelineEvent[];
 };
 
@@ -272,9 +318,22 @@ export type PropertyAssignmentContext = {
 
 export type PropertyFormInput = {
   title: string;
+  description: string;
+  address: string;
   city: string;
+  postalCode: string;
   status: PropertyStatus;
+  propertyType: string;
+  operationMode: PropertyOperationMode;
   price?: number | null;
+  salePrice?: number | null;
+  rentalPrice?: number | null;
+  garagePriceCategoryId?: number | null;
+  garagePrice?: number | null;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  rooms?: number | null;
+  elevator?: boolean | null;
   managerId?: string;
 };
 
@@ -427,14 +486,23 @@ const currencyFormatter = new Intl.NumberFormat("es-ES", {
 });
 
 function toViewModel(record: PropertyRecord): PropertyViewModel {
+  const normalizedPrice = typeof record.price === "number" ? record.price : null;
   return {
     id: String(record.id),
     title: record.title,
     city: record.city,
     status: record.status,
     managerId: record.manager_id,
-    price: currencyFormatter.format(record.price),
+    rawPrice: normalizedPrice,
+    price: normalizedPrice !== null ? currencyFormatter.format(normalizedPrice) : "n/a",
   };
+}
+
+function normalizeOperationMode(value: PropertyRecord["operation_mode"]): PropertyOperationMode | null {
+  if (value === "sale" || value === "rent" || value === "both") {
+    return value;
+  }
+  return null;
 }
 
 function mapTimelineEvent(event: ApiPropertyTimelineEvent): PropertyTimelineEvent {
@@ -451,6 +519,25 @@ function mapTimelineEvent(event: ApiPropertyTimelineEvent): PropertyTimelineEven
 function toDetailViewModel(record: PropertyDetailPayload["data"]): PropertyDetailViewModel {
   return {
     ...toViewModel(record),
+    description: record.description ?? null,
+    address: record.address ?? null,
+    postalCode: record.postal_code ?? null,
+    propertyType: record.property_type ?? null,
+    operationMode: normalizeOperationMode(record.operation_mode),
+    pricing: {
+      salePrice: record.pricing?.sale_price ?? record.sale_price ?? null,
+      rentalPrice: record.pricing?.rental_price ?? record.rental_price ?? null,
+      garagePriceCategoryId:
+        record.pricing?.garage_price_category_id ?? record.garage_price_category_id ?? null,
+      garagePrice: record.pricing?.garage_price ?? record.garage_price ?? null,
+    },
+    characteristics: {
+      bedrooms: record.characteristics?.bedrooms ?? record.bedrooms ?? null,
+      bathrooms: record.characteristics?.bathrooms ?? record.bathrooms ?? null,
+      rooms: record.characteristics?.rooms ?? record.rooms ?? null,
+      elevator: record.characteristics?.elevator ?? record.elevator ?? null,
+    },
+    updatedAt: record.updated_at ?? null,
     timeline: Array.isArray(record.timeline) ? record.timeline.map(mapTimelineEvent) : [],
   };
 }
@@ -796,9 +883,22 @@ async function executePropertyFormMutation(
 export async function createProperty(input: PropertyFormInput): Promise<PropertyViewModel> {
   return executePropertyFormMutation("/properties", "POST", {
     title: input.title,
+    description: input.description,
+    address: input.address,
     city: input.city,
+    postal_code: input.postalCode,
     status: input.status,
+    property_type: input.propertyType,
+    operation_mode: input.operationMode,
     price: input.price ?? null,
+    sale_price: input.salePrice ?? null,
+    rental_price: input.rentalPrice ?? null,
+    garage_price_category_id: input.garagePriceCategoryId ?? null,
+    garage_price: input.garagePrice ?? null,
+    bedrooms: input.bedrooms ?? null,
+    bathrooms: input.bathrooms ?? null,
+    rooms: input.rooms ?? null,
+    elevator: input.elevator ?? null,
     ...(input.managerId ? { manager_id: input.managerId } : {}),
   });
 }
@@ -811,14 +911,56 @@ export async function updatePropertyForm(
   if (typeof input.title === "string") {
     payload.title = input.title;
   }
+  if (typeof input.description === "string") {
+    payload.description = input.description;
+  }
+  if (typeof input.address === "string") {
+    payload.address = input.address;
+  }
   if (typeof input.city === "string") {
     payload.city = input.city;
+  }
+  if (typeof input.postalCode === "string") {
+    payload.postal_code = input.postalCode;
   }
   if (typeof input.status === "string") {
     payload.status = input.status;
   }
+  if (typeof input.propertyType === "string") {
+    payload.property_type = input.propertyType;
+  }
+  if (typeof input.operationMode === "string") {
+    payload.operation_mode = input.operationMode;
+  }
   if (typeof input.price === "number" || input.price === null) {
     payload.price = input.price;
+  }
+  if (typeof input.salePrice === "number" || input.salePrice === null) {
+    payload.sale_price = input.salePrice;
+  }
+  if (typeof input.rentalPrice === "number" || input.rentalPrice === null) {
+    payload.rental_price = input.rentalPrice;
+  }
+  if (
+    typeof input.garagePriceCategoryId === "number" ||
+    input.garagePriceCategoryId === null
+  ) {
+    payload.garage_price_category_id = input.garagePriceCategoryId;
+  }
+  if (typeof input.garagePrice === "number" || input.garagePrice === null) {
+    payload.garage_price = input.garagePrice;
+  }
+  if (typeof input.bedrooms === "number" || input.bedrooms === null) {
+    payload.bedrooms = input.bedrooms;
+  }
+  if (typeof input.bathrooms === "number" || input.bathrooms === null) {
+    payload.bathrooms = input.bathrooms;
+  }
+  if (typeof input.rooms === "number" || input.rooms === null) {
+    payload.rooms = input.rooms;
+  }
+  if (typeof input.elevator === "boolean" || input.elevator === null) {
+    payload.elevator = input.elevator;
   }
   if (typeof input.managerId === "string" && input.managerId.trim().length > 0) {
     payload.manager_id = input.managerId.trim();
