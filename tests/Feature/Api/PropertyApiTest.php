@@ -506,6 +506,117 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("meta.reason", "property_updated");
     }
 
+    public function test_manager_can_create_property_with_enriched_wave27_form_contract(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-MANAGER-ID" => "mgr-wave27",
+            ])
+            ->postJson("/api/properties", [
+                "title" => "Wave 27 Penthouse",
+                "description" => "Expanded property form contract coverage for manager create flow.",
+                "address" => "Calle Serrano 120",
+                "city" => "Madrid",
+                "postal_code" => "28006",
+                "status" => "available",
+                "property_type" => "apartment",
+                "operation_mode" => "sale",
+                "sale_price" => 420000,
+                "bedrooms" => 3,
+                "bathrooms" => 2,
+                "rooms" => 5,
+                "elevator" => true,
+            ]);
+
+        $response
+            ->assertStatus(201)
+            ->assertJsonPath("data.title", "Wave 27 Penthouse")
+            ->assertJsonPath("data.description", "Expanded property form contract coverage for manager create flow.")
+            ->assertJsonPath("data.address", "Calle Serrano 120")
+            ->assertJsonPath("data.city", "Madrid")
+            ->assertJsonPath("data.postal_code", "28006")
+            ->assertJsonPath("data.property_type", "apartment")
+            ->assertJsonPath("data.operation_mode", "sale")
+            ->assertJsonPath("data.manager_id", "mgr-wave27")
+            ->assertJsonPath("data.price", 420000)
+            ->assertJsonPath("data.pricing.sale_price", 420000)
+            ->assertJsonPath("data.characteristics.bedrooms", 3)
+            ->assertJsonPath("data.characteristics.bathrooms", 2)
+            ->assertJsonPath("data.characteristics.elevator", true)
+            ->assertJsonPath("meta.contract", "manager-property-form-v1")
+            ->assertJsonPath("meta.flow", "properties_create")
+            ->assertJsonPath("meta.reason", "property_created");
+
+        $updatedAt = (string) $response->json("data.updated_at", "");
+        $this->assertNotSame("", trim($updatedAt));
+    }
+
+    public function test_enriched_property_form_returns_deterministic_validation_errors(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties", [
+                "title" => "Wave 27 Invalid Property",
+                "city" => "Madrid",
+                "status" => "available",
+                "property_type" => "apartment",
+                "operation_mode" => "both",
+                "garage_price_category_id" => 2,
+            ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonPath("error.code", "VALIDATION_ERROR")
+            ->assertJsonPath("meta.contract", "manager-property-form-v1")
+            ->assertJsonPath("meta.flow", "properties_create")
+            ->assertJsonPath("meta.reason", "validation_error")
+            ->assertJsonPath("meta.retryable", true)
+            ->assertJsonPath("error.fields.sale_price.0", "Sale price is required for the selected operation mode.")
+            ->assertJsonPath("error.fields.rental_price.0", "Rental price is required for the selected operation mode.")
+            ->assertJsonPath("error.fields.garage_price.0", "Garage price is required when a garage price category is selected.")
+            ->assertJsonPath("error.fields.bedrooms.0", "Bedrooms are required for residential property types.")
+            ->assertJsonPath("error.fields.bathrooms.0", "Bathrooms are required for residential property types.");
+    }
+
+    public function test_manager_can_edit_enriched_property_form_fields(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-MANAGER-ID" => "mgr-wave27",
+            ])
+            ->patchJson("/api/properties/101", [
+                "description" => "Updated Wave 27 property description.",
+                "address" => "Calle Alcala 87",
+                "postal_code" => "28009",
+                "property_type" => "apartment",
+                "operation_mode" => "both",
+                "sale_price" => 440000,
+                "rental_price" => 1800,
+                "bedrooms" => 2,
+                "bathrooms" => 2,
+                "rooms" => 4,
+                "elevator" => false,
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("data.id", 101)
+            ->assertJsonPath("data.description", "Updated Wave 27 property description.")
+            ->assertJsonPath("data.address", "Calle Alcala 87")
+            ->assertJsonPath("data.postal_code", "28009")
+            ->assertJsonPath("data.operation_mode", "both")
+            ->assertJsonPath("data.price", 440000)
+            ->assertJsonPath("data.pricing.sale_price", 440000)
+            ->assertJsonPath("data.pricing.rental_price", 1800)
+            ->assertJsonPath("data.characteristics.rooms", 4)
+            ->assertJsonPath("data.characteristics.elevator", false)
+            ->assertJsonPath("meta.contract", "manager-property-form-v1")
+            ->assertJsonPath("meta.flow", "properties_update")
+            ->assertJsonPath("meta.reason", "property_updated");
+    }
+
     public function test_property_update_requires_editable_fields(): void
     {
         $response = $this
@@ -538,6 +649,33 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
             ->assertJsonPath("meta.flow", "properties_create")
             ->assertJsonPath("meta.reason", "role_scope_forbidden")
+            ->assertJsonPath("meta.retryable", false);
+    }
+
+    public function test_property_form_create_requires_valid_token_for_enriched_payload(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer invalid-token"])
+            ->postJson("/api/properties", [
+                "title" => "Unauthorized Wave 27 Property",
+                "description" => "Should not be created",
+                "address" => "Invalid Route 1",
+                "city" => "Madrid",
+                "postal_code" => "28001",
+                "status" => "available",
+                "property_type" => "apartment",
+                "operation_mode" => "sale",
+                "sale_price" => 100000,
+                "bedrooms" => 1,
+                "bathrooms" => 1,
+            ]);
+
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("error.code", "TOKEN_INVALID")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_create")
+            ->assertJsonPath("meta.reason", "token_invalid")
             ->assertJsonPath("meta.retryable", false);
     }
 
