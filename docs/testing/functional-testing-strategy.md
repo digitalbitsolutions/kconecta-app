@@ -517,6 +517,39 @@ Validate end-to-end functional behavior of native app API contracts before relea
 4. `DEV-148` -> Mobile manager handoff success evidence UX integration.
 5. `DEV-147` -> Regression matrix + API assertions in `tests/Feature/Api/Wave29RegressionMatrixTest.php`.
 
+## Wave 30 Manager Provider Directory Matrix
+
+1. Directory and detail success contract (`DEV-152`, `DEV-151`, `DEV-153`)
+  - `GET /api/providers` returns manager-facing provider directory payload with:
+    - `meta.contract=manager-provider-directory-v1`
+    - additive pagination metadata (`page`, `per_page`, `total`, `total_pages`, `has_next_page`)
+    - additive filter echo (`role`, `status`, `category`, `city`, `search`)
+  - `data[]` exposes deterministic list fields:
+    - `id`, `name`, `category`, `city`, `status`, `rating`
+    - `availability_summary`
+    - `services_preview`
+  - `GET /api/providers/{id}` returns manager-facing provider profile payload with:
+    - `meta.contract=manager-provider-directory-v1`
+    - `data.bio`, `data.phone`, `data.email`, `data.services`, `data.coverage`
+    - `data.metrics.completed_jobs`, `data.metrics.response_time_hours`, `data.metrics.customer_score`
+2. Role/session guardrails (`DEV-152`, `DEV-153`)
+  - Invalid token on provider directory/profile routes returns deterministic `401 TOKEN_INVALID` auth-session envelope.
+  - Invalid role on provider directory/profile routes returns deterministic `403 ROLE_SCOPE_FORBIDDEN` auth-session envelope.
+  - Unknown provider detail keeps deterministic `404` payload with `message=Provider not found` and `provider_id`.
+3. Cross-wave baseline safety (`DEV-153`)
+  - Wave 20 `/api/auth/me` invalid-token contract remains stable.
+  - Wave 21 assignment-context role guard remains stable.
+  - Wave 23 property detail timeline contract remains stable.
+  - Wave 24 dashboard summary contract remains stable while manager provider directory/profile flows are introduced.
+
+## Wave 30 Ticket Mapping
+
+1. `DEV-150` -> Wave 30 orchestration epic and rollout tracking.
+2. `DEV-149` -> Manager provider directory/profile architecture contract and UX state map.
+3. `DEV-152` -> Backend manager provider directory/profile contract implementation.
+4. `DEV-151` -> Mobile manager provider directory/profile UI integration.
+5. `DEV-153` -> Regression matrix + readiness-gated API assertions in `tests/Feature/Api/Wave30RegressionMatrixTest.php` and `tests/Feature/Api/ProviderApiTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -547,6 +580,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 24. Run Wave 27 manager property form parity regression suite and record enriched create/edit/validation/conflict guardrail evidence.
 25. Run Wave 28 manager auth/session UX regression suite and record success metadata parity plus login/session recovery evidence.
 26. Run Wave 29 manager handoff evidence regression suite and record additive assignment evidence plus recovery guardrail stability.
+27. Run Wave 30 manager provider directory/profile regression suite and record readiness-gated list/detail contract evidence plus guardrail stability.
 
 ## Entry Criteria
 
