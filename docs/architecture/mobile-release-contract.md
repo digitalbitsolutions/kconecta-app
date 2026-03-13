@@ -913,6 +913,57 @@ Define the minimum environment and auth contract required for native app release
   - current minimal title/city/status/price payload remains backward compatible during rollout.
   - enriched contract extends property form parity without breaking Wave 22-26 manager flows.
   - detail/list/dashboard consumers may continue using their current read models while editor payload expands.
+
+## Wave 28 Manager Auth/Session UX Hardening Contract
+
+### Manager Login UX Rules
+
+- Manager login remains:
+  - `POST /api/auth/login`
+- Native manager login must default to blank credentials unless explicit bootstrap env values are provided for local diagnostics.
+- Production-shaped flow assumptions:
+  - env bootstrap credentials are optional debug-only helpers, not the primary contract.
+  - login screen must not rely on hidden defaults to enter the manager shell.
+
+### Success Contract Hardening
+
+- `POST /api/auth/login`
+- `POST /api/auth/refresh`
+- `GET /api/auth/me`
+- Successful manager-facing auth responses must remain aligned under `auth-session-v1` and provide:
+  - `data.access_token` where applicable
+  - `data.refresh_token` where applicable
+  - `data.role`
+  - `data.scope[]`
+  - `data.subject`
+  - `data.email`
+  - `data.display_name` (nullable/additive)
+  - `meta.contract = auth-session-v1`
+  - `meta.flow = login|refresh|me`
+  - `meta.reason = login_success|refresh_success|session_resolved`
+
+### Failure Envelope and Recovery Rules
+
+- Validation failure:
+  - `422 VALIDATION_ERROR`
+  - field-level feedback remains deterministic for `email` and `password` inputs.
+- Invalid credentials:
+  - `401 INVALID_CREDENTIALS`
+  - keep user on login screen
+  - preserve email input
+  - never enter authenticated shell
+- Session restore:
+  - persisted token present -> `GET /api/auth/me`
+  - `401 TOKEN_EXPIRED` -> one `refresh` attempt, then retry `me`
+  - unrecoverable `401 TOKEN_INVALID|TOKEN_REVOKED` -> clear session and route to `SessionExpired`
+  - `403 ROLE_SCOPE_FORBIDDEN` -> keep session state explicit and route to `Unauthorized`
+
+### Compatibility Notes
+
+- Wave 28 is additive over Wave 20 session parity:
+  - no endpoint removals
+  - no breaking removal of existing token fields
+  - success metadata is enriched so manager mobile can render deterministic login/session UX without dev-first assumptions
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
