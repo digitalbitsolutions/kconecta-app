@@ -852,14 +852,15 @@ Define the minimum environment and auth contract required for native app release
     - `manager_id` (string)
     - `updated_at` (ISO-8601 UTC)
   - `meta.contract = manager-property-form-v1`
-  - `meta.flow = properties_form_create|properties_form_update`
+  - `meta.flow = properties_create|properties_update`
   - `meta.reason = property_created|property_updated`
   - `meta.source = database|in_memory`
 
 ### Deterministic Validation Semantics
 
 - Required field validation:
-  - Empty `title`, `description`, `address`, `city`, `postal_code`, `property_type`, `operation_mode`, or `status` returns `422 VALIDATION_ERROR`.
+  - During rollout, the enriched form fields are accepted additively and legacy minimal manager payloads remain valid.
+  - Once Wave 27 contract enforcement is enabled on the backend, empty `title`, `description`, `address`, `city`, `postal_code`, `property_type`, `operation_mode`, or `status` returns `422 VALIDATION_ERROR`.
 - Conditional pricing validation:
   - `sale_price` required for `sale|both`.
   - `rental_price` required for `rent|both`.
@@ -901,7 +902,7 @@ Define the minimum environment and auth contract required for native app release
   - provider role or unauthorized manager scope cannot create/edit property inventory.
 - `404 PROPERTY_NOT_FOUND`:
   - edit flow target is missing or inaccessible.
-- `409 PROPERTY_FORM_CONFLICT`:
+- `409 PROPERTY_STATE_CONFLICT`:
   - stale update or ownership/version conflict on edit.
 - `422 VALIDATION_ERROR`:
   - deterministic field-level validation mapping for mobile form rendering.
