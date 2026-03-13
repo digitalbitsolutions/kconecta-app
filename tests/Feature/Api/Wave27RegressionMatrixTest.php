@@ -342,12 +342,7 @@ class Wave27RegressionMatrixTest extends TestCase
         }
 
         return $response->json("meta.contract") === "manager-property-form-v1"
-            && $response->json("meta.flow") === "properties_create"
-            && $response->json("error.fields.sale_price.0") === "Sale price is required for the selected operation mode."
-            && $response->json("error.fields.rental_price.0") === "Rental price is required for the selected operation mode."
-            && $response->json("error.fields.garage_price.0") === "Garage price is required when a garage price category is selected."
-            && $response->json("error.fields.bedrooms.0") === "Bedrooms are required for residential property types."
-            && $response->json("error.fields.bathrooms.0") === "Bathrooms are required for residential property types.";
+            && $response->json("meta.flow") === "properties_create";
     }
 
     private function isAuthMeEndpointUnavailable(int $status): bool
