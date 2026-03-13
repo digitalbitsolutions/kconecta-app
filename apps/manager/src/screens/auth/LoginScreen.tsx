@@ -15,9 +15,14 @@ type LoginApiPayload = {
     refresh_token?: string;
     role?: string | null;
     provider_id?: number | string | null;
+    display_name?: string | null;
   };
   error?: {
     message?: string;
+    code?: string | null;
+  };
+  meta?: {
+    reason?: string | null;
   };
   message?: string;
 };
@@ -28,6 +33,23 @@ function toStringOrNull(value: unknown): string | null {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function resolveLoginErrorMessage(status: number, payload: LoginApiPayload): string {
+  const code = toStringOrNull(payload.error?.code);
+  const reason = toStringOrNull(payload.meta?.reason);
+  const apiError = toStringOrNull(payload.error?.message);
+  const fallbackMessage = toStringOrNull(payload.message);
+
+  if (code === "invalid_credentials" || reason === "invalid_credentials" || status === 401) {
+    return "Invalid email or password.";
+  }
+
+  if (code === "role_not_allowed" || reason === "role_not_allowed" || status === 403) {
+    return "This account cannot access the manager app.";
+  }
+
+  return apiError ?? fallbackMessage ?? "Unable to sign in.";
 }
 
 const LoginScreen = () => {
@@ -67,9 +89,7 @@ const LoginScreen = () => {
       const role = toStringOrNull(payload?.data?.role) ?? "manager";
 
       if (!response.ok || !accessToken) {
-        const apiError = toStringOrNull(payload?.error?.message);
-        const fallbackMessage = toStringOrNull(payload?.message);
-        setError(apiError ?? fallbackMessage ?? "Unable to sign in.");
+        setError(resolveLoginErrorMessage(response.status, payload));
         return;
       }
 
@@ -128,7 +148,7 @@ const LoginScreen = () => {
           autoCorrect={false}
           secureTextEntry
           style={styles.input}
-          placeholder="••••••••"
+          placeholder="Password"
           placeholderTextColor={colors.textMuted}
         />
 
@@ -144,9 +164,12 @@ const LoginScreen = () => {
           </Text>
         </Pressable>
 
-        <Text style={styles.meta}>
-          Stage: {managerEnv.stage} | API: {managerEnv.apiBaseUrl}
-        </Text>
+        {managerEnv.diagnosticsEnabled ? (
+          <Text style={styles.meta}>
+            Stage: {managerEnv.stage} | API: {managerEnv.apiBaseUrl} | Bootstrap defaults:{" "}
+            {managerEnv.bootstrapEmail || managerEnv.bootstrapPassword ? "explicit env" : "disabled"}
+          </Text>
+        ) : null}
       </View>
     </SafeAreaView>
   );
