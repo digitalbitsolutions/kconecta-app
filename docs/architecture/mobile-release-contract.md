@@ -799,6 +799,119 @@ Define the minimum environment and auth contract required for native app release
   - no endpoint removals
   - `GET /api/properties/priorities/queue` contract remains stable
   - completion endpoint only enriches manager action loop without breaking Wave 24/25 consumers
+
+## Wave 27 Manager Property Form Parity Contract
+
+### Manager Property Create/Edit Endpoint Contract
+
+- Endpoints:
+  - `POST /api/properties`
+  - `PATCH /api/properties/{id}`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Request shape (additive target contract):
+  - `title` (required string)
+  - `description` (required string)
+  - `address` (required string)
+  - `city` (required string)
+  - `postal_code` (required string)
+  - `status` (required enum: `available|reserved|maintenance`)
+  - `property_type` (required stable slug or catalog id)
+  - `operation_mode` (required enum: `sale|rent|both`)
+  - `sale_price` (nullable numeric, required when `operation_mode` includes `sale`)
+  - `rental_price` (nullable numeric, required when `operation_mode` includes `rent`)
+  - `garage_price_category_id` (nullable catalog id, conditional for garage inventory)
+  - `garage_price` (nullable numeric, required when `garage_price_category_id` is present)
+  - `bedrooms` (nullable integer, required for residential property types)
+  - `bathrooms` (nullable integer, required for residential property types)
+  - `rooms` (nullable integer)
+  - `elevator` (nullable boolean)
+  - `manager_id` (nullable string, server-owned default for manager role)
+- Success response shape:
+  - `data.property`:
+    - `id` (number)
+    - `title` (string)
+    - `description` (string)
+    - `address` (string)
+    - `city` (string)
+    - `postal_code` (string)
+    - `status` (`available|reserved|maintenance`)
+    - `property_type` (stable slug or resolved catalog object)
+    - `operation_mode` (`sale|rent|both`)
+    - `pricing`:
+      - `sale_price` (nullable numeric)
+      - `rental_price` (nullable numeric)
+      - `garage_price_category_id` (nullable number)
+      - `garage_price` (nullable numeric)
+    - `characteristics`:
+      - `bedrooms` (nullable integer)
+      - `bathrooms` (nullable integer)
+      - `rooms` (nullable integer)
+      - `elevator` (nullable boolean)
+    - `manager_id` (string)
+    - `updated_at` (ISO-8601 UTC)
+  - `meta.contract = manager-property-form-v1`
+  - `meta.flow = properties_form_create|properties_form_update`
+  - `meta.reason = property_created|property_updated`
+  - `meta.source = database|in_memory`
+
+### Deterministic Validation Semantics
+
+- Required field validation:
+  - Empty `title`, `description`, `address`, `city`, `postal_code`, `property_type`, `operation_mode`, or `status` returns `422 VALIDATION_ERROR`.
+- Conditional pricing validation:
+  - `sale_price` required for `sale|both`.
+  - `rental_price` required for `rent|both`.
+  - `garage_price` required when `garage_price_category_id` is present.
+- Numeric validation:
+  - price fields must be numeric and non-negative.
+  - `bedrooms`, `bathrooms`, and `rooms` must be integers and non-negative.
+- Enum validation:
+  - `status` and `operation_mode` must map to allowed enums only.
+- Role validation:
+  - manager role cannot override another manager through arbitrary `manager_id`.
+- Error envelope mapping:
+  - `error.code = VALIDATION_ERROR`
+  - `error.fields` uses backend-owned field keys that match mobile inputs exactly.
+  - Example keys:
+    - `title`
+    - `description`
+    - `address`
+    - `city`
+    - `postal_code`
+    - `property_type`
+    - `operation_mode`
+    - `sale_price`
+    - `rental_price`
+    - `garage_price_category_id`
+    - `garage_price`
+    - `bedrooms`
+    - `bathrooms`
+    - `rooms`
+    - `status`
+
+### Error and Guardrail Semantics
+
+- `401 TOKEN_EXPIRED`:
+  - one refresh attempt path before session-expired fallback.
+- `401 TOKEN_INVALID|TOKEN_REVOKED`:
+  - deterministic hard session reset.
+- `403 ROLE_SCOPE_FORBIDDEN`:
+  - provider role or unauthorized manager scope cannot create/edit property inventory.
+- `404 PROPERTY_NOT_FOUND`:
+  - edit flow target is missing or inaccessible.
+- `409 PROPERTY_FORM_CONFLICT`:
+  - stale update or ownership/version conflict on edit.
+- `422 VALIDATION_ERROR`:
+  - deterministic field-level validation mapping for mobile form rendering.
+
+### Compatibility Notes
+
+- Wave 27 is additive:
+  - current minimal title/city/status/price payload remains backward compatible during rollout.
+  - enriched contract extends property form parity without breaking Wave 22-26 manager flows.
+  - detail/list/dashboard consumers may continue using their current read models while editor payload expands.
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
