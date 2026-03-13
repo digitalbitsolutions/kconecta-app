@@ -394,6 +394,42 @@ Validate end-to-end functional behavior of native app API contracts before relea
 4. `DEV-127` -> Mobile manager dashboard queue integration and portfolio launch context.
 5. `DEV-128` -> Regression matrix + API assertions in `tests/Feature/Api/Wave25RegressionMatrixTest.php`.
 
+## Wave 26 Manager Queue Action Completion Matrix
+
+1. Queue completion mutation contract (`DEV-131`, `DEV-132`, `DEV-133`)
+  - `POST /api/properties/priorities/queue/{queueItemId}/complete` returns deterministic envelope:
+    - `data.item`
+    - `meta.contract=manager-priority-queue-action-v1`
+    - `meta.flow=properties_priority_queue_complete`
+    - `meta.reason`
+  - Success payload includes additive completion fields:
+    - `completed`
+    - `completed_at`
+    - `resolution_code`
+    - `note`
+  - Repeated completion call returns deterministic conflict:
+    - `409 QUEUE_ACTION_CONFLICT`
+    - `meta.reason=queue_item_already_completed`
+2. Validation, auth, and role guardrails (`DEV-131`, `DEV-133`)
+  - Invalid payload returns `422 VALIDATION_ERROR` with deterministic `meta.contract` and `meta.reason=validation_error`.
+  - Provider role access to completion endpoint returns `403 ROLE_SCOPE_FORBIDDEN`.
+  - Invalid token on completion endpoint returns deterministic `401 TOKEN_INVALID`.
+3. Cross-wave baseline safety (`DEV-133`)
+  - Wave 20 `/api/auth/me` unauthorized contract remains stable.
+  - Wave 21 assignment-context role guard remains stable.
+  - Wave 22 filters/pagination contract remains stable.
+  - Wave 23 property detail timeline contract remains stable.
+  - Wave 24 dashboard summary/priorities contract remains stable.
+  - Wave 25 priority queue contract remains stable while queue completion mutation is introduced.
+
+## Wave 26 Ticket Mapping
+
+1. `DEV-129` -> Wave 26 orchestration epic and rollout tracking.
+2. `DEV-130` -> Queue action completion architecture contract and UX state map.
+3. `DEV-131` -> Backend queue completion endpoint and deterministic mutation envelope.
+4. `DEV-132` -> Mobile manager queue action completion flow with optimistic/retry/error states.
+5. `DEV-133` -> Regression matrix + API assertions in `tests/Feature/Api/Wave26RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -420,6 +456,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 20. Run Wave 23 property detail timeline regression suite and record timeline ordering plus detail guardrail evidence.
 21. Run Wave 24 dashboard summary/priorities regression suite and record ordering + summary guardrail evidence.
 22. Run Wave 25 priority queue regression suite and record SLA fields/order + queue guardrail evidence.
+23. Run Wave 26 queue completion regression suite and record success/conflict/validation + forbidden/unauthorized evidence.
 
 ## Entry Criteria
 
