@@ -1053,6 +1053,10 @@ class PropertyApiTest extends TestCase
                             "sla_state",
                             "updated_at",
                             "action",
+                            "completed",
+                            "completed_at",
+                            "resolution_code",
+                            "note",
                         ],
                     ],
                 ],
@@ -1219,6 +1223,153 @@ class PropertyApiTest extends TestCase
         $response
             ->assertStatus(422)
             ->assertJsonValidationErrors(["severity", "limit"]);
+    }
+
+    public function test_manager_can_complete_priority_queue_item_and_queue_reflects_completion_state(): void
+    {
+        $queueSnapshot = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue");
+
+        $queueSnapshot->assertOk();
+        $items = $queueSnapshot->json("data.items", []);
+        $this->assertNotEmpty($items);
+
+        $queueItemId = (string) ($items[0]["id"] ?? "");
+        $this->assertNotSame("", $queueItemId);
+
+        $completion = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/priorities/queue/{$queueItemId}/complete", [
+                "resolution_code" => "resolved",
+                "note" => "Resolved during wave26 backend regression",
+            ]);
+
+        $completion
+            ->assertOk()
+            ->assertJsonPath("meta.contract", "manager-priority-queue-action-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_complete")
+            ->assertJsonPath("meta.reason", "queue_item_completed")
+            ->assertJsonPath("data.item.id", $queueItemId)
+            ->assertJsonPath("data.item.completed", true)
+            ->assertJsonPath("data.item.resolution_code", "resolved")
+            ->assertJsonPath("data.item.note", "Resolved during wave26 backend regression");
+
+        $completedAt = (string) $completion->json("data.item.completed_at", "");
+        $this->assertNotSame("", trim($completedAt));
+
+        $afterCompletion = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue");
+        $afterCompletion->assertOk();
+
+        $itemsAfter = $afterCompletion->json("data.items", []);
+        $matched = array_values(
+            array_filter(
+                $itemsAfter,
+                static fn (array $item): bool => (string) ($item["id"] ?? "") === $queueItemId
+            )
+        );
+
+        $this->assertCount(1, $matched);
+        $this->assertTrue((bool) ($matched[0]["completed"] ?? false));
+        $this->assertSame("resolved", (string) ($matched[0]["resolution_code"] ?? ""));
+    }
+
+    public function test_priority_queue_complete_endpoint_is_forbidden_for_provider_role(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-ROLE" => "provider",
+            ])
+            ->postJson("/api/properties/priorities/queue/priority-provider-assignment-101/complete", [
+                "resolution_code" => "resolved",
+            ]);
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_complete")
+            ->assertJsonPath("meta.reason", "role_scope_forbidden")
+            ->assertJsonPath("meta.retryable", false);
+    }
+
+    public function test_invalid_bearer_token_returns_unauthorized_for_priority_queue_complete_endpoint(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer invalid-token"])
+            ->postJson("/api/properties/priorities/queue/priority-provider-assignment-101/complete", [
+                "resolution_code" => "resolved",
+            ]);
+
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("error.code", "TOKEN_INVALID")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_complete")
+            ->assertJsonPath("meta.reason", "token_invalid")
+            ->assertJsonPath("meta.retryable", false);
+    }
+
+    public function test_priority_queue_complete_returns_not_found_for_unknown_queue_item(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/priorities/queue/priority-missing-999/complete", [
+                "resolution_code" => "resolved",
+            ]);
+
+        $response
+            ->assertNotFound()
+            ->assertJsonPath("error.code", "QUEUE_ITEM_NOT_FOUND")
+            ->assertJsonPath("meta.contract", "manager-priority-queue-action-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_complete")
+            ->assertJsonPath("meta.reason", "queue_item_not_found")
+            ->assertJsonPath("queue_item_id", "priority-missing-999");
+    }
+
+    public function test_priority_queue_complete_rejects_invalid_payload_values(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/priorities/queue/priority-provider-assignment-101/complete", [
+                "resolution_code" => "invalid",
+                "note" => str_repeat("a", 301),
+            ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonPath("error.code", "VALIDATION_ERROR")
+            ->assertJsonPath("meta.contract", "manager-priority-queue-action-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_complete")
+            ->assertJsonPath("meta.reason", "validation_error")
+            ->assertJsonValidationErrors(["resolution_code", "note"]);
+    }
+
+    public function test_priority_queue_complete_returns_conflict_when_item_already_completed(): void
+    {
+        $first = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/priorities/queue/priority-provider-assignment-101/complete", [
+                "resolution_code" => "resolved",
+            ]);
+        $first->assertOk();
+
+        $second = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/priorities/queue/priority-provider-assignment-101/complete", [
+                "resolution_code" => "resolved",
+            ]);
+
+        $second
+            ->assertStatus(409)
+            ->assertJsonPath("error.code", "QUEUE_ACTION_CONFLICT")
+            ->assertJsonPath("meta.contract", "manager-priority-queue-action-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_complete")
+            ->assertJsonPath("meta.reason", "queue_item_already_completed")
+            ->assertJsonPath("meta.retryable", true);
     }
 
     private function assertValidDataSource(mixed $source): void
