@@ -430,6 +430,40 @@ Validate end-to-end functional behavior of native app API contracts before relea
 4. `DEV-132` -> Mobile manager queue action completion flow with optimistic/retry/error states.
 5. `DEV-133` -> Regression matrix + API assertions in `tests/Feature/Api/Wave26RegressionMatrixTest.php`.
 
+## Wave 27 Manager Property Form Parity Matrix
+
+1. Enriched manager property create/edit contract (`DEV-134`, `DEV-136`, `DEV-137`)
+  - `POST /api/properties` accepts the enriched manager property form payload:
+    - `description`, `address`, `postal_code`, `property_type`, `operation_mode`
+    - pricing fields (`sale_price`, `rental_price`, `garage_price_category_id`, `garage_price`)
+    - characteristics (`bedrooms`, `bathrooms`, `rooms`, `elevator`)
+  - `PATCH /api/properties/{id}` accepts the same additive fields and returns deterministic enriched payload.
+  - Success responses keep `meta.contract=manager-property-form-v1` with deterministic `flow`/`reason`.
+2. Deterministic validation and conflict behavior (`DEV-134`, `DEV-137`)
+  - Invalid enriched create payload returns `422 VALIDATION_ERROR` with stable field keys:
+    - `sale_price`
+    - `rental_price`
+    - `garage_price`
+    - `bedrooms`
+    - `bathrooms`
+  - Re-submitting an unchanged enriched edit payload returns `409 PROPERTY_STATE_CONFLICT` with `reason=no_changes`.
+3. Role/session guardrails (`DEV-134`, `DEV-136`, `DEV-137`)
+  - Provider role access to enriched manager property form mutations returns `403 ROLE_SCOPE_FORBIDDEN`.
+  - Invalid token on enriched manager property form mutations returns deterministic `401 TOKEN_INVALID`.
+4. Cross-wave baseline safety (`DEV-137`)
+  - Wave 20 `/api/auth/me` unauthorized contract remains stable.
+  - Wave 21 assignment-context role guard remains stable.
+  - Wave 24 dashboard summary contract remains stable.
+  - Wave 26 queue completion contract remains stable while Wave 27 form parity is introduced.
+
+## Wave 27 Ticket Mapping
+
+1. `DEV-138` -> Wave 27 orchestration epic and rollout tracking.
+2. `DEV-135` -> Manager property form parity architecture contract and UX state map.
+3. `DEV-134` -> Backend enriched create/edit property form contract implementation.
+4. `DEV-136` -> Mobile manager property form parity UI/API integration.
+5. `DEV-137` -> Regression matrix + API assertions in `tests/Feature/Api/Wave27RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -457,6 +491,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 21. Run Wave 24 dashboard summary/priorities regression suite and record ordering + summary guardrail evidence.
 22. Run Wave 25 priority queue regression suite and record SLA fields/order + queue guardrail evidence.
 23. Run Wave 26 queue completion regression suite and record success/conflict/validation + forbidden/unauthorized evidence.
+24. Run Wave 27 manager property form parity regression suite and record enriched create/edit/validation/conflict guardrail evidence.
 
 ## Entry Criteria
 
