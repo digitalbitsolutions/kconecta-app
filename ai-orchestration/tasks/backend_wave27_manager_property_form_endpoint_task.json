@@ -1,0 +1,25 @@
+{
+  "id": "BE-023",
+  "title": "Implement manager property form parity backend contract",
+  "description": "Expand manager property create/update endpoints to support richer field coverage and deterministic validation envelopes while preserving manager auth/session guardrails.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "routes/api.php",
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "Property create and update endpoints accept the enriched form contract required by native manager flows",
+    "Validation failures return deterministic field-level errors compatible with the mobile editor",
+    "Backend tests cover manager success, invalid payload, unauthorized, forbidden, and conflict envelopes"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave27",
+    "stack": "laravel-api",
+    "suite": "backend",
+    "domain": "manager-property-form"
+  }
+}

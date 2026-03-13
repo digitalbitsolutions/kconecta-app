@@ -1,0 +1,24 @@
+{
+  "id": "EPIC-W27",
+  "title": "Wave 27 - Manager property form parity expansion",
+  "description": "Coordinate Wave 27 delivery for manager property form parity: expand create/edit contract, preserve session and role guardrails, and align detail/editor flows with richer CRM property data.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/ai-orchestration-roadmap.md",
+    "docs/roadmap/wave27-manager-property-form-parity-plan.md",
+    "ai-orchestration/README.md"
+  ],
+  "acceptance_criteria": [
+    "Wave 27 roadmap includes architect/backend/mobile/qa sequencing and PR strategy",
+    "Epic definition captures manager property form parity objective and rollout guardrails",
+    "Cross-wave dependencies from manager dashboard, property detail, and login/session flows are tracked"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave27",
+    "stack": "react-native-with-typescript",
+    "suite": "orchestration",
+    "domain": "manager-property-form"
+  }
+}

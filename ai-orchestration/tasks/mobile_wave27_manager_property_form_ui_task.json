@@ -1,0 +1,24 @@
+{
+  "id": "MOB-024",
+  "title": "Wire manager property editor to expanded form contract",
+  "description": "Expand the manager property editor UI and API mapping to support richer property fields, deterministic field errors, and create/edit UX parity with the backend contract.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/screens/PropertyEditorScreen.tsx",
+    "apps/manager/src/screens/PropertyDetailScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Manager property editor supports the enriched field set required by the new backend contract",
+    "Field-level validation and submit-state UX are deterministic for create and edit flows",
+    "Property detail reflects the enriched form fields after save without breaking session or unauthorized handling"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave27",
+    "stack": "react-native-with-typescript",
+    "suite": "mobile",
+    "domain": "manager-property-form"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "QA-026",
+  "title": "Add Wave 27 manager property form regression matrix",
+  "description": "Expand QA regression coverage for manager property create/edit flows, enriched validation envelopes, and role/session guardrails while preserving Wave 20-26 baselines.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/Wave27RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix includes create and edit success cases plus deterministic field validation failures",
+    "API tests assert unauthorized, forbidden, and conflict envelopes for enriched property form routes",
+    "Wave 20-26 manager baselines remain stable after Wave 27 coverage is added"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave27",
+    "stack": "qa-core",
+    "suite": "qa",
+    "domain": "manager-property-form"
+  }
+}
