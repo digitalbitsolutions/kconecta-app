@@ -391,6 +391,43 @@
 - Manager mobile module owns:
   - queue rendering states
   - route actions derived from backend `action` hints
+
+## Wave 26 Manager Queue Action Completion Boundary
+
+### Queue Action Mutation Layer
+
+- Responsibilities:
+  - Resolve manager queue completion mutation for actionable queue items.
+  - Apply deterministic completion metadata (`completed`, `completed_at`, `resolution_code`, `note`).
+  - Enforce idempotent-safe conflict semantics for repeated queue actions.
+- Main contracts:
+  - `POST /api/properties/priorities/queue/{queue_item_id}/complete`
+  - Existing dependency:
+    - `GET /api/properties/priorities/queue` (Wave 25 queue snapshot source)
+
+### Queue Completion Validation and Conflict Layer
+
+- Responsibilities:
+  - Validate bounded completion payload fields (`resolution_code`, `note`).
+  - Emit deterministic envelopes for not-found/conflict/validation outcomes.
+  - Preserve manager-only role guard and auth-session envelope invariants.
+- Guardrail contract outcomes:
+  - `401 TOKEN_INVALID|TOKEN_EXPIRED`
+  - `403 ROLE_SCOPE_FORBIDDEN`
+  - `404 QUEUE_ITEM_NOT_FOUND`
+  - `409 QUEUE_ACTION_CONFLICT`
+  - `422 VALIDATION_ERROR`
+
+### Ownership Notes
+
+- Property module owns:
+  - queue completion mutation semantics
+  - completion conflict detection and deterministic reason codes
+- Auth Session module owns:
+  - token/role envelope consistency for mutation route
+- Manager mobile module owns:
+  - optimistic completion UX state
+  - retry and fallback navigation for mutation failures
 ## Compatibility Rules
 
 - Existing CRM contracts remain valid while native apps are onboarded.

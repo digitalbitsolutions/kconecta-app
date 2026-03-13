@@ -748,6 +748,57 @@ Define the minimum environment and auth contract required for native app release
   - no endpoint removals
   - Wave 24 dashboard summary contract remains unchanged
   - queue endpoint extends manager dashboard parity without breaking prior consumers
+
+## Wave 26 Manager Priority Queue Action Completion Contract
+
+### Queue Action Completion Endpoint Contract
+
+- Endpoint:
+  - `POST /api/properties/priorities/queue/{queue_item_id}/complete`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Request shape (additive):
+  - `note` (optional string, max length bounded)
+  - `resolution_code` (optional enum: `assigned|deferred|resolved|dismissed`)
+- Response shape:
+  - `data.item`:
+    - `id` (queue item id)
+    - `property_id` (number)
+    - `category` (queue taxonomy category)
+    - `severity` (`high|medium|low`)
+    - `action` (`open_property|open_handoff|review_status`)
+    - `completed` (boolean)
+    - `completed_at` (ISO-8601 UTC)
+    - `resolution_code` (nullable string)
+    - `note` (nullable string)
+    - `updated_at` (ISO-8601 UTC)
+  - `meta.contract = manager-priority-queue-action-v1`
+  - `meta.flow = properties_priority_queue_complete`
+  - `meta.reason` (`queue_item_completed|validation_error|queue_item_not_found|queue_conflict`)
+  - `meta.retryable` (boolean)
+
+### Queue Action Guardrail Semantics
+
+- `401 TOKEN_EXPIRED`:
+  - one refresh attempt path, then session-expired fallback.
+- `401 TOKEN_INVALID|TOKEN_REVOKED`:
+  - deterministic hard session reset.
+- `403 ROLE_SCOPE_FORBIDDEN`:
+  - provider role cannot mutate manager queue state.
+- `404 QUEUE_ITEM_NOT_FOUND`:
+  - unknown queue id returns deterministic not-found envelope.
+- `409 QUEUE_ACTION_CONFLICT`:
+  - already-completed or stale queue action mutation.
+- `422 VALIDATION_ERROR`:
+  - invalid `resolution_code`/`note` payload validation.
+
+### Compatibility Notes
+
+- Wave 26 is additive:
+  - no endpoint removals
+  - `GET /api/properties/priorities/queue` contract remains stable
+  - completion endpoint only enriches manager action loop without breaking Wave 24/25 consumers
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
