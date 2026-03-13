@@ -107,6 +107,21 @@ function parseOptionalInteger(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function deriveCanonicalPrice(
+  operationMode: PropertyOperationMode | "",
+  salePrice: number | null,
+  rentalPrice: number | null,
+  garagePrice: number | null
+): number | null {
+  if (operationMode === "sale") {
+    return salePrice ?? garagePrice ?? null;
+  }
+  if (operationMode === "rent") {
+    return rentalPrice ?? garagePrice ?? null;
+  }
+  return salePrice ?? rentalPrice ?? garagePrice ?? null;
+}
+
 const PropertyEditorScreen = () => {
   const navigation = useNavigation<PropertyEditorNavigation>();
   const route = useRoute<PropertyEditorRoute>();
@@ -119,8 +134,10 @@ const PropertyEditorScreen = () => {
   const [city, setCity] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [status, setStatus] = useState<PropertyStatus>("available");
-  const [propertyType, setPropertyType] = useState("apartment");
-  const [operationMode, setOperationMode] = useState<PropertyOperationMode>("sale");
+  const [propertyType, setPropertyType] = useState(isEditMode ? "" : "apartment");
+  const [operationMode, setOperationMode] = useState<PropertyOperationMode | "">(
+    isEditMode ? "" : "sale"
+  );
   const [salePrice, setSalePrice] = useState("");
   const [rentalPrice, setRentalPrice] = useState("");
   const [garagePriceCategoryId, setGaragePriceCategoryId] = useState<string | null>(null);
@@ -175,8 +192,8 @@ const PropertyEditorScreen = () => {
       setCity(property.city);
       setPostalCode(property.postalCode ?? "");
       setStatus(property.status);
-      setPropertyType(property.propertyType ?? "apartment");
-      setOperationMode(property.operationMode ?? "sale");
+      setPropertyType(property.propertyType ?? "");
+      setOperationMode(property.operationMode ?? "");
       setSalePrice(
         typeof property.pricing.salePrice === "number" ? String(property.pricing.salePrice) : ""
       );
@@ -249,6 +266,9 @@ const PropertyEditorScreen = () => {
     }
     if (propertyType.trim().length === 0) {
       nextErrors.propertyType = "Property type is required.";
+    }
+    if (operationMode.length === 0) {
+      nextErrors.operationMode = "Operation mode is required.";
     }
 
     const normalizedSalePrice = salePrice.trim();
@@ -345,7 +365,12 @@ const PropertyEditorScreen = () => {
     const parsedBedrooms = parseOptionalInteger(bedrooms);
     const parsedBathrooms = parseOptionalInteger(bathrooms);
     const parsedRooms = parseOptionalInteger(rooms);
-    const derivedPrice = parsedSalePrice ?? parsedRentalPrice ?? parsedGaragePrice ?? null;
+    const derivedPrice = deriveCanonicalPrice(
+      operationMode,
+      parsedSalePrice,
+      parsedRentalPrice,
+      parsedGaragePrice
+    );
 
     const payload: PropertyFormInput = {
       title: title.trim(),
@@ -355,7 +380,7 @@ const PropertyEditorScreen = () => {
       postalCode: postalCode.trim(),
       status,
       propertyType: propertyType.trim(),
-      operationMode,
+      operationMode: operationMode as PropertyOperationMode,
       price: derivedPrice,
       salePrice: parsedSalePrice,
       rentalPrice: parsedRentalPrice,
