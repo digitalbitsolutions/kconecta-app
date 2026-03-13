@@ -1,51 +1,64 @@
-# Session Handoff (2026-03-12)
+# Session Handoff (2026-03-13)
 
 ## Current State
 
 - Repository: `D:\still\kconecta-app`
-- Branch: `main` synced with `origin/main` at `8b37fb9`
-- Main protection: enforced (`PR required`, direct push blocked)
+- Base branch policy: `main` protected (`PR required`, direct push blocked)
 - Backend runtime policy: Docker-only (`NO XAMPP`)
-- Executor stack:
-  - default `AI_EXECUTOR=auto` now resolves to `aider`
-  - runtime fallback `aider -> openclaw` implemented in orchestrator
-  - OpenClaw currently marked as **experimental fallback** (see risks)
+- Execution policy:
+  - primary executor: `AI_EXECUTOR=aider`
+  - runtime fallback: `aider -> openclaw`
+  - OpenClaw remains controlled fallback, not primary
+- LLM mitigation policy:
+  - Google AG is now the preferred planner/reviewer for long tasks, contract decomposition, and scoped review before executor runs
+  - Ollama remains the local codegen/default fallback provider
 
-## Wave Status Snapshot
+## Progress Snapshot
 
-- Wave 23: completed and merged.
-- Wave 24:
-  - merged: `DEV-119` (architect, PR `#104`)
-  - merged: `DEV-121` (backend, PR `#105`)
-  - merged: devops platform update (PR `#107`) for `aider -> openclaw` fallback
-  - merged: CI unblock hotfix (PR `#108`) removing duplicate test methods
-  - pending: mobile + QA closeout (`DEV-122`, QA counterpart)
+- Waves 22-28: completed and merged.
+- Wave 29: executed end-to-end and left in `Ready for review`.
+  - `DEV-146` (architect) -> Done, PR `#131`
+  - `DEV-145` (backend) -> Done, PR `#132`
+  - `DEV-148` (mobile) -> Done, PR `#133`
+  - `DEV-147` (qa) -> Done, PR `#134`
+  - Epic `DEV-144` -> Done
 
-- Open PRs: none.
+- Open PRs currently relevant:
+  - `#131` `[architect] docs - define Wave 29 manager handoff evidence contract` (ready)
+  - `#132` `[backend] feat - enrich Wave 29 provider assignment evidence` (ready)
+  - `#133` `[mobile] DEV-148 / MOB-026 - consume wave29 handoff assignment evidence` (ready)
+  - `#134` `[qa] DEV-147 / QA-028 - add wave29 manager handoff regression matrix` (ready)
+  - `#120` `[devops] docs - refresh session context after Wave 26` (draft)
+  - `#121` `[devops] chore - persist docker test policy and wave task artifacts` (draft)
+  - `#122` `[devops] docs - define Wave 27 manager property form tasks` (draft)
 
 ## What Was Executed In This Session
 
-1. Merged PRs:
-   - `#104` architect contract
-   - `#105` backend contract implementation
-   - `#107` executor fallback refactor
-   - `#108` test duplicate hotfix
-2. Synced `main` and agent branches after merges.
-3. Added automatic executor policy:
-   - `auto` picks `aider` first
-   - if `aider` execution fails, orchestrator attempts `openclaw`
-4. Verified CI recovery:
-   - fixed `PropertyApiTest` duplicate methods causing `Cannot redeclare` failures.
+1. Wave 29 architect contract landed in `agent/architect` and PR `#131`.
+2. Wave 29 backend enriched assignment evidence landed in `agent/backend` and PR `#132`.
+3. Wave 29 mobile handoff screen now consumes additive assignment evidence directly, avoids the second detail fetch, and landed in PR `#133`.
+4. Wave 29 QA added:
+   - testing strategy updates,
+   - additive assignment evidence assertions in `PropertyApiTest.php`,
+   - dedicated `Wave29RegressionMatrixTest.php`,
+   - PR `#134`.
+5. All four Wave 29 PRs are `Ready for review` with green checks.
+6. Jira transitions executed to move `DEV-145..148` and epic `DEV-144` to `Done`.
+7. Wave 30 task files + plan were defined in `agent/devops-context` for the next manager parity increment.
 
 ## Known Risks / Blockers
 
-1. OpenClaw reliability as fallback:
-   - fallback activation works,
-   - but this installed OpenClaw variant may attempt edits outside `files_scope` on some prompts.
-   - keep `AI_EXECUTOR=aider` for primary runs until further hardening.
-2. Aider long tasks:
-   - still can timeout for large prompts/scopes.
-   - mitigated by partitioning, shorter prompts, per-agent timeout policies, and recovery mode.
+1. Aider can still timeout on long/scoped tasks.
+   - mitigation path:
+     - shorter prompts,
+     - partition by `files_scope`,
+     - adaptive retries/timeouts,
+     - Google AG for plan/review before execution,
+     - manual scoped recovery in agent worktree if needed
+2. OpenClaw fallback can create noisy untracked files (`.openclaw/*` and companion docs).
+   - recovery: clean only the affected worktree before continuing
+3. Docker QA command can report `No tests found` when filter targets backend repo test set mismatch.
+   - verify backend path and test namespace before trusting filtered output
 
 ## Guardrails (Do Not Break)
 
@@ -53,8 +66,8 @@
 - Always use `agent/*` branch -> PR -> review -> merge.
 - Keep `NO XAMPP` policy.
 - Use Docker for backend checks/tests.
-- Never run `php artisan test` directly on host. Use `py ai-orchestration/orchestrator.py backend-test-docker`.
-- Avoid destructive Git commands.
+- Never run `php artisan test` directly on host.
+- Required backend test command: `py ai-orchestration/orchestrator.py backend-test-docker`.
 
 ## Resume Commands
 
@@ -71,7 +84,12 @@ py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
 
 ## Next Natural Actions
 
-1. Execute `DEV-122` mobile task (`MOB-021`) with `AI_EXECUTOR=aider`.
-2. Open PR draft for mobile result and move Jira status to `In Progress/Review`.
-3. Execute QA ticket for Wave 24 closeout and open QA PR.
-4. Merge mobile + QA PRs and close Wave 24 epic in Jira.
+1. Approve/merge Wave 29 PRs `#131`, `#132`, `#133`, `#134`.
+2. Open Wave 30 in Jira from the new task files:
+   - epic `EPIC-W30`
+   - architect `ARCH-024`
+   - backend `BE-026`
+   - mobile `MOB-027`
+   - qa `QA-029`
+3. Move `ARCH-024` to `In Progress` so the board shows active work again.
+4. Keep Google AG for planning/review, `aider` for edits, and `openclaw` only as fallback.

@@ -1,0 +1,24 @@
+{
+  "id": "BE-026",
+  "title": "Harden manager provider directory/detail contract",
+  "description": "Implement or harden backend provider directory and provider detail payloads for manager use, ensuring deterministic auth/role guardrails and stable list/detail fields needed by the manager app.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Http/Controllers/Api/ProviderController.php",
+    "app/Services/ProviderService.php",
+    "tests/Feature/Api/ProviderApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "Manager role can fetch provider directory and provider detail contract payloads",
+    "Provider role and invalid token keep deterministic forbidden/unauthorized envelopes",
+    "Provider API tests cover list/detail payload shape required by manager mobile"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave30",
+    "stack": "backend",
+    "domain": "manager-provider-directory",
+    "planner": "google-ag"
+  }
+}

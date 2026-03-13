@@ -1,0 +1,24 @@
+{
+  "id": "QA-029",
+  "title": "Add Wave 30 manager provider directory regression matrix",
+  "description": "Expand QA coverage for manager provider directory/profile list and detail flows, including role/session guardrails and baseline stability across prior manager waves.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/ProviderApiTest.php",
+    "tests/Feature/Api/Wave30RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix covers provider directory success, detail success, forbidden, and unauthorized flows",
+    "Provider API tests assert manager-facing directory/detail payload expectations when contract is ready",
+    "Existing manager/provider auth and dashboard baselines remain stable"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave30",
+    "stack": "qa-core",
+    "domain": "manager-provider-directory",
+    "planner": "google-ag"
+  }
+}

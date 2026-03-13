@@ -1,0 +1,27 @@
+{
+  "id": "EPIC-W30",
+  "title": "Wave 30 - Manager provider directory and profile parity",
+  "description": "Coordinate Wave 30 delivery for a manager-facing provider directory and provider profile parity flow, including architecture contract, backend directory/detail hardening, mobile UI integration, and regression coverage.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "ai-orchestration/tasks/wave30_epic_manager_provider_directory_task.json",
+    "ai-orchestration/tasks/architect_wave30_manager_provider_directory_contract_task.json",
+    "ai-orchestration/tasks/backend_wave30_manager_provider_directory_contract_task.json",
+    "ai-orchestration/tasks/mobile_wave30_manager_provider_directory_ux_task.json",
+    "ai-orchestration/tasks/qa_wave30_manager_provider_directory_regression_task.json",
+    "docs/roadmap/wave30-manager-provider-directory-plan.md"
+  ],
+  "acceptance_criteria": [
+    "Wave 30 epic exists in Jira with architect, backend, mobile, and QA children",
+    "Task files define deterministic scopes and acceptance criteria for manager provider directory parity",
+    "Board can show Wave 30 work in To Do and In Progress"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave30",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-directory",
+    "planner": "google-ag"
+  }
+}

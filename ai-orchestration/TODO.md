@@ -1,45 +1,64 @@
-# TODO Prioritario - Wave 24
+# TODO Prioritario - Cierre Wave 29 / Apertura Wave 30
 
-Fecha: 2026-03-12  
+Fecha: 2026-03-13  
 Repo objetivo: `D:\still\kconecta-app`
 
 ## Estado actual
 
-- Wave 23: cerrada y mergeada.
-- Wave 24: parcialmente cerrada.
-- PRs abiertos: ninguno.
-- Últimos merges relevantes:
-  - `#104` architect (`DEV-119`)
-  - `#105` backend (`DEV-121`)
-  - `#107` devops (fallback `aider -> openclaw`)
-  - `#108` fix CI (tests duplicados)
+- Wave 29: ejecutada end-to-end y lista para merge.
+- PRs abiertos de Wave 29:
+  - `#131`
+  - `#132`
+  - `#133`
+  - `#134`
+- PRs abiertos de contexto/devops:
+  - `#120`
+  - `#121`
+  - `#122`
+- Wave 30: task files y plan ya definidos en `agent/devops-context`.
 
 ## P0 (inmediato)
 
-- [ ] Ejecutar `DEV-122` (mobile / `MOB-021`) con `AI_EXECUTOR=aider`.
-- [ ] Abrir PR draft de mobile y actualizar Jira (`In Progress` -> `In Review`).
-- [ ] Ejecutar ticket QA de Wave 24 y abrir PR QA.
-- [ ] Mergear mobile + QA y cerrar epic Wave 24 en Jira.
+- [ ] Mergear Wave 29:
+  - `#131` architect
+  - `#132` backend
+  - `#133` mobile
+  - `#134` qa
+- [ ] Verificar Jira con `DEV-144..148` cerrado de forma consistente en board/summary.
+- [ ] Abrir Wave 30 en Jira desde los task files:
+  - `EPIC-W30`
+  - `ARCH-024`
+  - `BE-026`
+  - `MOB-027`
+  - `QA-029`
+- [ ] Poner `ARCH-024` en `In Progress`.
 
-## P1 (siguiente ola)
+## P1 (ejecución siguiente)
 
-- [ ] Abrir Wave 25 (epic + architect/backend/mobile/qa).
-- [ ] Mantener visible `To Do` + `In Progress` en Board al iniciar sprint.
-- [ ] Vincular cada PR al ticket Jira (`DEV-xxx`) para trazabilidad en Code panel.
+- [ ] Ejecutar architect de Wave 30 con apoyo de Google AG para contrato y state map.
+- [ ] Abrir PR draft del architect ticket.
+- [ ] Ejecutar backend -> mobile -> qa con PR draft por cada ticket.
 
 ## Bloqueos y mitigaciones
 
-- [ ] OpenClaw fallback sigue en observación.
-  - Estado: fallback se activa, pero esta variante puede intentar editar fuera de `files_scope`.
-  - Mitigación: mantener `AI_EXECUTOR=aider` por defecto en ejecución real.
-- [ ] Aider puede tardar en tareas largas.
-  - Mitigación ya aplicada: prompt corto, partición por scope, timeouts/retries por agente, timeout-recovery.
+- [ ] Aider puede seguir haciendo timeout en tareas largas.
+  - Mitigación vigente:
+    - prompts más cortos,
+    - partición automática por scope,
+    - retries/timeout adaptativo,
+    - Google AG para planning/review/contract reasoning,
+    - recuperación manual por worktree si vuelve a colgarse.
+- [ ] OpenClaw fallback sigue bajo observación.
+  - Mitigación:
+    - usarlo solo como fallback controlado,
+    - limpiar artefactos locales del worktree afectado si aparecen.
 
 ## Restricciones activas
 
 - [x] NO usar XAMPP.
-- [x] Solo Docker para backend runtime/tests.
-- [x] No usar `php artisan test` directo en host (usar `backend-test-docker`).
+- [x] Solo Docker para runtime/tests de backend.
+- [x] No usar `php artisan test` directo en host.
+- [x] Usar `py ai-orchestration/orchestrator.py backend-test-docker`.
 - [x] No comandos destructivos de Git.
 - [x] No push directo a `main` (solo PR flow).
 
