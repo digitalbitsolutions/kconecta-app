@@ -579,3 +579,37 @@
 - Existing CRM contracts remain valid while native apps are onboarded.
 - Mobile clients depend only on public API contracts, never direct DB access.
 - Module internals can evolve as long as `v1` response contracts remain backward compatible.
+
+## Wave 31 Manager Assignment Center Boundary
+
+### Assignment Center Read/Action Layer
+
+- Responsibilities:
+  - expose deterministic manager queue list results
+  - expose queue-item detail read model for assignment review surfaces
+  - expose stable action-complete metadata for manager assignment workflows
+- Main contracts:
+  - `GET /api/properties/priorities/queue`
+  - `GET /api/properties/priorities/queue/{queueItemId}`
+  - `POST /api/properties/priorities/queue/{queueItemId}/complete`
+
+### Ownership Rules
+
+- Property module owns:
+  - queue item serialization
+  - queue item detail composition
+  - assignment evidence snapshot for manager review flows
+  - completion semantics and validation rules
+- Manager mobile module owns:
+  - assignment center filter state
+  - queue list/detail navigation
+  - optimistic completion feedback and retry rendering
+- Auth Session module owns:
+  - `401` recovery path
+  - unauthorized/session-expired transitions
+
+### Boundary Decision
+
+- Wave 31 establishes assignment center parity as a backend-owned list/detail/action contract.
+- Manager mobile must not reconstruct queue item detail by joining dashboard summary cards, property detail, and provider directory responses when the assignment center detail endpoint is available.
+- Dashboard priorities remain an entrypoint and summary surface; assignment center becomes the authoritative manager workspace for queue review.
