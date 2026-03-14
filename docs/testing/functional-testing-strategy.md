@@ -672,6 +672,48 @@ Validate end-to-end functional behavior of native app API contracts before relea
 3. `DEV-171` -> Backend queue-aware provider profile scorecard implementation.
 4. `DEV-172` -> Mobile provider profile scorecard + select-from-profile flow.
 5. `DEV-173` -> Regression matrix + readiness-gated API assertions in `tests/Feature/Api/Wave34RegressionMatrixTest.php`.
+
+## Wave 35 Manager Assignment Decision Timeline Matrix
+
+1. Assignment detail additive decision summary (`DEV-176`, `DEV-177`, `DEV-178`)
+  - `GET /api/properties/priorities/queue/{queueItemId}` preserves:
+    - `meta.contract=manager-assignment-center-v1`
+    - baseline `data.assignment`, `data.provider`, `data.timeline`
+  - Additive Wave 35 node:
+    - `data.decision_summary`
+      - `current_state`
+      - `latest_decision_label`
+      - `latest_decision_at`
+      - `latest_actor`
+      - `evidence_count`
+      - `has_evidence`
+      - `next_recommended_action`
+2. Timeline metadata semantics (`DEV-176`, `DEV-177`, `DEV-178`)
+  - Assignment detail timeline remains deterministic and descending by `occurred_at`.
+  - Timeline rows may expose:
+    - `metadata.event_kind`
+      - `assignment_created`
+      - `provider_reassigned`
+      - `assignment_completed`
+      - `assignment_cancelled`
+      - `evidence_uploaded`
+    - `metadata.status_badge`
+    - `metadata.evidence_count`
+    - `metadata.provider_id`
+  - Manager UI may ignore these additive keys without breaking existing assignment actions.
+3. Guardrails and compatibility (`DEV-176`, `DEV-178`)
+  - Provider role hitting queue detail returns `403 ROLE_SCOPE_FORBIDDEN` with `auth-session-v1` envelope.
+  - Invalid token returns deterministic `401 TOKEN_INVALID` envelope.
+  - Unknown queue item returns deterministic `404 QUEUE_ITEM_NOT_FOUND` payload.
+  - Baseline assignment detail remains additive: existing clients that ignore `decision_summary` continue to work.
+
+## Wave 35 Ticket Mapping
+
+1. `DEV-174` -> Wave 35 orchestration epic and rollout tracking.
+2. `DEV-175` -> Manager assignment decision timeline architecture contract and UX state map.
+3. `DEV-176` -> Backend additive decision summary + timeline metadata implementation.
+4. `DEV-177` -> Mobile assignment detail decision summary + timeline rendering.
+5. `DEV-178` -> Regression matrix + readiness-gated API assertions in `tests/Feature/Api/Wave35RegressionMatrixTest.php`.
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -707,6 +749,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 29. Run Wave 32 assignment status workflow regression suite and record reassign/complete/cancel evidence plus guardrail stability.
 30. Run Wave 33 assignment media evidence regression suite and record list/upload success envelopes plus guardrail stability.
 31. Run Wave 34 provider profile scorecard regression suite and record queue-aware success, guardrail stability, and baseline provider profile compatibility.
+32. Run Wave 35 assignment decision timeline regression suite and record additive decision summary semantics plus reassignment/evidence/completion/cancellation metadata stability.
 
 ## Entry Criteria
 
