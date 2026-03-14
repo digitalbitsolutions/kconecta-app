@@ -21,6 +21,7 @@ class PropertyService
     private static array $runtimeOverrides = [];
     private static array $runtimeCreated = [];
     private static array $runtimeQueueCompletions = [];
+    private static array $runtimeAssignmentQueueItems = [];
 
     /**
      * Returns property list payload with DB-first retrieval.
@@ -240,7 +241,12 @@ class PropertyService
             ];
         }
 
-        $assignmentContext = $this->buildAssignmentContextPayload($propertyId, $property, $provider);
+        $assignmentStatus = $this->buildAssignmentStatusMutationPayload((string) ($item["id"] ?? ""), $property, $provider);
+        $assignmentContext = [
+            "data" => [
+                "assignment" => $assignmentStatus["assignment"] ?? null,
+            ],
+        ];
 
         return [
             "data" => [
@@ -255,6 +261,7 @@ class PropertyService
                     "rating" => $provider["rating"] ?? null,
                 ] : null,
                 "assignment" => $assignmentContext["data"]["assignment"] ?? null,
+                "available_actions" => $assignmentStatus["available_actions"] ?? [],
                 "timeline" => $this->buildTimelineEvents($property),
             ],
             "meta" => [
@@ -350,6 +357,188 @@ class PropertyService
         ];
     }
 
+    public function updatePriorityQueueAssignmentStatus(
+        string $queueItemId,
+        array $payload = [],
+        ?string $managerId = null
+    ): array {
+        $normalizedQueueItemId = trim($queueItemId);
+        if ($normalizedQueueItemId === "") {
+            return [
+                "ok" => false,
+                "status" => 404,
+                "reason" => "queue_item_not_found",
+                "code" => "QUEUE_ITEM_NOT_FOUND",
+                "message" => "Queue item not found",
+                "queue_item_id" => $queueItemId,
+                "retryable" => false,
+            ];
+        }
+
+        $item = $this->findPriorityQueueItem($normalizedQueueItemId);
+        if ($item === null) {
+            return [
+                "ok" => false,
+                "status" => 404,
+                "reason" => "queue_item_not_found",
+                "code" => "QUEUE_ITEM_NOT_FOUND",
+                "message" => "Queue item not found",
+                "queue_item_id" => $normalizedQueueItemId,
+                "retryable" => false,
+            ];
+        }
+
+        $propertyId = (int) ($item["property_id"] ?? 0);
+        $property = $this->findPropertyById($propertyId);
+        if ($property === null) {
+            return [
+                "ok" => false,
+                "status" => 404,
+                "reason" => "queue_item_not_found",
+                "code" => "QUEUE_ITEM_NOT_FOUND",
+                "message" => "Queue item not found",
+                "queue_item_id" => $normalizedQueueItemId,
+                "retryable" => false,
+            ];
+        }
+
+        $normalizedAction = strtolower(trim((string) ($payload["action"] ?? "")));
+        $normalizedNote = isset($payload["note"]) ? trim((string) $payload["note"]) : null;
+        if ($normalizedNote === "") {
+            $normalizedNote = null;
+        }
+
+        $currentState = $this->resolveAssignmentState($property, null);
+        $availableActions = $this->resolveAssignmentAvailableActions($currentState);
+        if (!in_array($normalizedAction, $availableActions, true)) {
+            return $this->assignmentActionConflict(
+                $normalizedQueueItemId,
+                "Requested action is not valid for the current assignment state.",
+                "assignment_action_unavailable"
+            );
+        }
+
+        $updated = $property;
+        $now = now()->toIso8601String();
+        if ($managerId !== null && trim($managerId) !== "") {
+            $updated["manager_id"] = trim($managerId);
+        }
+        $updated["updated_at"] = $now;
+
+        if ($normalizedAction === "reassign") {
+            $providerId = (int) ($payload["provider_id"] ?? 0);
+            if ($providerId > 0 && (int) ($property["provider_id"] ?? 0) === $providerId) {
+                return $this->assignmentActionConflict(
+                    $normalizedQueueItemId,
+                    "Property is already assigned to this provider.",
+                    "assignment_unchanged"
+                );
+            }
+
+            $updated["provider_id"] = $providerId;
+            $updated["assigned_at"] = $now;
+            $updated["assignment_completed_at"] = null;
+            $updated["assignment_cancelled_at"] = null;
+            if ($normalizedNote !== null) {
+                $updated["handoff_note"] = $normalizedNote;
+            }
+
+            $this->rememberRuntimeAssignmentQueueItem($normalizedQueueItemId);
+            unset(self::$runtimeQueueCompletions[$normalizedQueueItemId]);
+            $this->persistAssignmentRuntimeProperty($updated);
+
+            return [
+                "ok" => true,
+                "status" => 200,
+                "reason" => "assignment_reassigned",
+                "queue_item_id" => $normalizedQueueItemId,
+                "property" => $updated,
+            ];
+        }
+
+        if ($normalizedAction === "complete") {
+            $updated["assignment_completed_at"] = $now;
+            $updated["assignment_cancelled_at"] = null;
+            if (empty($updated["assigned_at"])) {
+                $updated["assigned_at"] = $now;
+            }
+            if ($normalizedNote !== null) {
+                $updated["handoff_note"] = $normalizedNote;
+            }
+
+            $this->rememberRuntimeAssignmentQueueItem($normalizedQueueItemId);
+            self::$runtimeQueueCompletions[$normalizedQueueItemId] = [
+                "completed" => true,
+                "completed_at" => $now,
+                "resolution_code" => "assigned",
+                "note" => $normalizedNote,
+                "completed_by" => $managerId !== null && trim($managerId) !== "" ? trim($managerId) : null,
+            ];
+            $this->persistAssignmentRuntimeProperty($updated);
+
+            return [
+                "ok" => true,
+                "status" => 200,
+                "reason" => "assignment_completed",
+                "queue_item_id" => $normalizedQueueItemId,
+                "property" => $updated,
+            ];
+        }
+
+        $updated["provider_id"] = null;
+        $updated["assigned_at"] = null;
+        $updated["assignment_completed_at"] = null;
+        $updated["assignment_cancelled_at"] = $now;
+        if ($normalizedNote !== null) {
+            $updated["handoff_note"] = $normalizedNote;
+        }
+
+        $this->rememberRuntimeAssignmentQueueItem($normalizedQueueItemId);
+        self::$runtimeQueueCompletions[$normalizedQueueItemId] = [
+            "completed" => true,
+            "completed_at" => $now,
+            "resolution_code" => "dismissed",
+            "note" => $normalizedNote,
+            "completed_by" => $managerId !== null && trim($managerId) !== "" ? trim($managerId) : null,
+        ];
+        $this->persistAssignmentRuntimeProperty($updated);
+
+        return [
+            "ok" => true,
+            "status" => 200,
+            "reason" => "assignment_cancelled",
+            "queue_item_id" => $normalizedQueueItemId,
+            "property" => $updated,
+        ];
+    }
+
+    public function buildAssignmentStatusMutationPayload(
+        string $queueItemId,
+        ?array $property,
+        ?array $provider = null
+    ): array {
+        if (!is_array($property)) {
+            return [
+                "id" => $queueItemId,
+                "status" => "unassigned",
+                "assignment" => null,
+                "available_actions" => [],
+            ];
+        }
+
+        $propertyId = (int) ($property["id"] ?? 0);
+        $assignmentContextPayload = $this->buildAssignmentContextPayload($propertyId, $property, $provider);
+        $assignment = $assignmentContextPayload["data"]["assignment"] ?? null;
+
+        return [
+            "id" => $queueItemId,
+            "status" => $assignment["state"] ?? "unassigned",
+            "property_id" => $propertyId,
+            "assignment" => $assignment,
+            "available_actions" => $assignment["available_actions"] ?? [],
+        ];
+    }
+
     private function buildPriorityQueueItems(array $rows): array
     {
         $items = [];
@@ -381,7 +570,7 @@ class PropertyService
                 "note" => null,
             ];
 
-            if ($status === self::STATUS_AVAILABLE && $providerId <= 0) {
+            if ($status === self::STATUS_AVAILABLE && $this->shouldBuildProviderAssignmentQueueItem($propertyId, $providerId)) {
                 $item["id"] = "priority-provider-assignment-{$propertyId}";
                 $item["category"] = "provider_assignment";
                 $item["severity"] = "high";
@@ -1010,16 +1199,11 @@ class PropertyService
     public function buildAssignmentContextPayload(int $propertyId, array $property, ?array $provider): array
     {
         $providerId = isset($property["provider_id"]) ? (int) $property["provider_id"] : 0;
-        $hasProviderReference = $providerId > 0;
-
-        $assignmentState = "unassigned";
-        $assigned = false;
-        if ($hasProviderReference && $provider !== null) {
-            $assignmentState = "assigned";
-            $assigned = true;
-        } elseif ($hasProviderReference && $provider === null) {
-            $assignmentState = "provider_missing";
-        }
+        $assignmentState = $this->resolveAssignmentState($property, $provider);
+        $assigned = $providerId > 0 && $assignmentState !== "cancelled";
+        $availableActions = $this->resolveAssignmentAvailableActions($assignmentState);
+        $completedAt = $property["assignment_completed_at"] ?? null;
+        $cancelledAt = $property["assignment_cancelled_at"] ?? null;
 
         return [
             "data" => [
@@ -1035,8 +1219,13 @@ class PropertyService
                         "rating" => $provider["rating"] ?? null,
                     ] : null,
                     "assigned_at" => $property["assigned_at"] ?? null,
+                    "completed_at" => $completedAt,
+                    "cancelled_at" => $cancelledAt,
+                    "provider_id" => $providerId > 0 ? $providerId : null,
+                    "provider_name" => $provider !== null ? (string) ($provider["name"] ?? "") : null,
                     "note" => $property["handoff_note"] ?? null,
                     "state" => $assignmentState,
+                    "available_actions" => $availableActions,
                 ],
             ],
             "meta" => [
@@ -1305,6 +1494,34 @@ class PropertyService
             )
         );
 
+        $assignedAt = $this->asString(
+            $this->pickFirst(
+                $row,
+                ["assigned_at", "assignedAt"]
+            )
+        );
+
+        $handoffNote = $this->asString(
+            $this->pickFirst(
+                $row,
+                ["handoff_note", "assignment_note", "note"]
+            )
+        );
+
+        $assignmentCompletedAt = $this->asString(
+            $this->pickFirst(
+                $row,
+                ["assignment_completed_at", "completed_at"]
+            )
+        );
+
+        $assignmentCancelledAt = $this->asString(
+            $this->pickFirst(
+                $row,
+                ["assignment_cancelled_at", "cancelled_at"]
+            )
+        );
+
         $derivedPrice = $this->resolveDisplayPrice([
             "sale_price" => $salePrice,
             "rental_price" => $rentalPrice,
@@ -1331,6 +1548,10 @@ class PropertyService
             "elevator" => $elevator,
             "manager_id" => $managerId,
             "provider_id" => $providerId,
+            "assigned_at" => $assignedAt,
+            "handoff_note" => $handoffNote,
+            "assignment_completed_at" => $assignmentCompletedAt,
+            "assignment_cancelled_at" => $assignmentCancelledAt,
             "price" => $derivedPrice ?? $price,
             "updated_at" => $updatedAt,
         ]);
@@ -1712,10 +1933,81 @@ class PropertyService
             "manager_id" => $property["manager_id"] ?? null,
             "provider_id" => $property["provider_id"] ?? null,
             "assigned_at" => $property["assigned_at"] ?? null,
+            "assignment_completed_at" => $property["assignment_completed_at"] ?? null,
+            "assignment_cancelled_at" => $property["assignment_cancelled_at"] ?? null,
             "handoff_note" => $property["handoff_note"] ?? null,
             "price" => $property["price"] ?? null,
             "updated_at" => $property["updated_at"] ?? null,
         ];
+    }
+
+    private function shouldBuildProviderAssignmentQueueItem(int $propertyId, int $providerId): bool
+    {
+        if ($providerId <= 0) {
+            return true;
+        }
+
+        // Wave 32 keeps the same assignment-center item addressable after reassign until a terminal action closes it.
+        $queueItemId = "priority-provider-assignment-{$propertyId}";
+        return isset(self::$runtimeAssignmentQueueItems[$queueItemId]);
+    }
+
+    private function rememberRuntimeAssignmentQueueItem(string $queueItemId): void
+    {
+        if (trim($queueItemId) === "") {
+            return;
+        }
+
+        self::$runtimeAssignmentQueueItems[$queueItemId] = true;
+    }
+
+    private function resolveAssignmentState(array $property, ?array $provider): string
+    {
+        if (!empty($property["assignment_cancelled_at"])) {
+            return "cancelled";
+        }
+
+        if (!empty($property["assignment_completed_at"])) {
+            return "completed";
+        }
+
+        $providerId = (int) ($property["provider_id"] ?? 0);
+        if ($providerId > 0) {
+            return "assigned";
+        }
+
+        return "unassigned";
+    }
+
+    private function resolveAssignmentAvailableActions(string $assignmentState): array
+    {
+        return match ($assignmentState) {
+            "assigned" => ["complete", "reassign", "cancel"],
+            "unassigned" => ["reassign", "cancel"],
+            default => [],
+        };
+    }
+
+    private function assignmentActionConflict(string $queueItemId, string $message, string $reason): array
+    {
+        return [
+            "ok" => false,
+            "status" => 409,
+            "reason" => $reason,
+            "code" => "ASSIGNMENT_ACTION_CONFLICT",
+            "message" => $message,
+            "queue_item_id" => $queueItemId,
+            "retryable" => true,
+        ];
+    }
+
+    private function persistAssignmentRuntimeProperty(array $property): void
+    {
+        $this->rememberRuntimeOverride($property);
+        $propertyId = (int) ($property["id"] ?? 0);
+        if (array_key_exists($propertyId, self::$runtimeCreated)) {
+            self::$runtimeCreated[$propertyId] = $property;
+        }
     }
 
     private function buildPropertyContractPayload(array $property): array

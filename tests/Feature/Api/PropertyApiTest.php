@@ -1637,6 +1637,213 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("meta.retryable", true);
     }
 
+    public function test_manager_can_reassign_priority_queue_assignment_from_assignment_detail(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->patchJson("/api/properties/priorities/queue/priority-provider-assignment-101/assignment", [
+                "action" => "reassign",
+                "provider_id" => 1,
+                "note" => "Route provider from canonical directory",
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("meta.contract", "manager-assignment-status-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_assignment_update")
+            ->assertJsonPath("meta.reason", "assignment_reassigned")
+            ->assertJsonPath("data.id", "priority-provider-assignment-101")
+            ->assertJsonPath("data.status", "assigned")
+            ->assertJsonPath("data.assignment.state", "assigned")
+            ->assertJsonPath("data.assignment.assigned", true)
+            ->assertJsonPath("data.assignment.provider_id", 1)
+            ->assertJsonPath("data.assignment.provider_name", "CleanHome Pro");
+
+        $this->assertSame(
+            ["complete", "reassign", "cancel"],
+            $response->json("data.available_actions", [])
+        );
+
+        $detail = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue/priority-provider-assignment-101");
+
+        $detail
+            ->assertOk()
+            ->assertJsonPath("data.assignment.state", "assigned")
+            ->assertJsonPath("data.assignment.provider_id", 1)
+            ->assertJsonPath("data.assignment.provider_name", "CleanHome Pro");
+    }
+
+    public function test_manager_can_complete_assigned_priority_queue_item_from_assignment_status_endpoint(): void
+    {
+        $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->patchJson("/api/properties/priorities/queue/priority-provider-assignment-101/assignment", [
+                "action" => "reassign",
+                "provider_id" => 1,
+            ])
+            ->assertOk();
+
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->patchJson("/api/properties/priorities/queue/priority-provider-assignment-101/assignment", [
+                "action" => "complete",
+                "note" => "Assignment resolved from manager center",
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("meta.contract", "manager-assignment-status-v1")
+            ->assertJsonPath("meta.reason", "assignment_completed")
+            ->assertJsonPath("data.status", "completed")
+            ->assertJsonPath("data.assignment.state", "completed")
+            ->assertJsonPath("data.assignment.provider_id", 1)
+            ->assertJsonPath("data.assignment.provider_name", "CleanHome Pro")
+            ->assertJsonPath("data.assignment.note", "Assignment resolved from manager center")
+            ->assertJsonPath("data.available_actions", []);
+
+        $this->assertNotSame("", (string) $response->json("data.assignment.completed_at", ""));
+    }
+
+    public function test_manager_can_cancel_priority_queue_assignment_from_assignment_status_endpoint(): void
+    {
+        $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->patchJson("/api/properties/priorities/queue/priority-provider-assignment-101/assignment", [
+                "action" => "reassign",
+                "provider_id" => 1,
+            ])
+            ->assertOk();
+
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->patchJson("/api/properties/priorities/queue/priority-provider-assignment-101/assignment", [
+                "action" => "cancel",
+                "note" => "Owner paused provider handoff",
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("meta.contract", "manager-assignment-status-v1")
+            ->assertJsonPath("meta.reason", "assignment_cancelled")
+            ->assertJsonPath("data.status", "cancelled")
+            ->assertJsonPath("data.assignment.state", "cancelled")
+            ->assertJsonPath("data.assignment.assigned", false)
+            ->assertJsonPath("data.assignment.provider_id", null)
+            ->assertJsonPath("data.assignment.provider_name", null)
+            ->assertJsonPath("data.assignment.note", "Owner paused provider handoff")
+            ->assertJsonPath("data.available_actions", []);
+
+        $this->assertNotSame("", (string) $response->json("data.assignment.cancelled_at", ""));
+    }
+
+    public function test_priority_queue_assignment_update_is_forbidden_for_provider_role(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-ROLE" => "provider",
+            ])
+            ->patchJson("/api/properties/priorities/queue/priority-provider-assignment-101/assignment", [
+                "action" => "cancel",
+            ]);
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_assignment_update")
+            ->assertJsonPath("meta.reason", "role_scope_forbidden");
+    }
+
+    public function test_invalid_bearer_token_returns_unauthorized_for_priority_queue_assignment_update(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer invalid-token"])
+            ->patchJson("/api/properties/priorities/queue/priority-provider-assignment-101/assignment", [
+                "action" => "cancel",
+            ]);
+
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("error.code", "TOKEN_INVALID")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_assignment_update")
+            ->assertJsonPath("meta.reason", "token_invalid");
+    }
+
+    public function test_priority_queue_assignment_update_returns_not_found_for_unknown_item(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->patchJson("/api/properties/priorities/queue/priority-missing-999/assignment", [
+                "action" => "cancel",
+            ]);
+
+        $response
+            ->assertNotFound()
+            ->assertJsonPath("error.code", "QUEUE_ITEM_NOT_FOUND")
+            ->assertJsonPath("meta.contract", "manager-assignment-status-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_assignment_update")
+            ->assertJsonPath("meta.reason", "queue_item_not_found")
+            ->assertJsonPath("queue_item_id", "priority-missing-999");
+    }
+
+    public function test_priority_queue_assignment_update_rejects_invalid_payload_values(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->patchJson("/api/properties/priorities/queue/priority-provider-assignment-101/assignment", [
+                "action" => "reassign",
+                "provider_id" => 0,
+                "note" => str_repeat("a", 301),
+            ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonPath("error.code", "VALIDATION_ERROR")
+            ->assertJsonPath("meta.contract", "manager-assignment-status-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_assignment_update")
+            ->assertJsonPath("meta.reason", "validation_error")
+            ->assertJsonValidationErrors(["provider_id", "note"]);
+    }
+
+    public function test_priority_queue_assignment_update_returns_conflict_for_invalid_state_transition(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->patchJson("/api/properties/priorities/queue/priority-provider-assignment-101/assignment", [
+                "action" => "complete",
+            ]);
+
+        $response
+            ->assertStatus(409)
+            ->assertJsonPath("error.code", "ASSIGNMENT_ACTION_CONFLICT")
+            ->assertJsonPath("meta.contract", "manager-assignment-status-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_assignment_update")
+            ->assertJsonPath("meta.reason", "assignment_action_unavailable")
+            ->assertJsonPath("meta.retryable", true);
+    }
+
+    public function test_priority_queue_assignment_update_rejects_inactive_provider_reassignment(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->patchJson("/api/properties/priorities/queue/priority-provider-assignment-101/assignment", [
+                "action" => "reassign",
+                "provider_id" => 2,
+            ]);
+
+        $response
+            ->assertStatus(409)
+            ->assertJsonPath("error.code", "ASSIGNMENT_ACTION_CONFLICT")
+            ->assertJsonPath("meta.contract", "manager-assignment-status-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_assignment_update")
+            ->assertJsonPath("meta.reason", "provider_inactive")
+            ->assertJsonPath("meta.retryable", true);
+    }
+
     private function assertValidDataSource(mixed $source): void
     {
         $this->assertContains(
