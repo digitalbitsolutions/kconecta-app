@@ -751,3 +751,32 @@
 - Queue list rollup is intentionally smaller than Wave 35 detail summary:
   - enough to drive list-card parity
   - not enough to replace detail inspection
+
+## Wave 37 Manager Provider Directory Scorecard Boundary
+
+### Provider Directory/Profile Scorecard Layer
+
+- Provider module owns:
+  - manager-safe directory filtering by `search`, `city`, `category`, and `status`
+  - additive `scorecard_preview` serialization on `GET /api/providers`
+  - additive `scorecard` serialization on `GET /api/providers/{id}`
+  - compatibility with baseline provider list/detail contracts
+- Manager mobile module owns:
+  - directory filter/search state
+  - directory-to-profile navigation
+  - preserving origin context when profile is opened from handoff
+  - rendering list-level preview versus authoritative detail-level scorecard
+- Property / assignment module owns:
+  - provider-selection and assignment mutation flows
+  - property-context resume behavior when profile is opened from handoff
+- Auth session module owns:
+  - `401` recovery
+  - unauthorized and session-expired routing
+
+### Boundary Decision
+
+- Wave 37 keeps provider score derivation backend-owned.
+- Manager mobile must not compute provider scorecards by stitching together candidate rows, property assignment context, and raw profile fields.
+- Provider directory rows are comparison previews only:
+  - provider profile remains the authoritative read surface
+  - assignment selection remains outside the directory/profile contract
