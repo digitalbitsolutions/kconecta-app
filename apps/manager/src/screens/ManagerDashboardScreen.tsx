@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { ApiError } from "../api/client";
 import {
+  completeManagerPriorityQueueItem,
   fetchManagerDashboardSummary,
   fetchManagerPriorityQueue,
   setManagerPortfolioLaunchContext,
@@ -31,6 +32,11 @@ type DashboardSummaryState = {
   kpis: PortfolioKpis;
   generatedAt: string;
   source: "database" | "in_memory";
+};
+
+type QueueActionState = {
+  mode: "idle" | "pending" | "success" | "error";
+  message?: string;
 };
 
 const emptyKpis: PortfolioKpis = {
@@ -96,6 +102,19 @@ function queueTitle(item: ManagerPriorityQueueItem): string {
   return "Quality signal check";
 }
 
+function queueActionLabel(item: ManagerPriorityQueueItem, state: QueueActionState | undefined): string {
+  if (item.completed) {
+    return "Completed";
+  }
+  if (state?.mode === "pending") {
+    return "Completing...";
+  }
+  if (state?.mode === "error") {
+    return "Retry completion";
+  }
+  return "Complete queue action";
+}
+
 const ManagerDashboardScreen = () => {
   const navigation = useNavigation<DashboardNavigation>();
   const [summary, setSummary] = useState<DashboardSummaryState>(emptySummary);
@@ -104,6 +123,7 @@ const ManagerDashboardScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasLoadedData, setHasLoadedData] = useState(false);
+  const [queueActionState, setQueueActionState] = useState<Record<string, QueueActionState>>({});
 
   const sessionSnapshot = getSessionSnapshot();
   const roleLabel = sessionSnapshot.role ?? "unknown";
@@ -129,6 +149,7 @@ const ManagerDashboardScreen = () => {
           source: summaryPayload.meta.source,
         });
         setPriorityQueue(queuePayload.items);
+        setQueueActionState({});
         setHasLoadedData(true);
       } catch (requestError) {
         if (requestError instanceof ApiError) {
@@ -190,6 +211,72 @@ const ManagerDashboardScreen = () => {
     [navigation]
   );
 
+  const onCompleteQueueItem = useCallback(
+    async (item: ManagerPriorityQueueItem) => {
+      if (item.completed) {
+        return;
+      }
+
+      const nowIso = new Date().toISOString();
+      const optimisticItem: ManagerPriorityQueueItem = {
+        ...item,
+        completed: true,
+        completedAt: nowIso,
+        resolutionCode: "resolved",
+        updatedAt: nowIso,
+        action: "open_property",
+      };
+
+      setQueueActionState((previous) => ({
+        ...previous,
+        [item.id]: { mode: "pending" },
+      }));
+      setPriorityQueue((previous) =>
+        previous.map((queueItem) => (queueItem.id === item.id ? optimisticItem : queueItem))
+      );
+
+      try {
+        const committedItem = await completeManagerPriorityQueueItem(item.id, {
+          resolutionCode: "resolved",
+        });
+        setPriorityQueue((previous) =>
+          previous.map((queueItem) => (queueItem.id === item.id ? committedItem : queueItem))
+        );
+        setQueueActionState((previous) => ({
+          ...previous,
+          [item.id]: { mode: "success", message: "Queue item completed." },
+        }));
+      } catch (actionError) {
+        setPriorityQueue((previous) =>
+          previous.map((queueItem) => (queueItem.id === item.id ? item : queueItem))
+        );
+
+        if (actionError instanceof ApiError) {
+          if (actionError.status === 401) {
+            navigation.reset({ index: 0, routes: [{ name: "SessionExpired" }] });
+            return;
+          }
+          if (actionError.status === 403) {
+            navigation.reset({ index: 0, routes: [{ name: "Unauthorized" }] });
+            return;
+          }
+        }
+
+        const message =
+          actionError instanceof ApiError && actionError.status === 409
+            ? `Conflict: ${actionError.message}`
+            : actionError instanceof Error
+              ? actionError.message
+              : "Unable to complete queue action.";
+        setQueueActionState((previous) => ({
+          ...previous,
+          [item.id]: { mode: "error", message },
+        }));
+      }
+    },
+    [navigation]
+  );
+
   const showLoading = loading && !hasLoadedData;
   const showEmptyQueue = !showLoading && priorityQueue.length === 0;
 
@@ -247,6 +334,12 @@ const ManagerDashboardScreen = () => {
         </Pressable>
         <Pressable
           style={styles.secondaryAction}
+          onPress={() => navigation.navigate("ProviderDirectory")}
+        >
+          <Text style={styles.secondaryActionText}>Open Provider Directory</Text>
+        </Pressable>
+        <Pressable
+          style={styles.secondaryAction}
           onPress={() =>
             navigation.navigate("ManagerToProviderHandoff", {
               propertyId: "101",
@@ -259,11 +352,11 @@ const ManagerDashboardScreen = () => {
         </Pressable>
 
         {managerEnv.diagnosticsEnabled ? (
-          <View style={styles.diagnosticsCard}>
-            <Text style={styles.diagnosticsTitle}>Environment diagnostics</Text>
-            <Text style={styles.diagnosticsItem}>Stage: {managerEnv.stage}</Text>
-            <Text style={styles.diagnosticsItem}>API: {managerEnv.apiBaseUrl}</Text>
-            <Text style={styles.diagnosticsItem}>Role: {roleLabel}</Text>
+        <View style={styles.diagnosticsCard}>
+          <Text style={styles.diagnosticsTitle}>Environment diagnostics</Text>
+          <Text style={styles.diagnosticsItem}>Stage: {managerEnv.stage}</Text>
+          <Text style={styles.diagnosticsItem}>API: {managerEnv.apiBaseUrl}</Text>
+          <Text style={styles.diagnosticsItem}>Role: {roleLabel}</Text>
             <Text style={styles.diagnosticsItem}>
               Token: {sessionSnapshot.hasToken ? `loaded (${sessionSnapshot.source})` : "missing"}
             </Text>
@@ -280,7 +373,10 @@ const ManagerDashboardScreen = () => {
           ) : null}
 
           {priorityQueue.map((priority) => (
-            <View key={priority.id} style={styles.priorityItem}>
+            <View
+              key={priority.id}
+              style={[styles.priorityItem, priority.completed && styles.priorityItemCompleted]}
+            >
               <View style={styles.priorityHeader}>
                 <Text style={styles.priorityTitle}>{queueTitle(priority)}</Text>
                 <View style={[styles.priorityBadgeBase, severityStyle(priority)]}>
@@ -297,6 +393,38 @@ const ManagerDashboardScreen = () => {
               <Pressable style={styles.priorityActionButton} onPress={() => openQueueInPortfolio(priority)}>
                 <Text style={styles.priorityActionText}>Open in portfolio</Text>
               </Pressable>
+
+              <Pressable
+                style={[
+                  styles.priorityCompletionButton,
+                  priority.completed && styles.priorityCompletionButtonDone,
+                  queueActionState[priority.id]?.mode === "pending" && styles.actionDisabled,
+                ]}
+                disabled={priority.completed || queueActionState[priority.id]?.mode === "pending"}
+                onPress={() => void onCompleteQueueItem(priority)}
+              >
+                <Text style={styles.priorityCompletionText}>
+                  {queueActionLabel(priority, queueActionState[priority.id])}
+                </Text>
+              </Pressable>
+
+              {priority.completedAt ? (
+                <Text style={styles.priorityCompletionMeta}>
+                  Completed: {formatIsoDate(priority.completedAt)}{priority.resolutionCode ? ` | ${priority.resolutionCode}` : ""}
+                </Text>
+              ) : null}
+
+              {queueActionState[priority.id]?.message ? (
+                <Text
+                  style={
+                    queueActionState[priority.id]?.mode === "error"
+                      ? styles.priorityActionError
+                      : styles.priorityActionSuccess
+                  }
+                >
+                  {queueActionState[priority.id]?.message}
+                </Text>
+              ) : null}
             </View>
           ))}
         </View>
@@ -461,6 +589,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     padding: spacing.md,
   },
+  priorityItemCompleted: {
+    backgroundColor: colors.background,
+    borderColor: colors.accent,
+  },
   priorityHeader: {
     alignItems: "center",
     flexDirection: "row",
@@ -516,6 +648,42 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
     fontWeight: "700",
     textTransform: "uppercase",
+  },
+  priorityCompletionButton: {
+    alignItems: "center",
+    borderColor: colors.accent,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  priorityCompletionButtonDone: {
+    backgroundColor: colors.border,
+    borderColor: colors.border,
+  },
+  priorityCompletionText: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.xs,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  priorityCompletionMeta: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.xs,
+    marginTop: spacing.sm,
+  },
+  priorityActionSuccess: {
+    color: colors.accent,
+    fontSize: fontSizes.xs,
+    marginTop: spacing.xs,
+  },
+  priorityActionError: {
+    color: colors.danger,
+    fontSize: fontSizes.xs,
+    marginTop: spacing.xs,
+  },
+  actionDisabled: {
+    opacity: 0.6,
   },
   logoutAction: {
     alignItems: "center",

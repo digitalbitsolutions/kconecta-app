@@ -50,9 +50,24 @@ class ProviderController extends Controller
             );
         }
 
+        $validated = $request->validate([
+            "role" => ["nullable", "string", "max:64"],
+            "status" => ["nullable", "string", "max:64"],
+            "category" => ["nullable", "string", "max:120"],
+            "city" => ["nullable", "string", "max:120"],
+            "search" => ["nullable", "string", "max:120"],
+            "page" => ["nullable", "integer", "min:1"],
+            "per_page" => ["nullable", "integer", "min:1", "max:100"],
+        ]);
+
         $filters = [
-            "role" => $request->query("role"),
-            "status" => $request->query("status"),
+            "role" => $validated["role"] ?? null,
+            "status" => $validated["status"] ?? null,
+            "category" => $validated["category"] ?? null,
+            "city" => $validated["city"] ?? null,
+            "search" => $validated["search"] ?? null,
+            "page" => $validated["page"] ?? 1,
+            "per_page" => $validated["per_page"] ?? 25,
         ];
 
         $payload = $this->providerService->listProviders($filters);
@@ -88,7 +103,7 @@ class ProviderController extends Controller
             );
         }
 
-        $provider = $this->providerService->findProviderById($id);
+        $provider = $this->providerService->getProviderDetail($id);
         if ($provider === null) {
             return response()->json(
                 [
@@ -99,7 +114,7 @@ class ProviderController extends Controller
             );
         }
 
-        return response()->json(["data" => $provider], 200);
+        return response()->json($provider, 200);
     }
 
     public function availability(Request $request, int $id): JsonResponse

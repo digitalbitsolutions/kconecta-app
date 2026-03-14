@@ -26,14 +26,22 @@ class AuthSessionApiTest extends TestCase
                     "refresh_token",
                     "token_type",
                     "expires_in",
+                    "subject",
+                    "email",
+                    "display_name",
                     "scope",
                     "role",
                     "issued_at",
                 ],
-                "meta" => ["contract", "mode"],
+                "meta" => ["contract", "mode", "flow", "reason"],
             ])
             ->assertJsonPath("data.token_type", "Bearer")
-            ->assertJsonPath("meta.contract", "auth-session-v1");
+            ->assertJsonPath("data.subject", "manager@kconecta.local")
+            ->assertJsonPath("data.email", "manager@kconecta.local")
+            ->assertJsonPath("data.display_name", "Manager")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "login")
+            ->assertJsonPath("meta.reason", "login_success");
     }
 
     public function test_auth_login_rejects_invalid_credentials_with_contract_meta(): void
@@ -78,10 +86,24 @@ class AuthSessionApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonStructure([
-                "data" => ["access_token", "refresh_token", "token_type", "expires_in", "issued_at"],
-                "meta" => ["contract", "mode"],
+                "data" => [
+                    "access_token",
+                    "refresh_token",
+                    "token_type",
+                    "expires_in",
+                    "scope",
+                    "subject",
+                    "email",
+                    "display_name",
+                    "issued_at"
+                ],
+                "meta" => ["contract", "mode", "flow", "reason"],
             ])
-            ->assertJsonPath("data.refresh_token", "rtk_seed_refresh");
+            ->assertJsonPath("data.refresh_token", "rtk_seed_refresh")
+            ->assertJsonPath("data.subject", "refresh@kconecta.local")
+            ->assertJsonPath("data.display_name", "Manager")
+            ->assertJsonPath("meta.flow", "refresh")
+            ->assertJsonPath("meta.reason", "refresh_success");
     }
 
     public function test_auth_refresh_rejects_expired_token(): void
@@ -139,9 +161,11 @@ class AuthSessionApiTest extends TestCase
             ->assertOk()
             ->assertJsonStructure([
                 "data" => ["revoked", "revoked_at"],
-                "meta" => ["contract", "mode"],
+                "meta" => ["contract", "mode", "flow", "reason"],
             ])
-            ->assertJsonPath("data.revoked", true);
+            ->assertJsonPath("data.revoked", true)
+            ->assertJsonPath("meta.flow", "logout")
+            ->assertJsonPath("meta.reason", "logout_success");
     }
 
     public function test_auth_me_requires_authorization_with_contract_meta(): void
@@ -182,6 +206,7 @@ class AuthSessionApiTest extends TestCase
                 "data" => [
                     "subject",
                     "email",
+                    "display_name",
                     "role",
                     "scope",
                     "provider_id",

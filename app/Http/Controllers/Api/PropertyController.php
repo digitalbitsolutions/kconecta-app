@@ -497,6 +497,14 @@ class PropertyController extends Controller
             $this->resolveManagerId($request)
         );
 
+        if (($result["ok"] ?? false) === true) {
+            $result["assignment_evidence"] = $this->propertyService->buildAssignmentEvidencePayload(
+                $id,
+                $result["data"],
+                $provider
+            );
+        }
+
         return $this->handoffMutationResponse("properties_assign_provider", $result, $providerId);
     }
 
@@ -742,27 +750,49 @@ class PropertyController extends Controller
                 ]),
             ],
             "price" => ["sometimes", "numeric", "min:0"],
+            "description" => ["sometimes", "string", "min:1", "max:2000"],
+            "address" => ["sometimes", "string", "min:1", "max:200"],
+            "postal_code" => ["sometimes", "string", "min:1", "max:20"],
+            "property_type" => ["sometimes", "string", "min:1", "max:80"],
+            "operation_mode" => ["sometimes", "string", "in:sale,rent,both"],
+            "sale_price" => ["sometimes", "nullable", "numeric", "min:0"],
+            "rental_price" => ["sometimes", "nullable", "numeric", "min:0"],
+            "garage_price_category_id" => ["sometimes", "nullable", "integer", "min:1"],
+            "garage_price" => ["sometimes", "nullable", "numeric", "min:0"],
+            "bedrooms" => ["sometimes", "nullable", "integer", "min:0"],
+            "bathrooms" => ["sometimes", "nullable", "integer", "min:0"],
+            "rooms" => ["sometimes", "nullable", "integer", "min:0"],
+            "elevator" => ["sometimes", "nullable", "boolean"],
             "manager_id" => ["sometimes", "string", "max:120"],
         ];
 
         $validator = Validator::make($request->all(), $rules);
         $validator->after(function ($validator) use ($request, $isCreate): void {
-            if ($isCreate) {
-                return;
-            }
-
-            $editableFields = ["title", "city", "status", "price", "manager_id"];
-            $hasAnyEditableField = false;
-
-            foreach ($editableFields as $field) {
-                if ($request->has($field)) {
-                    $hasAnyEditableField = true;
-                    break;
-                }
-            }
-
-            if (!$hasAnyEditableField) {
+            if (!$isCreate && !$this->hasAnyEditableField($request)) {
                 $validator->errors()->add("payload", "At least one editable field is required.");
+            }
+
+            $operationMode = strtolower(trim((string) $request->input("operation_mode", "")));
+            if (in_array($operationMode, ["sale", "both"], true) && !$this->requestHasValue($request, "sale_price")) {
+                $validator->errors()->add("sale_price", "Sale price is required for the selected operation mode.");
+            }
+
+            if (in_array($operationMode, ["rent", "both"], true) && !$this->requestHasValue($request, "rental_price")) {
+                $validator->errors()->add("rental_price", "Rental price is required for the selected operation mode.");
+            }
+
+            if ($this->requestHasValue($request, "garage_price_category_id") && !$this->requestHasValue($request, "garage_price")) {
+                $validator->errors()->add("garage_price", "Garage price is required when a garage price category is selected.");
+            }
+
+            $propertyType = strtolower(trim((string) $request->input("property_type", "")));
+            if ($propertyType !== "" && $this->isResidentialPropertyType($propertyType)) {
+                if (!$this->requestHasValue($request, "bedrooms")) {
+                    $validator->errors()->add("bedrooms", "Bedrooms are required for residential property types.");
+                }
+                if (!$this->requestHasValue($request, "bathrooms")) {
+                    $validator->errors()->add("bathrooms", "Bathrooms are required for residential property types.");
+                }
             }
         });
 
@@ -793,6 +823,72 @@ class PropertyController extends Controller
         );
     }
 
+    private function hasAnyEditableField(Request $request): bool
+    {
+        foreach ($this->propertyFormEditableFields() as $field) {
+            if ($request->exists($field)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function propertyFormEditableFields(): array
+    {
+        return [
+            "title",
+            "description",
+            "address",
+            "city",
+            "postal_code",
+            "status",
+            "property_type",
+            "operation_mode",
+            "price",
+            "sale_price",
+            "rental_price",
+            "garage_price_category_id",
+            "garage_price",
+            "bedrooms",
+            "bathrooms",
+            "rooms",
+            "elevator",
+            "manager_id",
+        ];
+    }
+
+    private function requestHasValue(Request $request, string $field): bool
+    {
+        if (!$request->exists($field)) {
+            return false;
+        }
+
+        $value = $request->input($field);
+        if ($value === null) {
+            return false;
+        }
+
+        if (is_string($value)) {
+            return trim($value) !== "";
+        }
+
+        if (is_array($value)) {
+            return $value !== [];
+        }
+
+        return true;
+    }
+
+    private function isResidentialPropertyType(string $propertyType): bool
+    {
+        return in_array(
+            strtolower(trim($propertyType)),
+            ["apartment", "flat", "house", "chalet", "duplex", "studio", "penthouse", "residential"],
+            true
+        );
+    }
+
     private function resolveManagerId(Request $request): ?string
     {
         $managerId = trim((string) data_get($request->user(), "id", ""));
@@ -811,14 +907,21 @@ class PropertyController extends Controller
     ): JsonResponse
     {
         if (($result["ok"] ?? false) === true) {
+            $data = [
+                "property" => $result["data"],
+                "property_id" => (int) ($result["data"]["id"] ?? 0),
+                "provider_id" => (int) (($result["data"]["provider_id"] ?? $providerId) ?? 0),
+                "assigned_at" => $result["data"]["assigned_at"] ?? now()->toIso8601String(),
+            ];
+
+            if (is_array($result["assignment_evidence"] ?? null)) {
+                $data["assignment"] = $result["assignment_evidence"]["assignment"] ?? null;
+                $data["latest_timeline_event"] = $result["assignment_evidence"]["latest_timeline_event"] ?? null;
+            }
+
             return response()->json(
                 [
-                    "data" => [
-                        "property" => $result["data"],
-                        "property_id" => (int) ($result["data"]["id"] ?? 0),
-                        "provider_id" => (int) (($result["data"]["provider_id"] ?? $providerId) ?? 0),
-                        "assigned_at" => $result["data"]["assigned_at"] ?? now()->toIso8601String(),
-                    ],
+                    "data" => $data,
                     "meta" => [
                         "contract" => "manager-provider-handoff-v1",
                         "flow" => $flow,

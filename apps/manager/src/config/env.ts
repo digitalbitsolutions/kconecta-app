@@ -61,11 +61,11 @@ function resolveTimeoutMs(): number {
 const stage = resolveStage();
 
 function resolveBootstrapEmail(): string {
-  return readEnv("EXPO_PUBLIC_BOOTSTRAP_EMAIL") ?? "manager@kconecta.local";
+  return readEnv("EXPO_PUBLIC_BOOTSTRAP_EMAIL") ?? "";
 }
 
 function resolveBootstrapPassword(): string {
-  return readEnv("EXPO_PUBLIC_BOOTSTRAP_PASSWORD") ?? "kconecta-dev-password";
+  return readEnv("EXPO_PUBLIC_BOOTSTRAP_PASSWORD") ?? "";
 }
 
 export const managerEnv: RuntimeEnv = {
