@@ -300,6 +300,134 @@ class PropertyController extends Controller
         return $this->queueActionResponse("properties_priority_queue_complete", $result);
     }
 
+    public function priorityQueueAssignmentUpdate(Request $request, string $queueItemId): JsonResponse
+    {
+        if (!$this->apiAccessService->isAuthorized($request)) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_TOKEN_INVALID,
+                    "Unauthorized",
+                    "properties_priority_queue_assignment_update",
+                    "token_invalid",
+                    false
+                ),
+                401
+            );
+        }
+
+        if (!$this->hasAllowedRole($request, ["manager", "admin"])) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_ROLE_SCOPE_FORBIDDEN,
+                    "Forbidden",
+                    "properties_priority_queue_assignment_update",
+                    "role_scope_forbidden",
+                    false
+                ),
+                403
+            );
+        }
+
+        $validator = Validator::make(
+            $request->all(),
+            [
+                "action" => ["required", "string", "in:complete,reassign,cancel"],
+                "provider_id" => ["required_if:action,reassign", "integer", "min:1"],
+                "note" => ["sometimes", "string", "max:300"],
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => "VALIDATION_ERROR",
+                        "message" => "Validation failed",
+                        "fields" => $validator->errors()->toArray(),
+                    ],
+                    "meta" => [
+                        "contract" => "manager-assignment-status-v1",
+                        "flow" => "properties_priority_queue_assignment_update",
+                        "reason" => "validation_error",
+                        "retryable" => true,
+                    ],
+                ],
+                422
+            );
+        }
+
+        $validated = $validator->validated();
+        $provider = null;
+        if (($validated["action"] ?? null) === "reassign") {
+            $providerId = (int) ($validated["provider_id"] ?? 0);
+            $provider = $this->providerService->findProviderById($providerId);
+            if ($provider === null) {
+                return response()->json(
+                    [
+                        "error" => [
+                            "code" => "VALIDATION_ERROR",
+                            "message" => "Validation failed",
+                            "fields" => [
+                                "provider_id" => ["Selected provider is invalid."],
+                            ],
+                        ],
+                        "meta" => [
+                            "contract" => "manager-assignment-status-v1",
+                            "flow" => "properties_priority_queue_assignment_update",
+                            "reason" => "validation_error",
+                            "retryable" => true,
+                        ],
+                    ],
+                    422
+                );
+            }
+
+            if (strtolower((string) ($provider["status"] ?? "")) !== "active") {
+                return response()->json(
+                    [
+                        "error" => [
+                            "code" => "ASSIGNMENT_ACTION_CONFLICT",
+                            "message" => "Provider is not active for reassignment",
+                        ],
+                        "meta" => [
+                            "contract" => "manager-assignment-status-v1",
+                            "flow" => "properties_priority_queue_assignment_update",
+                            "reason" => "provider_inactive",
+                            "retryable" => true,
+                        ],
+                        "queue_item_id" => $queueItemId,
+                    ],
+                    409
+                );
+            }
+        }
+
+        $result = $this->propertyService->updatePriorityQueueAssignmentStatus(
+            $queueItemId,
+            $validated,
+            $this->resolveManagerId($request)
+        );
+
+        if (($result["ok"] ?? false) === true) {
+            $updatedProperty = is_array($result["property"] ?? null) ? $result["property"] : null;
+            $resolvedProvider = null;
+            if ($updatedProperty !== null) {
+                $resolvedProviderId = (int) ($updatedProperty["provider_id"] ?? 0);
+                if ($resolvedProviderId > 0) {
+                    $resolvedProvider = $provider ?? $this->providerService->findProviderById($resolvedProviderId);
+                }
+            }
+
+            $result["data"] = $this->propertyService->buildAssignmentStatusMutationPayload(
+                $result["queue_item_id"] ?? $queueItemId,
+                $updatedProperty,
+                $resolvedProvider
+            );
+        }
+
+        return $this->assignmentStatusResponse("properties_priority_queue_assignment_update", $result);
+    }
+
     public function show(Request $request, int $id): JsonResponse
     {
         if (!$this->apiAccessService->isAuthorized($request)) {
@@ -1083,6 +1211,60 @@ class PropertyController extends Controller
                     "contract" => "manager-priority-queue-action-v1",
                     "flow" => $flow,
                     "reason" => $result["reason"] ?? "queue_conflict",
+                    "retryable" => (bool) ($result["retryable"] ?? true),
+                ],
+                "queue_item_id" => $result["queue_item_id"] ?? null,
+            ],
+            $status
+        );
+    }
+
+    private function assignmentStatusResponse(string $flow, array $result): JsonResponse
+    {
+        if (($result["ok"] ?? false) === true) {
+            return response()->json(
+                [
+                    "data" => $result["data"],
+                    "meta" => [
+                        "contract" => "manager-assignment-status-v1",
+                        "flow" => $flow,
+                        "reason" => $result["reason"] ?? "assignment_status_updated",
+                    ],
+                ],
+                200
+            );
+        }
+
+        $status = (int) ($result["status"] ?? 409);
+        if ($status === 404) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => $result["code"] ?? "QUEUE_ITEM_NOT_FOUND",
+                        "message" => $result["message"] ?? "Queue item not found",
+                    ],
+                    "meta" => [
+                        "contract" => "manager-assignment-status-v1",
+                        "flow" => $flow,
+                        "reason" => $result["reason"] ?? "queue_item_not_found",
+                        "retryable" => (bool) ($result["retryable"] ?? false),
+                    ],
+                    "queue_item_id" => $result["queue_item_id"] ?? null,
+                ],
+                404
+            );
+        }
+
+        return response()->json(
+            [
+                "error" => [
+                    "code" => $result["code"] ?? "ASSIGNMENT_ACTION_CONFLICT",
+                    "message" => $result["message"] ?? "Assignment action conflict",
+                ],
+                "meta" => [
+                    "contract" => "manager-assignment-status-v1",
+                    "flow" => $flow,
+                    "reason" => $result["reason"] ?? "assignment_action_conflict",
                     "retryable" => (bool) ($result["retryable"] ?? true),
                 ],
                 "queue_item_id" => $result["queue_item_id"] ?? null,
