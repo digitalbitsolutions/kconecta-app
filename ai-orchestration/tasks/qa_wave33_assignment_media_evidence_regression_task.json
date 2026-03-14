@@ -1,0 +1,23 @@
+{
+  "id": "QA-032",
+  "title": "Add assignment media evidence workflow regression matrix",
+  "description": "Extend QA regression coverage with a Wave 33 matrix that validates manager assignment evidence upload/list workflows plus baseline assignment detail stability and authorization guardrails.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/Wave33RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Wave 33 matrix covers assignment evidence empty, upload success, and list retrieval flows when backend readiness is present",
+    "Regression suite preserves baseline assignment detail and status-action behavior from Waves 31 and 32",
+    "Unauthorized, forbidden, invalid payload, unsupported-file, and not-found states remain deterministic"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave33",
+    "executor_model": "mistral",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-media-evidence"
+  }
+}

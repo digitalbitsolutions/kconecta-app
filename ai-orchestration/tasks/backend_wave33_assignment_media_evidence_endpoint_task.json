@@ -1,0 +1,25 @@
+{
+  "id": "BE-029",
+  "title": "Implement assignment evidence upload and list endpoints",
+  "description": "Add backend support for manager assignment evidence media so assignment detail can upload and retrieve attachment metadata with deterministic validation, manager-only guardrails, and API regression coverage.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "routes/api.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "Assignment evidence upload and list actions enforce manager/admin-only role guardrails",
+    "Evidence responses return deterministic metadata for file name, media type, size, uploader, and created timestamp",
+    "Validation, not-found, forbidden, unauthorized, and unsupported-file semantics are covered in API tests"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave33",
+    "executor_model": "deepseek-coder:6.7b",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-media-evidence"
+  }
+}

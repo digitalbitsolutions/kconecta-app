@@ -1,0 +1,24 @@
+{
+  "id": "ARCH-027",
+  "title": "Define Wave 33 manager assignment media evidence contract",
+  "description": "Extend architecture docs with the manager assignment evidence contract, including file categories, upload/list metadata, assignment detail UI states, authorization boundaries, and recovery semantics for upload failures or unsupported files.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Assignment evidence contract documents upload and list semantics without breaking Wave 31 and Wave 32 assignment detail contracts",
+    "UI state map covers empty, picking, uploading, success, unsupported-file, forbidden, unauthorized, and failed-upload states",
+    "Module ownership and API boundary for assignment evidence media are explicit and additive to current manager assignment workflows"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave33",
+    "executor_model": "gemini-2.5-flash",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-media-evidence"
+  }
+}
