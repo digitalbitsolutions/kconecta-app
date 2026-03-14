@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
@@ -1844,6 +1845,196 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("meta.retryable", true);
     }
 
+    public function test_manager_can_upload_and_list_assignment_evidence_for_queue_item(): void
+    {
+        $emptyList = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue/priority-provider-assignment-101/evidence");
+
+        $emptyList
+            ->assertOk()
+            ->assertJsonPath("data.queue_item_id", "priority-provider-assignment-101")
+            ->assertJsonPath("data.count", 0)
+            ->assertJsonPath("data.items", [])
+            ->assertJsonPath("meta.contract", "manager-assignment-evidence-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_assignment_evidence")
+            ->assertJsonPath("meta.reason", "assignment_evidence_loaded");
+
+        $upload = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-MANAGER-ID" => "mgr-wave33",
+                "Accept" => "application/json",
+            ])
+            ->post(
+                "/api/properties/priorities/queue/priority-provider-assignment-101/evidence",
+                [
+                    "category" => "before_photo",
+                    "note" => "Initial evidence for manager assignment review",
+                    "file" => UploadedFile::fake()->image("before-photo.jpg", 1200, 800)->size(512),
+                ]
+            );
+
+        $upload
+            ->assertStatus(201)
+            ->assertJsonPath("data.queue_item_id", "priority-provider-assignment-101")
+            ->assertJsonPath("data.count", 1)
+            ->assertJsonPath("data.latest_item.category", "before_photo")
+            ->assertJsonPath("data.latest_item.file_name", "before-photo.jpg")
+            ->assertJsonPath("data.latest_item.media_type", "image/jpeg")
+            ->assertJsonPath("data.latest_item.uploaded_by", "mgr-wave33")
+            ->assertJsonPath("data.latest_item.preview_url", "/api/properties/priorities/queue/priority-provider-assignment-101/evidence/evidence-priority-provider-assignment-101-1/download")
+            ->assertJsonPath("data.latest_item.download_url", "/api/properties/priorities/queue/priority-provider-assignment-101/evidence/evidence-priority-provider-assignment-101-1/download")
+            ->assertJsonPath("meta.contract", "manager-assignment-evidence-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_assignment_evidence")
+            ->assertJsonPath("meta.reason", "assignment_evidence_uploaded");
+
+        $list = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue/priority-provider-assignment-101/evidence");
+
+        $list
+            ->assertOk()
+            ->assertJsonPath("data.count", 1)
+            ->assertJsonPath("data.items.0.id", "evidence-priority-provider-assignment-101-1")
+            ->assertJsonPath("data.items.0.category", "before_photo")
+            ->assertJsonPath("data.items.0.file_name", "before-photo.jpg")
+            ->assertJsonPath("data.items.0.media_type", "image/jpeg")
+            ->assertJsonPath("data.items.0.uploaded_by", "mgr-wave33")
+            ->assertJsonPath("meta.contract", "manager-assignment-evidence-v1")
+            ->assertJsonPath("meta.reason", "assignment_evidence_loaded");
+    }
+
+    public function test_assignment_evidence_upload_returns_unauthorized_for_invalid_token(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer invalid-token",
+                "Accept" => "application/json",
+            ])
+            ->post(
+                "/api/properties/priorities/queue/priority-provider-assignment-101/evidence",
+                [
+                    "category" => "report",
+                    "file" => UploadedFile::fake()->create("report.txt", 12, "text/plain"),
+                ]
+            );
+
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("error.code", "TOKEN_INVALID")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_assignment_evidence")
+            ->assertJsonPath("meta.reason", "token_invalid");
+    }
+
+    public function test_assignment_evidence_list_is_forbidden_for_provider_role(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-ROLE" => "provider",
+            ])
+            ->getJson("/api/properties/priorities/queue/priority-provider-assignment-101/evidence");
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_assignment_evidence")
+            ->assertJsonPath("meta.reason", "role_scope_forbidden");
+    }
+
+    public function test_assignment_evidence_returns_not_found_for_unknown_queue_item(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue/priority-missing-999/evidence");
+
+        $response
+            ->assertNotFound()
+            ->assertJsonPath("error.code", "QUEUE_ITEM_NOT_FOUND")
+            ->assertJsonPath("meta.contract", "manager-assignment-evidence-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_assignment_evidence")
+            ->assertJsonPath("meta.reason", "queue_item_not_found")
+            ->assertJsonPath("queue_item_id", "priority-missing-999");
+    }
+
+    public function test_assignment_evidence_upload_rejects_missing_file_and_invalid_category(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/priorities/queue/priority-provider-assignment-101/evidence", [
+                "category" => "invalid-category",
+            ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonPath("error.code", "VALIDATION_ERROR")
+            ->assertJsonPath("meta.contract", "manager-assignment-evidence-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_assignment_evidence")
+            ->assertJsonPath("meta.reason", "validation_error")
+            ->assertJsonValidationErrors(["category"]);
+
+        $fileResponse = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/priorities/queue/priority-provider-assignment-101/evidence", [
+                "category" => "report",
+            ]);
+
+        $fileResponse
+            ->assertStatus(422)
+            ->assertJsonPath("error.code", "VALIDATION_ERROR")
+            ->assertJsonPath("error.fields.file.0", "The file field is required.");
+    }
+
+    public function test_assignment_evidence_upload_rejects_unsupported_media_type(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "Accept" => "application/json",
+            ])
+            ->post(
+                "/api/properties/priorities/queue/priority-provider-assignment-101/evidence",
+                [
+                    "category" => "report",
+                    "file" => UploadedFile::fake()->create("payload.exe", 8, "application/octet-stream"),
+                ]
+            );
+
+        $response
+            ->assertStatus(415)
+            ->assertJsonPath("error.code", "UNSUPPORTED_MEDIA_TYPE")
+            ->assertJsonPath("meta.contract", "manager-assignment-evidence-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_assignment_evidence")
+            ->assertJsonPath("meta.reason", "unsupported_media_type")
+            ->assertJsonPath("media_type", "application/octet-stream");
+    }
+
+    public function test_assignment_evidence_upload_rejects_file_too_large(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "Accept" => "application/json",
+            ])
+            ->post(
+                "/api/properties/priorities/queue/priority-provider-assignment-101/evidence",
+                [
+                    "category" => "invoice",
+                    "file" => UploadedFile::fake()->create("invoice.pdf", 6000, "application/pdf"),
+                ]
+            );
+
+        $response
+            ->assertStatus(413)
+            ->assertJsonPath("error.code", "FILE_TOO_LARGE")
+            ->assertJsonPath("meta.contract", "manager-assignment-evidence-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_assignment_evidence")
+            ->assertJsonPath("meta.reason", "file_too_large")
+            ->assertJsonPath("limits.max_size_bytes", 5242880);
+    }
     private function assertValidDataSource(mixed $source): void
     {
         $this->assertContains(

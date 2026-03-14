@@ -428,6 +428,134 @@ class PropertyController extends Controller
         return $this->assignmentStatusResponse("properties_priority_queue_assignment_update", $result);
     }
 
+    public function priorityQueueAssignmentEvidence(Request $request, string $queueItemId): JsonResponse
+    {
+        $authFailure = $this->authorizeMutationRequest($request, "properties_priority_queue_assignment_evidence");
+        if ($authFailure !== null) {
+            return $authFailure;
+        }
+
+        $result = $this->propertyService->listPriorityQueueEvidence($queueItemId);
+        return $this->assignmentEvidenceResponse("properties_priority_queue_assignment_evidence", $result);
+    }
+
+    public function priorityQueueAssignmentEvidenceUpload(Request $request, string $queueItemId): JsonResponse
+    {
+        $authFailure = $this->authorizeMutationRequest($request, "properties_priority_queue_assignment_evidence");
+        if ($authFailure !== null) {
+            return $authFailure;
+        }
+
+        $validator = Validator::make(
+            $request->all(),
+            [
+                "category" => [
+                    "required",
+                    "string",
+                    "in:" . implode(",", $this->propertyService->assignmentEvidenceCategories()),
+                ],
+                "note" => ["sometimes", "nullable", "string", "max:300"],
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => "VALIDATION_ERROR",
+                        "message" => "Validation failed",
+                        "fields" => $validator->errors()->toArray(),
+                    ],
+                    "meta" => [
+                        "contract" => PropertyService::ASSIGNMENT_EVIDENCE_CONTRACT,
+                        "flow" => "properties_priority_queue_assignment_evidence",
+                        "reason" => "validation_error",
+                        "retryable" => true,
+                    ],
+                ],
+                422
+            );
+        }
+
+        $file = $request->file("file");
+        if ($file === null) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => "VALIDATION_ERROR",
+                        "message" => "Validation failed",
+                        "fields" => [
+                            "file" => ["The file field is required."],
+                        ],
+                    ],
+                    "meta" => [
+                        "contract" => PropertyService::ASSIGNMENT_EVIDENCE_CONTRACT,
+                        "flow" => "properties_priority_queue_assignment_evidence",
+                        "reason" => "validation_error",
+                        "retryable" => true,
+                    ],
+                ],
+                422
+            );
+        }
+
+        $fileSize = (int) ($file->getSize() ?? 0);
+        if ($fileSize > $this->propertyService->assignmentEvidenceMaxSizeBytes()) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => "FILE_TOO_LARGE",
+                        "message" => "File exceeds the supported upload size.",
+                    ],
+                    "meta" => [
+                        "contract" => PropertyService::ASSIGNMENT_EVIDENCE_CONTRACT,
+                        "flow" => "properties_priority_queue_assignment_evidence",
+                        "reason" => "file_too_large",
+                        "retryable" => true,
+                    ],
+                    "limits" => [
+                        "max_size_bytes" => $this->propertyService->assignmentEvidenceMaxSizeBytes(),
+                    ],
+                ],
+                413
+            );
+        }
+
+        $mediaType = strtolower((string) ($file->getMimeType() ?? ""));
+        if (!in_array($mediaType, $this->propertyService->assignmentEvidenceSupportedMimeTypes(), true)) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => "UNSUPPORTED_MEDIA_TYPE",
+                        "message" => "Unsupported media type.",
+                    ],
+                    "meta" => [
+                        "contract" => PropertyService::ASSIGNMENT_EVIDENCE_CONTRACT,
+                        "flow" => "properties_priority_queue_assignment_evidence",
+                        "reason" => "unsupported_media_type",
+                        "retryable" => true,
+                    ],
+                    "media_type" => $mediaType !== "" ? $mediaType : null,
+                ],
+                415
+            );
+        }
+
+        $validated = $validator->validated();
+        $result = $this->propertyService->uploadPriorityQueueEvidence(
+            $queueItemId,
+            [
+                "file_name" => (string) $file->getClientOriginalName(),
+                "media_type" => $mediaType,
+                "category" => (string) ($validated["category"] ?? "other"),
+                "size_bytes" => $fileSize,
+                "note" => isset($validated["note"]) ? (string) $validated["note"] : null,
+            ],
+            $this->resolveManagerId($request) ?? $this->resolveRole($request)
+        );
+
+        return $this->assignmentEvidenceResponse("properties_priority_queue_assignment_evidence", $result);
+    }
     public function show(Request $request, int $id): JsonResponse
     {
         if (!$this->apiAccessService->isAuthorized($request)) {
@@ -1265,6 +1393,60 @@ class PropertyController extends Controller
                     "contract" => "manager-assignment-status-v1",
                     "flow" => $flow,
                     "reason" => $result["reason"] ?? "assignment_action_conflict",
+                    "retryable" => (bool) ($result["retryable"] ?? true),
+                ],
+                "queue_item_id" => $result["queue_item_id"] ?? null,
+            ],
+            $status
+        );
+    }
+    private function assignmentEvidenceResponse(string $flow, array $result): JsonResponse
+    {
+        if (($result["ok"] ?? false) === true) {
+            return response()->json(
+                [
+                    "data" => $result["data"],
+                    "meta" => [
+                        "contract" => PropertyService::ASSIGNMENT_EVIDENCE_CONTRACT,
+                        "flow" => $flow,
+                        "reason" => $result["reason"] ?? "assignment_evidence_loaded",
+                        "source" => $result["meta"]["source"] ?? "in_memory",
+                    ],
+                ],
+                (int) ($result["status"] ?? 200)
+            );
+        }
+
+        $status = (int) ($result["status"] ?? 409);
+        if ($status === 404) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => $result["code"] ?? "QUEUE_ITEM_NOT_FOUND",
+                        "message" => $result["message"] ?? "Queue item not found",
+                    ],
+                    "meta" => [
+                        "contract" => PropertyService::ASSIGNMENT_EVIDENCE_CONTRACT,
+                        "flow" => $flow,
+                        "reason" => $result["reason"] ?? "queue_item_not_found",
+                        "retryable" => (bool) ($result["retryable"] ?? false),
+                    ],
+                    "queue_item_id" => $result["queue_item_id"] ?? null,
+                ],
+                404
+            );
+        }
+
+        return response()->json(
+            [
+                "error" => [
+                    "code" => $result["code"] ?? "ASSIGNMENT_EVIDENCE_CONFLICT",
+                    "message" => $result["message"] ?? "Assignment evidence request failed",
+                ],
+                "meta" => [
+                    "contract" => PropertyService::ASSIGNMENT_EVIDENCE_CONTRACT,
+                    "flow" => $flow,
+                    "reason" => $result["reason"] ?? "assignment_evidence_conflict",
                     "retryable" => (bool) ($result["retryable"] ?? true),
                 ],
                 "queue_item_id" => $result["queue_item_id"] ?? null,

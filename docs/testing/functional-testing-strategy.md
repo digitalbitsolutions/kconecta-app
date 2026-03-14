@@ -607,6 +607,41 @@ Validate end-to-end functional behavior of native app API contracts before relea
 3. `DEV-161` -> Backend assignment status mutation endpoint implementation.
 4. `DEV-162` -> Mobile manager assignment detail actions and provider-directory selection flow.
 5. `DEV-163` -> Regression matrix + readiness-gated API assertions in `tests/Feature/Api/Wave32RegressionMatrixTest.php`.
+
+## Wave 33 Manager Assignment Media Evidence Matrix
+
+1. Assignment evidence list/upload success contract (`DEV-166`, `DEV-167`, `DEV-168`)
+  - `GET /api/properties/priorities/queue/{queueItemId}/evidence` returns deterministic envelope:
+    - `meta.contract=manager-assignment-evidence-v1`
+    - `meta.flow=properties_priority_queue_assignment_evidence`
+    - additive `data.items[]`
+    - additive `data.count`
+  - `POST /api/properties/priorities/queue/{queueItemId}/evidence` accepts multipart uploads for:
+    - `category=before_photo|after_photo|invoice|report|permit|other`
+    - backend-issued `preview_url` and `download_url`
+    - additive `data.latest_item`
+  - list refresh remains in the assignment detail workspace and does not require a separate property-detail fetch.
+2. Guardrails for assignment evidence workflow (`DEV-166`, `DEV-168`)
+  - invalid token returns `401 TOKEN_INVALID` with `auth-session-v1` envelope.
+  - provider role returns `403 ROLE_SCOPE_FORBIDDEN` with `auth-session-v1` envelope.
+  - unknown queue item returns `404 QUEUE_ITEM_NOT_FOUND`.
+  - invalid category or missing file returns `422 VALIDATION_ERROR`.
+  - oversized file returns `413 FILE_TOO_LARGE`.
+  - unsupported media returns `415 UNSUPPORTED_MEDIA_TYPE`.
+3. Baseline compatibility (`DEV-166`, `DEV-167`, `DEV-168`)
+  - Wave 32 assignment detail contract remains stable:
+    - `GET /api/properties/priorities/queue/{queueItemId}`
+    - `meta.contract=manager-assignment-center-v1`
+    - assignment status and available actions remain deterministic.
+  - Wave 33 adds media/document evidence as a separate workspace concern and does not replace prior assignment state evidence.
+
+## Wave 33 Ticket Mapping
+
+1. `DEV-164` -> Wave 33 orchestration epic and rollout tracking.
+2. `DEV-165` -> Assignment media evidence architecture contract and UX state map.
+3. `DEV-166` -> Backend assignment evidence upload/list implementation.
+4. `DEV-167` -> Mobile manager assignment detail evidence UI.
+5. `DEV-168` -> Regression matrix + readiness-gated API assertions in `tests/Feature/Api/Wave33RegressionMatrixTest.php`.
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -640,6 +675,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 27. Run Wave 30 manager provider directory/profile regression suite and record readiness-gated list/detail contract evidence plus guardrail stability.
 28. Run Wave 31 manager assignment center regression suite and record additive queue filter echoes, detail contract evidence, and queue-detail guardrail stability.
 29. Run Wave 32 assignment status workflow regression suite and record reassign/complete/cancel evidence plus guardrail stability.
+30. Run Wave 33 assignment media evidence regression suite and record list/upload success envelopes plus guardrail stability.
 
 ## Entry Criteria
 
