@@ -1091,3 +1091,45 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend assignment-aware provider profile contract (`BE-030`).
 3. Manager provider profile scorecard UI and select-from-profile flow (`MOB-031`).
 4. Regression matrix for provider profile scorecard workflow (`QA-021`).
+
+## Wave 35 Manager Assignment Decision Timeline State Map
+
+### Decision Summary States
+
+- `assignment_decision_summary_loading`
+  - assignment detail is mounted but additive summary metadata is still resolving
+- `assignment_decision_summary_ready`
+  - summary card renders current state, latest decision label, actor, and timestamp
+- `assignment_decision_summary_with_evidence`
+  - summary card surfaces evidence count and confirms evidence-backed decision context
+- `assignment_decision_summary_no_evidence`
+  - summary renders current decision state but explicitly shows no evidence available
+- `assignment_decision_summary_missing`
+  - fallback to baseline assignment detail with no summary card if additive payload is absent
+
+### Timeline States
+
+- `assignment_timeline_ready`
+  - timeline rows render richer event-kind and status badge semantics
+- `assignment_timeline_evidence_event`
+  - evidence-backed events surface evidence count inline without forcing a separate evidence fetch
+- `assignment_timeline_reassignment_event`
+  - manager sees reassignment-specific context in the event row
+- `assignment_timeline_completion_event`
+  - completed state is visually distinct from generic assignment events
+- `assignment_timeline_cancelled_event`
+  - cancelled state is visually distinct and non-ambiguous
+
+### Interaction Rules
+
+- Decision summary is read-only and must not change current action button behavior.
+- Timeline enrichment must preserve current vertical flow and scrolling behavior inside assignment detail.
+- If additive fields are absent, assignment detail must fall back cleanly to the existing Wave 33/Wave 34 presentation.
+- Unauthorized, session-expired, and not-found states continue to use shared manager recovery screens.
+
+### Wave 35 Delivery Sequencing
+
+1. Assignment decision summary and timeline contract/state map (`ARCH-029`).
+2. Backend additive decision summary and timeline metadata (`BE-031`).
+3. Manager assignment detail summary/timeline UI (`MOB-032`).
+4. Regression matrix for assignment decision timeline workflow (`QA-022`).

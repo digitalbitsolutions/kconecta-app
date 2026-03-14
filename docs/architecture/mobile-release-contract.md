@@ -1422,6 +1422,69 @@ Define the minimum environment and auth contract required for native app release
   - no endpoint removals
   - no breaking provider detail field removals
   - assignment-aware scorecard metadata is only added when queue context is requested
+
+## Wave 35 Manager Assignment Decision Timeline Contract
+
+### Assignment Detail Additive Contract
+
+- Endpoint:
+  - `GET /api/properties/priorities/queue/{queueItemId}`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Baseline behavior:
+  - existing assignment detail fields remain stable
+  - existing `timeline[]` remains available to current consumers
+
+### Additive Decision Summary Payload
+
+- When Wave 35 contract is active, response adds:
+  - `data.decision_summary`
+    - `current_state` (`assigned|completed|cancelled|provider_missing`)
+    - `latest_decision_label` (string)
+    - `latest_decision_at` (ISO datetime or `null`)
+    - `latest_actor` (string or `null`)
+    - `evidence_count` (integer)
+    - `has_evidence` (`true|false`)
+    - `next_recommended_action` (nullable string)
+- `decision_summary` is additive:
+  - it must not replace `assignment`, `provider`, or `timeline`
+  - it must be safe for clients that ignore the new node entirely
+
+### Additive Timeline Metadata
+
+- Each `data.timeline[]` event may now add:
+  - `metadata.event_kind`
+    - `assignment_created`
+    - `provider_reassigned`
+    - `assignment_completed`
+    - `assignment_cancelled`
+    - `evidence_uploaded`
+  - `metadata.status_badge` (string)
+  - `metadata.evidence_count` (integer, optional)
+  - `metadata.provider_id` (integer, optional)
+- Timeline ordering rules stay unchanged:
+  - descending by `occurred_at`
+  - deterministic for identical fixture data
+
+### Guardrails and Error Semantics
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt, then retry assignment detail once
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - authenticated but unauthorized users route to `Unauthorized`
+- `404 QUEUE_ITEM_NOT_FOUND`
+  - render deterministic missing-assignment state
+
+### Compatibility Notes
+
+- Wave 35 is additive over Waves 31, 32, 33, and 34:
+  - no existing assignment detail fields are removed
+  - action mutation flow stays unchanged
+  - evidence upload/list contracts stay unchanged
+  - new summary and timeline semantics are read-only enrichment for manager detail surfaces
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
