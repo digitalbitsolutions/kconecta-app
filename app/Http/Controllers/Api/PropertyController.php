@@ -556,7 +556,6 @@ class PropertyController extends Controller
 
         return $this->assignmentEvidenceResponse("properties_priority_queue_assignment_evidence", $result);
     }
-
     public function show(Request $request, int $id): JsonResponse
     {
         if (!$this->apiAccessService->isAuthorized($request)) {
@@ -1401,7 +1400,6 @@ class PropertyController extends Controller
             $status
         );
     }
-
     private function assignmentEvidenceResponse(string $flow, array $result): JsonResponse
     {
         if (($result["ok"] ?? false) === true) {

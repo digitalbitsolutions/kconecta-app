@@ -613,3 +613,29 @@
 - Wave 31 establishes assignment center parity as a backend-owned list/detail/action contract.
 - Manager mobile must not reconstruct queue item detail by joining dashboard summary cards, property detail, and provider directory responses when the assignment center detail endpoint is available.
 - Dashboard priorities remain an entrypoint and summary surface; assignment center becomes the authoritative manager workspace for queue review.
+
+## Wave 32 Manager Assignment Status Boundary
+
+### Assignment Status Mutation Layer
+
+- Property API / assignment module owns:
+  - assignment status transition validation
+  - mutation endpoint for `complete|reassign|cancel`
+  - conflict semantics and authorization rules
+  - authoritative assignment detail payload after mutation
+- Provider directory module owns:
+  - canonical provider selection source for reassignment
+  - provider search/list/detail reads used by the reassignment picker
+- Manager mobile module owns:
+  - action button visibility by allowed transition
+  - reassignment picker/search/confirm flow
+  - optimistic pending UX and authoritative reconciliation after mutation response
+- Auth session module owns:
+  - token refresh attempt on mutation
+  - unauthorized/session-expired routing for action failures
+
+### Boundary Decision
+
+- Wave 32 extends manager assignment workflows from read-only inspection to controlled mutation without introducing a new manager-only provider source.
+- Reassign must depend on the existing provider directory contract and must not embed provider ownership logic into mobile-only state.
+- Assignment center list/detail remain backend-owned read models; assignment status mutation becomes the only write surface added in this wave.

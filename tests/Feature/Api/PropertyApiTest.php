@@ -2035,7 +2035,6 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("meta.reason", "file_too_large")
             ->assertJsonPath("limits.max_size_bytes", 5242880);
     }
-
     private function assertValidDataSource(mixed $source): void
     {
         $this->assertContains(
