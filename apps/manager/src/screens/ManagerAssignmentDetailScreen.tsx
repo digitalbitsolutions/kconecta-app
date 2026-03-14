@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { RouteProp, useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
@@ -240,7 +240,8 @@ const ManagerAssignmentDetailScreen = () => {
               </Text>
               <Text style={styles.meta}>Note: {detail.assignment?.note ?? "-"}</Text>
               <Text style={styles.meta}>
-                Available actions: {detail.availableActions.length > 0 ? detail.availableActions.join(", ") : "none"}
+                Available actions:{" "}
+                {detail.availableActions.length > 0 ? detail.availableActions.join(", ") : "none"}
               </Text>
             </View>
 
@@ -280,7 +281,10 @@ const ManagerAssignmentDetailScreen = () => {
 
               {detail.availableActions.includes("complete") ? (
                 <Pressable
-                  style={[styles.secondaryAction, !canRunAction("complete") && styles.actionDisabled]}
+                  style={[
+                    styles.secondaryAction,
+                    !canRunAction("complete") && styles.actionDisabled,
+                  ]}
                   disabled={!canRunAction("complete")}
                   onPress={() => void runAssignmentAction("complete")}
                 >
