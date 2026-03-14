@@ -1,0 +1,27 @@
+{
+  "id": "EPIC-W37",
+  "title": "Wave 37 - Manager provider directory and scorecard parity",
+  "description": "Coordinate architect, backend, mobile, and QA work to expose a manager-facing provider directory and provider profile scorecard without breaking the current provider assignment flows.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/ai-orchestration-roadmap.md",
+    "docs/roadmap/wave37-manager-provider-directory-scorecard-plan.md",
+    "ai-orchestration/tasks/wave37_epic_manager_provider_directory_scorecard_task.json",
+    "ai-orchestration/tasks/architect_wave37_manager_provider_directory_contract_task.json",
+    "ai-orchestration/tasks/backend_wave37_manager_provider_directory_scorecard_task.json",
+    "ai-orchestration/tasks/mobile_wave37_manager_provider_directory_scorecard_ui_task.json",
+    "ai-orchestration/tasks/qa_wave37_manager_provider_directory_scorecard_regression_task.json"
+  ],
+  "acceptance_criteria": [
+    "Wave 37 plan and task files are committed and linked to Jira epic/tickets",
+    "Architect, backend, mobile, and QA tasks are created with manager provider directory/profile scope",
+    "Wave 37 appears in Jira backlog/board with architect ready to execute"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave37",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-directory-scorecard"
+  }
+}
