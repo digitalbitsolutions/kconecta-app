@@ -642,6 +642,36 @@ Validate end-to-end functional behavior of native app API contracts before relea
 3. `DEV-166` -> Backend assignment evidence upload/list implementation.
 4. `DEV-167` -> Mobile manager assignment detail evidence UI.
 5. `DEV-168` -> Regression matrix + readiness-gated API assertions in `tests/Feature/Api/Wave33RegressionMatrixTest.php`.
+
+## Wave 34 Manager Provider Profile Scorecard Matrix
+
+1. Queue-aware provider profile scorecard contract (`DEV-171`, `DEV-172`, `DEV-173`)
+  - `GET /api/providers/{id}?queue_item_id={queueItemId}` returns additive scorecard data under:
+    - `meta.contract=manager-provider-directory-v1`
+    - `data.assignment_fit`
+  - `data.assignment_fit` exposes deterministic fields:
+    - `recommended`
+    - `score_label`
+    - `match_reasons`
+    - `warnings`
+    - `next_action`
+  - Success path remains additive: baseline provider profile fields are unchanged when scorecard context is requested.
+2. Guardrails for queue-aware provider profile (`DEV-171`, `DEV-173`)
+  - Provider role attempting queue-aware provider profile read returns `403 ROLE_SCOPE_FORBIDDEN` with `auth-session-v1` envelope.
+  - Invalid token on queue-aware provider profile read returns deterministic `401 TOKEN_INVALID` envelope.
+  - Unknown provider detail remains deterministic `404` provider-not-found payload.
+  - Unknown `queue_item_id` returns `404 QUEUE_ITEM_NOT_FOUND` with deterministic `meta.flow=providers_show`.
+3. Baseline compatibility (`DEV-171`, `DEV-172`, `DEV-173`)
+  - `GET /api/providers/{id}` without `queue_item_id` preserves Wave 30 provider profile shape.
+  - Generic manager provider directory browsing remains unaffected when no assignment selection context exists.
+
+## Wave 34 Ticket Mapping
+
+1. `DEV-169` -> Wave 34 orchestration epic and rollout tracking.
+2. `DEV-170` -> Manager provider profile scorecard architecture contract and UX state map.
+3. `DEV-171` -> Backend queue-aware provider profile scorecard implementation.
+4. `DEV-172` -> Mobile provider profile scorecard + select-from-profile flow.
+5. `DEV-173` -> Regression matrix + readiness-gated API assertions in `tests/Feature/Api/Wave34RegressionMatrixTest.php`.
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -676,6 +706,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 28. Run Wave 31 manager assignment center regression suite and record additive queue filter echoes, detail contract evidence, and queue-detail guardrail stability.
 29. Run Wave 32 assignment status workflow regression suite and record reassign/complete/cancel evidence plus guardrail stability.
 30. Run Wave 33 assignment media evidence regression suite and record list/upload success envelopes plus guardrail stability.
+31. Run Wave 34 provider profile scorecard regression suite and record queue-aware success, guardrail stability, and baseline provider profile compatibility.
 
 ## Entry Criteria
 
