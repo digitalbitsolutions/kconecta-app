@@ -1,0 +1,26 @@
+{
+  "id": "EPIC-W34",
+  "title": "Wave 34 - Manager provider profile scorecard parity",
+  "description": "Coordinate architecture, backend, mobile, and QA work so managers can evaluate assignment-aware provider fit from the provider profile and complete reassignment decisions with additive scorecard metadata.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/wave34-manager-provider-profile-scorecard-plan.md",
+    "ai-orchestration/tasks/architect_wave34_manager_provider_profile_scorecard_contract_task.json",
+    "ai-orchestration/tasks/backend_wave34_manager_provider_profile_scorecard_task.json",
+    "ai-orchestration/tasks/mobile_wave34_manager_provider_profile_scorecard_task.json",
+    "ai-orchestration/tasks/qa_wave34_manager_provider_profile_scorecard_regression_task.json"
+  ],
+  "acceptance_criteria": [
+    "Wave 34 scope is documented for architect/backend/mobile/qa",
+    "Jira epic can be created directly from the task file",
+    "Scope aligns with assignment-aware provider profile scorecard parity"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave34",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-profile-scorecard"
+  }
+}

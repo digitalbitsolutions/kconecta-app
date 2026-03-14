@@ -85,3 +85,11 @@ Labels:
 3. Continue manager parity from assignment inspection to assignment mutation/completion flows.
 4. Preserve Docker-only backend validation path.
 5. Keep Jira board states synchronized with active agent execution.
+
+## Wave 34 - Manager Provider Profile Scorecard Parity
+
+- Goal: enable assignment-aware provider evaluation directly from the provider profile before reassignment.
+- Architect: define additive `assignment_fit` contract and UX states for queue-aware provider profiles.
+- Backend: extend `GET /api/providers/{id}` with optional `queue_item_id` context and additive scorecard metadata.
+- Mobile: render scorecard/fit guidance in `ProviderProfileScreen` and allow provider selection from profile.
+- QA: add regression coverage for scorecard success paths and guardrails while preserving baseline profile behavior.
