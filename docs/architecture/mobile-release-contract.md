@@ -1485,6 +1485,63 @@ Define the minimum environment and auth contract required for native app release
   - action mutation flow stays unchanged
   - evidence upload/list contracts stay unchanged
   - new summary and timeline semantics are read-only enrichment for manager detail surfaces
+
+## Wave 36 Manager Assignment Center Decision Rollup Contract
+
+### Assignment Center Additive List Contract
+
+- Endpoint:
+  - `GET /api/properties/priorities/queue`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Baseline behavior:
+  - existing assignment center filters, sorting, and pagination remain stable
+  - existing queue item list nodes remain valid for current consumers
+
+### Additive Decision Rollup Payload
+
+- When Wave 36 contract is active, each provider-assignment queue item may add:
+  - `data.items[].decision_rollup`
+    - `current_state` (`unassigned|assigned|provider_missing|completed|cancelled`)
+    - `latest_decision_label` (string)
+    - `latest_decision_at` (ISO datetime or `null`)
+    - `evidence_count` (integer)
+    - `has_evidence` (`true|false`)
+    - `status_badge` (string)
+    - `next_recommended_action` (nullable string)
+- `decision_rollup` is additive:
+  - it must not replace queue item title, status, provider summary, or priority metadata
+  - it must be safe for clients that ignore the node entirely
+  - it is optional only when a queue item does not belong to the provider-assignment workflow
+
+### List Rendering Semantics
+
+- `decision_rollup.current_state` is the authoritative state source for assignment-center badge rendering.
+- `decision_rollup.status_badge` is display-ready and must stay deterministic for identical fixture data.
+- `decision_rollup.next_recommended_action` is advisory:
+  - it does not grant new permissions
+  - it does not replace authoritative actions available from assignment detail
+- `decision_rollup.evidence_count` and `decision_rollup.has_evidence` are read-only rollups:
+  - mobile must not infer them from local upload state alone
+
+### Guardrails and Error Semantics
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt, then retry assignment center list once
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - authenticated but unauthorized users route to `Unauthorized`
+- `404 QUEUE_ITEM_NOT_FOUND`
+  - handled only by detail flows; list contract remains stable and must not fail the whole collection read because a single item disappears
+
+### Compatibility Notes
+
+- Wave 36 is additive over Waves 31 through 35:
+  - no list node removals
+  - no filter or pagination contract changes
+  - assignment detail remains the authoritative surface for full timeline history and evidence drill-down
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):

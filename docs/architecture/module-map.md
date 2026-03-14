@@ -720,3 +720,34 @@
 - Timeline enrichment is additive and read-only:
   - manager mobile must not infer final decision badges from local action labels alone
   - manager mobile must consume backend-issued semantics for reassignment, completion, cancellation, and evidence-backed events
+
+## Wave 36 Manager Assignment Center Decision Rollup Boundary
+
+### Assignment Center Rollup Layer
+
+- Property / assignment module owns:
+  - additive `decision_rollup` serialization for provider-assignment queue list items
+  - rollup computation derived from assignment status, latest decision event, and evidence summary
+  - deterministic list-level badge and recommendation semantics
+- Evidence module owns:
+  - evidence presence/count inputs that may be summarized into `decision_rollup.has_evidence` and `decision_rollup.evidence_count`
+- Manager mobile module owns:
+  - rendering assignment center card badges, evidence counters, and recommendation hints
+  - preserving filter/sort state while list-level rollup metadata refreshes
+  - routing from list cards into authoritative assignment detail flows
+- Auth session module owns:
+  - `401` recovery
+  - unauthorized and session-expired routing
+
+### Boundary Decision
+
+- Wave 36 keeps rollup derivation backend-owned:
+  - mobile must not reconstruct assignment-center badges by merging detail timeline state, optimistic action state, and evidence list state locally
+- Assignment center gains additive summary semantics, not a new write surface.
+- Assignment detail remains authoritative for:
+  - full timeline history
+  - evidence review
+  - mutation actions
+- Queue list rollup is intentionally smaller than Wave 35 detail summary:
+  - enough to drive list-card parity
+  - not enough to replace detail inspection
