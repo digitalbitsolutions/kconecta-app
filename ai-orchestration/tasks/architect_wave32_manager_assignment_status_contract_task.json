@@ -1,0 +1,24 @@
+{
+  "id": "ARCH-026",
+  "title": "Define Wave 32 manager assignment status contract",
+  "description": "Extend architecture docs with the manager assignment status action contract, including valid state transitions, action payloads, mutation success/error semantics, and mobile state handling for complete, reassign, and cancel flows.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Assignment detail mutation contract documents complete, reassign, and cancel actions without breaking Wave 31 list/detail contracts",
+    "UI state map covers optimistic/loading/success/conflict/forbidden/unauthorized states for assignment action workflows",
+    "Module ownership and API boundary for assignment status updates are explicit and additive to existing assignment center behavior"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave32",
+    "executor_model": "gemini-2.5-flash",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-status"
+  }
+}

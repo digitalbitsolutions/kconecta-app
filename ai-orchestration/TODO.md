@@ -1,47 +1,43 @@
-# TODO Prioritario - Wave 24
+# TODO Prioritario - Wave 32
 
-Fecha: 2026-03-12  
+Fecha: 2026-03-14  
 Repo objetivo: `D:\still\kconecta-app`
 
 ## Estado actual
 
-- Wave 23: cerrada y mergeada.
-- Wave 24: parcialmente cerrada.
-- PRs abiertos: ninguno.
-- Últimos merges relevantes:
-  - `#104` architect (`DEV-119`)
-  - `#105` backend (`DEV-121`)
-  - `#107` devops (fallback `aider -> openclaw`)
-  - `#108` fix CI (tests duplicados)
+- Wave 31: cerrada y mergeada.
+- PRs Wave 31: fusionados (`#135`-`#139`).
+- Jira Wave 31: cerrado (`DEV-154`..`DEV-158`).
+- Siguiente foco: Wave 32 - Assignment status management.
 
 ## P0 (inmediato)
 
-- [ ] Ejecutar `DEV-122` (mobile / `MOB-021`) con `AI_EXECUTOR=aider`.
-- [ ] Abrir PR draft de mobile y actualizar Jira (`In Progress` -> `In Review`).
-- [ ] Ejecutar ticket QA de Wave 24 y abrir PR QA.
-- [ ] Mergear mobile + QA y cerrar epic Wave 24 en Jira.
+- [ ] Crear epic y 4 tickets de Wave 32 en Jira desde task files.
+- [ ] Pasar epic y architect a `In Progress`.
+- [ ] Ejecutar `ARCH-026` con apoyo de `Google AG` para contrato corto y preciso.
+- [ ] Ejecutar backend/mobile/qa de Wave 32 manteniendo prompts cortos por scope.
 
-## P1 (siguiente ola)
+## P1 (después de abrir Wave 32)
 
-- [ ] Abrir Wave 25 (epic + architect/backend/mobile/qa).
-- [ ] Mantener visible `To Do` + `In Progress` en Board al iniciar sprint.
-- [ ] Vincular cada PR al ticket Jira (`DEV-xxx`) para trazabilidad en Code panel.
+- [ ] Mantener visible `To Do` + `In Progress` en Board con sprint activo.
+- [ ] Enlazar cada PR al ticket Jira correspondiente.
+- [ ] Cerrar la wave completa sin acumular PRs viejos.
 
 ## Bloqueos y mitigaciones
 
-- [ ] OpenClaw fallback sigue en observación.
-  - Estado: fallback se activa, pero esta variante puede intentar editar fuera de `files_scope`.
-  - Mitigación: mantener `AI_EXECUTOR=aider` por defecto en ejecución real.
-- [ ] Aider puede tardar en tareas largas.
-  - Mitigación ya aplicada: prompt corto, partición por scope, timeouts/retries por agente, timeout-recovery.
+- [ ] `aider` sigue siendo sensible a tareas largas.
+  - Mitigación: partir tareas por `files_scope`, usar `Google AG` para descomposición previa y hacer recovery manual si es necesario.
+- [ ] `openclaw` puede dejar artefactos locales no trackeados.
+  - Mitigación: limpiar worktree antes de sync/merge si reaparecen.
 
 ## Restricciones activas
 
 - [x] NO usar XAMPP.
 - [x] Solo Docker para backend runtime/tests.
-- [x] No usar `php artisan test` directo en host (usar `backend-test-docker`).
+- [x] No usar `php artisan test` directo en host.
 - [x] No comandos destructivos de Git.
 - [x] No push directo a `main` (solo PR flow).
+- [x] `Google AG` solo como planner/reviewer, no editor directo.
 
 ## Comandos de reanudación
 

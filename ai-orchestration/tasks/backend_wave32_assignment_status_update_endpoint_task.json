@@ -1,0 +1,25 @@
+{
+  "id": "BE-028",
+  "title": "Implement assignment status update endpoints",
+  "description": "Add backend support for manager assignment lifecycle actions from assignment detail, including complete, reassign, and cancel endpoints or action handlers with deterministic validation, guardrails, and API test coverage.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "routes/api.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "Assignment status update actions enforce manager/admin-only role guardrails",
+    "Complete, reassign, and cancel flows return deterministic contract metadata and mutation payloads",
+    "Validation, not-found, forbidden, unauthorized, and conflict semantics are covered in API tests"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave32",
+    "executor_model": "deepseek-coder:6.7b",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-status"
+  }
+}

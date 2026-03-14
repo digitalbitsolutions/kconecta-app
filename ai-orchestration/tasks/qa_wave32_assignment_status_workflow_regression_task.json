@@ -1,0 +1,23 @@
+{
+  "id": "QA-031",
+  "title": "Add assignment status workflow regression matrix",
+  "description": "Extend QA regression coverage with a Wave 32 matrix that validates manager assignment complete, reassign, and cancel workflows plus baseline assignment center stability and authorization guardrails.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/Wave32RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Wave 32 matrix covers complete, reassign, and cancel happy paths when backend readiness is present",
+    "Regression suite preserves baseline assignment center list/detail flows from Wave 31",
+    "Unauthorized, forbidden, conflict, and invalid payload states remain deterministic"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave32",
+    "executor_model": "mistral",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-status"
+  }
+}

@@ -1,51 +1,48 @@
-# Session Handoff (2026-03-12)
+# Session Handoff (2026-03-14)
 
 ## Current State
 
 - Repository: `D:\still\kconecta-app`
-- Branch: `main` synced with `origin/main` at `8b37fb9`
-- Main protection: enforced (`PR required`, direct push blocked)
+- Preferred execution workspace: clean agent worktrees under `.ai-worktrees\`
+- `main` protection: enforced (`PR required`, direct push blocked)
 - Backend runtime policy: Docker-only (`NO XAMPP`)
 - Executor stack:
-  - default `AI_EXECUTOR=auto` now resolves to `aider`
-  - runtime fallback `aider -> openclaw` implemented in orchestrator
-  - OpenClaw currently marked as **experimental fallback** (see risks)
+  - primary edit executor: `aider`
+  - planning/reasoning helper: `Google AG`
+  - controlled fallback: `openclaw` (only when `aider` fails)
 
 ## Wave Status Snapshot
 
-- Wave 23: completed and merged.
-- Wave 24:
-  - merged: `DEV-119` (architect, PR `#104`)
-  - merged: `DEV-121` (backend, PR `#105`)
-  - merged: devops platform update (PR `#107`) for `aider -> openclaw` fallback
-  - merged: CI unblock hotfix (PR `#108`) removing duplicate test methods
-  - pending: mobile + QA closeout (`DEV-122`, QA counterpart)
-
-- Open PRs: none.
+- Waves 23-30: merged to `main`.
+- Wave 31: merged and closed end-to-end.
+  - `#135` devops
+  - `#136` architect
+  - `#137` backend
+  - `#138` mobile
+  - `#139` qa
+  - Jira closed: `DEV-154`, `DEV-155`, `DEV-156`, `DEV-157`, `DEV-158`
+- Next planned wave: Wave 32 - Manager assignment status management.
 
 ## What Was Executed In This Session
 
-1. Merged PRs:
-   - `#104` architect contract
-   - `#105` backend contract implementation
-   - `#107` executor fallback refactor
-   - `#108` test duplicate hotfix
-2. Synced `main` and agent branches after merges.
-3. Added automatic executor policy:
-   - `auto` picks `aider` first
-   - if `aider` execution fails, orchestrator attempts `openclaw`
-4. Verified CI recovery:
-   - fixed `PropertyApiTest` duplicate methods causing `Cannot redeclare` failures.
+1. Linked and readied the missing QA PR `#139`.
+2. Re-synced `agent/architect`, `agent/backend`, `agent/mobile`, and `agent/qa` against `origin/main`.
+3. Resolved blocked review threads in `#136` and `#138`.
+4. Merged the full Wave 31 PR sequence to `main`.
+5. Updated Jira tickets and epic to `Done`.
+6. Formalized `Google AG` as planner/reviewer support for future waves to reduce `aider` timeout pressure.
 
 ## Known Risks / Blockers
 
-1. OpenClaw reliability as fallback:
-   - fallback activation works,
-   - but this installed OpenClaw variant may attempt edits outside `files_scope` on some prompts.
-   - keep `AI_EXECUTOR=aider` for primary runs until further hardening.
-2. Aider long tasks:
-   - still can timeout for large prompts/scopes.
-   - mitigated by partitioning, shorter prompts, per-agent timeout policies, and recovery mode.
+1. `aider` can still timeout on long prompts or broad file scopes.
+   - active mitigation: shorter prompts, scoped task files, adaptive retries, manual recovery when required
+2. `openclaw` may leave local untracked artifacts in worktrees:
+   - `.openclaw/`
+   - `AGENTS.md`, `HEARTBEAT.md`, `IDENTITY.md`, `SOUL.md`, `TOOLS.md`, `USER.md`
+   - these are local artifacts and should be removed before branch sync/merge if they reappear
+3. Root repo can contain unrelated stale task artifacts from abandoned waves.
+   - prefer agent worktrees for real execution
+   - do not assume root `git status` is clean
 
 ## Guardrails (Do Not Break)
 
@@ -53,7 +50,8 @@
 - Always use `agent/*` branch -> PR -> review -> merge.
 - Keep `NO XAMPP` policy.
 - Use Docker for backend checks/tests.
-- Never run `php artisan test` directly on host. Use `py ai-orchestration/orchestrator.py backend-test-docker`.
+- Never run `php artisan test` directly on host.
+- Use `Google AG` for planning/review, not direct file edits.
 - Avoid destructive Git commands.
 
 ## Resume Commands
@@ -71,7 +69,7 @@ py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
 
 ## Next Natural Actions
 
-1. Execute `DEV-122` mobile task (`MOB-021`) with `AI_EXECUTOR=aider`.
-2. Open PR draft for mobile result and move Jira status to `In Progress/Review`.
-3. Execute QA ticket for Wave 24 closeout and open QA PR.
-4. Merge mobile + QA PRs and close Wave 24 epic in Jira.
+1. Open Wave 32 in Jira from the new task files.
+2. Transition the Wave 32 epic and architect ticket to `In Progress`.
+3. Execute Wave 32 architect -> backend -> mobile -> qa.
+4. Keep `Google AG` on planning/review and reserve `aider` for scoped edits only.

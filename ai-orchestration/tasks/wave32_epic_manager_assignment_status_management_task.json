@@ -1,0 +1,26 @@
+{
+  "id": "EPIC-W32",
+  "title": "Wave 32 - Manager assignment status management",
+  "description": "Coordinate architecture, backend, mobile, and QA work to let managers progress assignment lifecycle actions from the assignment detail flow, including complete, reassign, and cancel operations with deterministic contracts and regression coverage.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/wave32-manager-assignment-status-management-plan.md",
+    "ai-orchestration/tasks/architect_wave32_manager_assignment_status_contract_task.json",
+    "ai-orchestration/tasks/backend_wave32_assignment_status_update_endpoint_task.json",
+    "ai-orchestration/tasks/mobile_wave32_assignment_status_actions_ui_task.json",
+    "ai-orchestration/tasks/qa_wave32_assignment_status_workflow_regression_task.json"
+  ],
+  "acceptance_criteria": [
+    "Wave 32 scope is documented for architect/backend/mobile/qa",
+    "Jira epic can be created directly from the task file",
+    "Scope aligns with manager assignment status management and keeps executor load partitioned"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave32",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-status"
+  }
+}
