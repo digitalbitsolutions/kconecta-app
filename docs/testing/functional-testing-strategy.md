@@ -607,7 +607,6 @@ Validate end-to-end functional behavior of native app API contracts before relea
 3. `DEV-161` -> Backend assignment status mutation endpoint implementation.
 4. `DEV-162` -> Mobile manager assignment detail actions and provider-directory selection flow.
 5. `DEV-163` -> Regression matrix + readiness-gated API assertions in `tests/Feature/Api/Wave32RegressionMatrixTest.php`.
-
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
