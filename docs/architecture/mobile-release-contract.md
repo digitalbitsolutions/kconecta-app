@@ -1248,6 +1248,67 @@ Define the minimum environment and auth contract required for native app release
   - no breaking field removals from dashboard priority queue payloads
   - `manager-assignment-center-v1` standardizes manager queue list/detail/action expectations without changing existing handoff mutation contracts
 
+## Wave 32 Manager Assignment Status Management Contract
+
+### Assignment Status Mutation Contract
+
+- Endpoint:
+  - `PATCH /api/properties/priorities/queue/{queueItemId}/assignment`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Request payload minimum shape:
+  - `action` (`complete|reassign|cancel`)
+  - `provider_id` (required only when `action = reassign`)
+  - `note` (optional)
+- Success response minimum shape:
+  - `data.id`
+  - `data.status`
+  - `data.assignment`
+    - `state`
+    - `assigned`
+    - `assigned_at` (nullable)
+    - `completed_at` (nullable)
+    - `cancelled_at` (nullable)
+    - `provider_id` (nullable)
+    - `provider_name` (nullable)
+  - `data.available_actions[]`
+  - `meta.contract = manager-assignment-status-v1`
+  - `meta.flow = properties_priority_queue_assignment_update`
+  - `meta.reason`
+
+### Reassign Provider Contract
+
+- Reassign provider options must reuse the existing manager provider directory contract:
+  - `GET /api/providers`
+  - `GET /api/providers/{providerId}`
+- Wave 32 must not introduce an alternative provider source for reassignment.
+- Reassign action remains additive:
+  - it consumes provider directory data as read-model input
+  - it mutates assignment ownership only through the assignment status endpoint above
+
+### Error and Guardrail Semantics
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt, then retry mutation once.
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`.
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - provider role or out-of-scope manager mutation remains blocked.
+- `404 QUEUE_ITEM_NOT_FOUND`
+  - unknown queue item id returns deterministic missing-item envelope.
+- `409 ASSIGNMENT_ACTION_CONFLICT`
+  - requested transition is invalid for current assignment state.
+- `422 VALIDATION_ERROR`
+  - invalid `action`, invalid `provider_id`, or incompatible payload shape.
+
+### Compatibility Notes
+
+- Wave 32 is additive over Wave 31:
+  - queue list and queue detail contracts remain stable
+  - provider directory contracts remain stable
+  - assignment status mutation only extends manager assignment workflows from the existing detail surface
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
