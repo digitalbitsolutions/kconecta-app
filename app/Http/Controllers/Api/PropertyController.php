@@ -157,14 +157,81 @@ class PropertyController extends Controller
                 "string",
                 "in:high,medium,low",
             ],
+            "status" => [
+                "nullable",
+                "string",
+                "in:" . implode(",", [
+                    PropertyService::STATUS_AVAILABLE,
+                    PropertyService::STATUS_RESERVED,
+                    PropertyService::STATUS_MAINTENANCE,
+                ]),
+            ],
+            "search" => ["nullable", "string", "max:120"],
             "limit" => ["nullable", "integer", "min:1", "max:100"],
         ]);
 
         $payload = $this->propertyService->priorityQueue([
             "category" => $validated["category"] ?? null,
             "severity" => $validated["severity"] ?? null,
+            "status" => $validated["status"] ?? null,
+            "search" => $validated["search"] ?? null,
             "limit" => $validated["limit"] ?? null,
         ]);
+
+        return response()->json($payload, 200);
+    }
+
+    public function priorityQueueShow(Request $request, string $queueItemId): JsonResponse
+    {
+        if (!$this->apiAccessService->isAuthorized($request)) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_TOKEN_INVALID,
+                    "Unauthorized",
+                    "properties_priority_queue_detail",
+                    "token_invalid",
+                    false
+                ),
+                401
+            );
+        }
+
+        if (!$this->hasAllowedRole($request, ["manager", "admin"])) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_ROLE_SCOPE_FORBIDDEN,
+                    "Forbidden",
+                    "properties_priority_queue_detail",
+                    "role_scope_forbidden",
+                    false
+                ),
+                403
+            );
+        }
+
+        $item = $this->propertyService->findPriorityQueueItem($queueItemId);
+        if ($item === null) {
+            return response()->json(
+                [
+                    "error" => [
+                        "code" => "QUEUE_ITEM_NOT_FOUND",
+                        "message" => "Queue item not found",
+                    ],
+                    "meta" => [
+                        "contract" => "manager-assignment-center-v1",
+                        "flow" => "properties_priority_queue_detail",
+                        "reason" => "queue_item_not_found",
+                        "retryable" => false,
+                    ],
+                    "queue_item_id" => $queueItemId,
+                ],
+                404
+            );
+        }
+
+        $providerId = (int) ($item["provider_id"] ?? 0);
+        $provider = $providerId > 0 ? $this->providerService->findProviderById($providerId) : null;
+        $payload = $this->propertyService->buildPriorityQueueItemDetailPayload($item, $provider);
 
         return response()->json($payload, 200);
     }
