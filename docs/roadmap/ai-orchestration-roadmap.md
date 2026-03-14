@@ -124,9 +124,9 @@ Automation:
 
 ## Next Milestones
 
-1. Close Wave 24 end-to-end (mobile + QA tickets) with PR merge + Jira transitions.
+1. Open and execute Wave 35 end-to-end.
 2. Keep `AI_EXECUTOR=aider` as operational default; keep OpenClaw as controlled fallback.
-3. Continue manager parity waves (Wave 25+) after dashboard summary/priorities baseline.
+3. Continue manager parity waves with additive assignment decision visibility and timeline semantics.
 4. Keep Docker-only backend runtime for tests (no XAMPP path).
    - Mandatory command for test execution: `py ai-orchestration/orchestrator.py backend-test-docker` (never host `php artisan test`).
 5. Maintain PR-only merge discipline on protected `main`.
@@ -135,5 +135,13 @@ Status update:
 
 - Jira environment remains active and board/timeline tracking is stable.
 - Main branch protection is enforced and validated (direct push rejected by rule).
-- Repository baseline includes merged waves through Wave 23, with Wave 24 in progress.
+- Repository baseline now includes merged waves through Wave 34.
 - CI blocker from duplicate test methods was fixed in PR `#108`.
+
+## Wave 35 - Manager Assignment Decision Timeline Parity
+
+- Goal: enrich assignment detail with an additive decision summary and more useful timeline semantics for manager decisions.
+- Architect: define additive `decision_summary` contract and UI states for completed, reassigned, cancelled, and evidence-backed assignment decisions.
+- Backend: extend `GET /api/properties/priorities/queue/{queueItemId}` with additive decision summary and richer timeline metadata.
+- Mobile: render decision summary and richer timeline rows in `ManagerAssignmentDetailScreen` without breaking current actions or evidence flows.
+- QA: add regression coverage for additive decision summary behavior and timeline guardrails while preserving baseline assignment detail behavior.
