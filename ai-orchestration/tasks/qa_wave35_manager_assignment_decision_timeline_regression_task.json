@@ -1,0 +1,23 @@
+{
+  "id": "QA-022",
+  "title": "Add Wave 35 manager assignment decision timeline regression matrix",
+  "description": "Add regression coverage for additive assignment decision summary and enriched timeline behavior while preserving existing manager assignment detail contract guarantees.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/Wave35RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix covers additive decision_summary success and guardrail scenarios",
+    "Timeline assertions verify deterministic metadata for reassignment, completion, cancellation, and evidence-backed changes",
+    "Testing strategy references Wave 35 scope and keeps baseline assignment detail behavior protected"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave35",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-decision-timeline"
+  }
+}

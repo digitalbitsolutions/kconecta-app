@@ -1,0 +1,26 @@
+{
+  "id": "EPIC-W35",
+  "title": "Wave 35 - Manager assignment decision timeline parity",
+  "description": "Coordinate architecture, backend, mobile, and QA work so managers can review an additive assignment decision summary and a richer decision timeline directly from assignment detail without breaking the current contract.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/wave35-manager-assignment-decision-timeline-plan.md",
+    "ai-orchestration/tasks/architect_wave35_manager_assignment_decision_timeline_contract_task.json",
+    "ai-orchestration/tasks/backend_wave35_manager_assignment_decision_timeline_task.json",
+    "ai-orchestration/tasks/mobile_wave35_manager_assignment_decision_timeline_ui_task.json",
+    "ai-orchestration/tasks/qa_wave35_manager_assignment_decision_timeline_regression_task.json"
+  ],
+  "acceptance_criteria": [
+    "Wave 35 scope is documented for architect, backend, mobile, and QA",
+    "Jira epic can be created directly from the task file",
+    "Scope aligns with manager assignment decision timeline parity and keeps contract changes additive"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave35",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-decision-timeline"
+  }
+}
