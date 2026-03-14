@@ -1,0 +1,27 @@
+{
+  "id": "EPIC-W38",
+  "title": "Wave 38 - Manager provider handoff candidate fit parity",
+  "description": "Coordinate architect, backend, mobile, and QA work to expose additive provider fit and recommendation signals inside manager handoff flows without breaking existing assignment operations.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/ai-orchestration-roadmap.md",
+    "docs/roadmap/wave38-manager-provider-handoff-fit-plan.md",
+    "ai-orchestration/tasks/wave38_epic_manager_provider_handoff_fit_task.json",
+    "ai-orchestration/tasks/architect_wave38_manager_provider_handoff_fit_contract_task.json",
+    "ai-orchestration/tasks/backend_wave38_manager_provider_handoff_fit_contract_task.json",
+    "ai-orchestration/tasks/mobile_wave38_manager_provider_handoff_fit_ui_task.json",
+    "ai-orchestration/tasks/qa_wave38_manager_provider_handoff_fit_regression_task.json"
+  ],
+  "acceptance_criteria": [
+    "Wave 38 plan and task files are committed and linked to Jira epic/tickets",
+    "Architect, backend, mobile, and QA tasks are created with manager handoff candidate fit scope",
+    "Wave 38 appears in Jira backlog/board with architect ready to execute"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave38",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-handoff-fit"
+  }
+}

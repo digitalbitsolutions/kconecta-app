@@ -1,0 +1,25 @@
+{
+  "id": "MOB-035",
+  "title": "Implement Wave 38 manager provider handoff fit UI",
+  "description": "Render additive provider fit preview and recommendation states inside the manager handoff flow while preserving directory/profile selection context and current assignment actions.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/screens/ManagerToProviderHandoffScreen.tsx",
+    "apps/manager/src/screens/ManagerProviderDirectoryScreen.tsx",
+    "apps/manager/src/screens/ProviderProfileScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Manager handoff candidate cards render additive fit preview, recommendation badge, and supporting reasons when available",
+    "Selection context coming from provider directory/profile remains deterministic when returning to handoff",
+    "Existing handoff assignment actions continue to work without regression when new candidate metadata is absent"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave38",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-handoff-fit"
+  }
+}

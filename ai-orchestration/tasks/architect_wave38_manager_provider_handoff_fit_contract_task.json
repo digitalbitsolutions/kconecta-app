@@ -1,0 +1,24 @@
+{
+  "id": "ARCH-032",
+  "title": "Define Wave 38 manager provider handoff fit contract",
+  "description": "Extend the architecture docs so manager handoff flows can expose additive provider fit preview, recommendation badges, and queue-aware selection/confirmation states without regressing current assignment behavior.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Provider-candidates contract documents additive fit preview, status badge, and recommendation nodes for handoff flows",
+    "UI state map covers loading, empty, retry, recommended, and selection confirmation states in manager handoff",
+    "Module ownership clarifies backend-owned fit derivation versus mobile-owned selection and presentation state"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave38",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-handoff-fit"
+  }
+}

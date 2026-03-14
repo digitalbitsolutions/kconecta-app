@@ -124,9 +124,9 @@ Automation:
 
 ## Next Milestones
 
-1. Open and execute Wave 37 end-to-end.
+1. Open and execute Wave 38 end-to-end.
 2. Keep `AI_EXECUTOR=aider` as operational default; use Google AG for planning/review and keep OpenClaw as controlled fallback.
-3. Continue manager parity waves with provider directory/profile visibility after closing assignment-center parity.
+3. Continue manager parity waves with handoff candidate fit after landing provider directory/profile visibility.
 4. Keep Docker-only backend runtime for tests (no XAMPP path).
    - Mandatory command for test execution: `py ai-orchestration/orchestrator.py backend-test-docker` (never host `php artisan test`).
 5. Maintain PR-only merge discipline on protected `main`.
@@ -135,7 +135,7 @@ Status update:
 
 - Jira environment remains active and board/timeline tracking is stable.
 - Main branch protection is enforced and validated (direct push rejected by rule).
-- Repository baseline now includes merged waves through Wave 36.
+- Repository baseline now includes merged waves through Wave 37.
 - CI blocker from duplicate test methods was fixed in PR `#108`.
 
 ## Wave 35 - Manager Assignment Decision Timeline Parity
@@ -160,3 +160,11 @@ Status update:
 - Backend: extend `GET /api/providers` and `GET /api/providers/{id}` with manager-safe filters and additive scorecard/profile metadata.
 - Mobile: add manager provider directory/profile screens and wire navigation from dashboard/handoff contexts without breaking existing flows.
 - QA: add regression coverage for provider directory filters, provider profile scorecard payloads, and manager-role guardrails.
+
+## Wave 38 - Manager Provider Handoff Candidate Fit Parity
+
+- Goal: carry provider fit and scorecard signals directly into the manager handoff flow so managers can compare candidates, preserve selection context, and confirm reassignment with less navigation.
+- Architect: define additive contract and UX states for handoff candidate fit previews, recommended badges, and queue-aware selection/confirmation states.
+- Backend: extend `GET /api/properties/{id}/provider-candidates` with additive fit preview and recommendation metadata while keeping assignment mutation behavior unchanged.
+- Mobile: render candidate fit badges/reasons in `ManagerToProviderHandoffScreen` and keep directory/profile selection context deterministic when returning to handoff.
+- QA: add regression coverage for candidate fit preview payloads, manager-role guardrails, and baseline handoff stability.

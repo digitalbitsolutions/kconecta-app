@@ -1,0 +1,24 @@
+{
+  "id": "BE-034",
+  "title": "Implement Wave 38 manager provider handoff fit contract",
+  "description": "Extend manager provider-candidate discovery so handoff flows receive additive provider fit preview and recommendation metadata while preserving the current assignment mutation contract.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "GET /api/properties/{id}/provider-candidates returns additive fit preview and recommendation metadata for each candidate",
+    "Assignment mutation responses remain backward compatible and do not require new fields to keep working",
+    "Existing handoff consumers continue to work when they ignore the new candidate nodes"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave38",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-handoff-fit"
+  }
+}
