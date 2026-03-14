@@ -128,11 +128,12 @@ class PropertyService
     {
         $dataset = $this->loadRows();
         $items = $this->buildPriorityQueueItems($dataset["rows"]);
+        $search = strtolower(trim((string) ($filters["search"] ?? "")));
 
         $filtered = array_values(
             array_filter(
                 $items,
-                static function (array $item) use ($filters): bool {
+                static function (array $item) use ($filters, $search): bool {
                     if (
                         !empty($filters["category"]) &&
                         strcasecmp((string) ($item["category"] ?? ""), (string) $filters["category"]) !== 0
@@ -144,6 +145,27 @@ class PropertyService
                         strcasecmp((string) ($item["severity"] ?? ""), (string) $filters["severity"]) !== 0
                     ) {
                         return false;
+                    }
+                    if (
+                        !empty($filters["status"]) &&
+                        strcasecmp((string) ($item["status"] ?? ""), (string) $filters["status"]) !== 0
+                    ) {
+                        return false;
+                    }
+                    if ($search !== "") {
+                        $haystack = strtolower(
+                            implode(
+                                " ",
+                                array_filter([
+                                    (string) ($item["property_title"] ?? ""),
+                                    (string) ($item["city"] ?? ""),
+                                    (string) ($item["id"] ?? ""),
+                                ])
+                            )
+                        );
+                        if (!str_contains($haystack, $search)) {
+                            return false;
+                        }
                     }
 
                     return true;
@@ -168,9 +190,78 @@ class PropertyService
                 "filters" => [
                     "category" => $filters["category"] ?? null,
                     "severity" => $filters["severity"] ?? null,
+                    "status" => $filters["status"] ?? null,
+                    "search" => $filters["search"] ?? null,
                     "limit" => $limit,
                 ],
                 "count" => count($filtered),
+            ],
+        ];
+    }
+
+    public function findPriorityQueueItem(string $queueItemId): ?array
+    {
+        $normalizedQueueItemId = trim($queueItemId);
+        if ($normalizedQueueItemId === "") {
+            return null;
+        }
+
+        $dataset = $this->loadRows();
+        $items = $this->buildPriorityQueueItems($dataset["rows"]);
+
+        foreach ($items as $item) {
+            if ((string) ($item["id"] ?? "") === $normalizedQueueItemId) {
+                return $item;
+            }
+        }
+
+        return null;
+    }
+
+    public function buildPriorityQueueItemDetailPayload(array $item, ?array $provider = null): array
+    {
+        $propertyId = (int) ($item["property_id"] ?? 0);
+        $property = $this->findPropertyById($propertyId);
+        if ($property === null) {
+            return [
+                "data" => [
+                    "item" => $item,
+                    "property" => null,
+                    "provider" => null,
+                    "assignment" => null,
+                    "timeline" => [],
+                ],
+                "meta" => [
+                    "contract" => "manager-assignment-center-v1",
+                    "flow" => "properties_priority_queue_detail",
+                    "reason" => "queue_item_loaded",
+                    "source" => $this->loadRows()["source"],
+                ],
+            ];
+        }
+
+        $assignmentContext = $this->buildAssignmentContextPayload($propertyId, $property, $provider);
+
+        return [
+            "data" => [
+                "item" => $item,
+                "property" => $this->buildPropertyContractPayload($property),
+                "provider" => $provider !== null ? [
+                    "id" => (int) ($provider["id"] ?? 0),
+                    "name" => (string) ($provider["name"] ?? ""),
+                    "category" => $provider["category"] ?? null,
+                    "city" => $provider["city"] ?? null,
+                    "status" => $provider["status"] ?? null,
+                    "rating" => $provider["rating"] ?? null,
+                ] : null,
+                "assignment" => $assignmentContext["data"]["assignment"] ?? null,
+                "timeline" => $this->buildTimelineEvents($property),
+            ],
+            "meta" => [
+                "contract" => "manager-assignment-center-v1",
+                "flow" => "properties_priority_queue_detail",
+                "reason" => "queue_item_loaded",
+                "source" => $this->loadRows()["source"],
             ],
         ];
     }
@@ -277,6 +368,7 @@ class PropertyService
                 "property_title" => (string) ($row["title"] ?? "Property {$propertyId}"),
                 "city" => (string) ($row["city"] ?? "Unknown"),
                 "status" => $status,
+                "provider_id" => $providerId > 0 ? $providerId : null,
                 "category" => "portfolio_review",
                 "severity" => "low",
                 "sla_due_at" => null,

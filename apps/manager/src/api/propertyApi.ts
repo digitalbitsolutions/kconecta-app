@@ -237,9 +237,36 @@ type PriorityQueuePayload = {
     filters: {
       category: string | null;
       severity: string | null;
+      status: string | null;
+      search: string | null;
       limit: number | null;
     };
     count: number;
+  };
+};
+
+type AssignmentQueueDetailPayload = {
+  data: {
+    item: PriorityQueuePayload["data"]["items"][number] & {
+      provider_id?: number | null;
+    };
+    property: PropertyDetailPayload["data"] | null;
+    provider: {
+      id: number;
+      name: string;
+      category: string | null;
+      city: string | null;
+      status: string | null;
+      rating: number | null;
+    } | null;
+    assignment: PropertyAssignmentContextPayload["data"]["assignment"] | null;
+    timeline: ApiPropertyTimelineEvent[];
+  };
+  meta: {
+    contract: string;
+    flow: string;
+    reason: string;
+    source: "database" | "in_memory";
   };
 };
 
@@ -445,6 +472,8 @@ export type ManagerPriorityQueueResult = {
     filters: {
       category: string | null;
       severity: string | null;
+      status: string | null;
+      search: string | null;
       limit: number | null;
     };
   };
@@ -453,7 +482,29 @@ export type ManagerPriorityQueueResult = {
 export type PriorityQueueQuery = {
   category?: ManagerPriorityCategory;
   severity?: ManagerPrioritySeverity;
+  status?: PropertyStatus;
+  search?: string;
   limit?: number;
+};
+
+export type ManagerAssignmentCenterQuery = {
+  status?: PropertyStatus;
+  search?: string;
+  limit?: number;
+};
+
+export type ManagerAssignmentDetail = {
+  item: ManagerPriorityQueueItem;
+  property: PropertyDetailViewModel | null;
+  provider: AssignmentProviderSnapshot | null;
+  assignment: PropertyAssignmentContext | null;
+  timeline: PropertyTimelineEvent[];
+  meta: {
+    contract: string;
+    flow: string;
+    reason: string;
+    source: "database" | "in_memory";
+  };
 };
 
 export type PriorityQueueCompletionInput = {
@@ -763,6 +814,12 @@ export async function fetchManagerPriorityQueue(
   if (query.severity) {
     params.set("severity", query.severity);
   }
+  if (query.status) {
+    params.set("status", query.status);
+  }
+  if (query.search) {
+    params.set("search", query.search);
+  }
   if (typeof query.limit === "number") {
     params.set("limit", String(query.limit));
   }
@@ -779,7 +836,81 @@ export async function fetchManagerPriorityQueue(
       generatedAt: payload.meta.generated_at,
       source: payload.meta.source,
       count: payload.meta.count,
-      filters: payload.meta.filters,
+      filters: {
+        category: payload.meta.filters.category,
+        severity: payload.meta.filters.severity,
+        status: payload.meta.filters.status,
+        search: payload.meta.filters.search,
+        limit: payload.meta.filters.limit,
+      },
+    },
+  };
+}
+
+export async function fetchManagerAssignmentCenter(
+  query: ManagerAssignmentCenterQuery = {}
+): Promise<ManagerPriorityQueueResult> {
+  return fetchManagerPriorityQueue({
+    category: "provider_assignment",
+    status: query.status,
+    search: query.search,
+    limit: query.limit,
+  });
+}
+
+export async function fetchManagerAssignmentDetail(
+  queueItemId: string
+): Promise<ManagerAssignmentDetail> {
+  const payload = await requestJson<AssignmentQueueDetailPayload>(
+    `/properties/priorities/queue/${encodeURIComponent(queueItemId)}`
+  );
+
+  return {
+    item: mapPriorityQueueItem(payload.data.item),
+    property: payload.data.property ? toDetailViewModel(payload.data.property) : null,
+    provider: payload.data.provider
+      ? {
+          id: String(payload.data.provider.id),
+          name: payload.data.provider.name,
+          category: payload.data.provider.category ?? "General",
+          city: payload.data.provider.city ?? "Unknown",
+          status: payload.data.provider.status ?? "unknown",
+          rating:
+            typeof payload.data.provider.rating === "number"
+              ? payload.data.provider.rating.toFixed(1)
+              : "n/a",
+        }
+      : null,
+    assignment: payload.data.assignment
+      ? {
+          propertyId: String(payload.data.property?.id ?? payload.data.item.property_id),
+          assigned: payload.data.assignment.assigned,
+          state: payload.data.assignment.state,
+          assignedAt: payload.data.assignment.assigned_at,
+          note: payload.data.assignment.note,
+          provider: payload.data.assignment.provider
+            ? {
+                id: String(payload.data.assignment.provider.id),
+                name: payload.data.assignment.provider.name,
+                category: payload.data.assignment.provider.category ?? "General",
+                city: payload.data.assignment.provider.city ?? "Unknown",
+                status: payload.data.assignment.provider.status ?? "unknown",
+                rating:
+                  typeof payload.data.assignment.provider.rating === "number"
+                    ? payload.data.assignment.provider.rating.toFixed(1)
+                    : "n/a",
+              }
+            : null,
+        }
+      : null,
+    timeline: Array.isArray(payload.data.timeline)
+      ? payload.data.timeline.map(mapTimelineEvent)
+      : [],
+    meta: {
+      contract: payload.meta.contract,
+      flow: payload.meta.flow,
+      reason: payload.meta.reason,
+      source: payload.meta.source,
     },
   };
 }

@@ -550,6 +550,37 @@ Validate end-to-end functional behavior of native app API contracts before relea
 4. `DEV-151` -> Mobile manager provider directory/profile UI integration.
 5. `DEV-153` -> Regression matrix + readiness-gated API assertions in `tests/Feature/Api/Wave30RegressionMatrixTest.php` and `tests/Feature/Api/ProviderApiTest.php`.
 
+## Wave 31 Manager Assignment Center Matrix
+
+1. Assignment center queue and detail success contract (`DEV-154`, `DEV-158`, `DEV-155`)
+  - `GET /api/properties/priorities/queue` keeps `meta.contract=manager-priority-queue-v1` while extending additive filter echoes:
+    - `meta.filters.status`
+    - `meta.filters.search`
+  - Assignment-center list is consumed through `category=provider_assignment` with deterministic `status`, `search`, and `limit` inputs.
+  - `GET /api/properties/priorities/queue/{queueItemId}` returns manager-facing assignment-center detail payload with:
+    - `meta.contract=manager-assignment-center-v1`
+    - `data.item`
+    - `data.property`
+    - `data.provider`
+    - `data.assignment`
+    - `data.timeline`
+2. Role/session/not-found guardrails (`DEV-154`, `DEV-155`)
+  - Provider role access to queue-detail route returns deterministic `403 ROLE_SCOPE_FORBIDDEN` auth-session envelope.
+  - Invalid token on queue-detail route returns deterministic `401 TOKEN_INVALID` auth-session envelope.
+  - Unknown queue item keeps deterministic `404 QUEUE_ITEM_NOT_FOUND` with `queue_item_id`.
+3. Cross-wave baseline safety (`DEV-155`)
+  - Wave 24 dashboard summary contract remains stable while the dedicated assignment center is added.
+  - Wave 26 queue completion contract remains stable for manager queue actions.
+  - Wave 30 provider directory/profile contract remains stable for downstream handoff/provider review flows.
+
+## Wave 31 Ticket Mapping
+
+1. `DEV-157` -> Wave 31 orchestration epic and rollout tracking.
+2. `DEV-156` -> Manager assignment center architecture contract and UX state map.
+3. `DEV-154` -> Backend manager assignment center list/detail contract implementation.
+4. `DEV-158` -> Mobile manager assignment center UI integration.
+5. `DEV-155` -> Regression matrix + readiness-gated API assertions in `tests/Feature/Api/Wave31RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -581,6 +612,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 25. Run Wave 28 manager auth/session UX regression suite and record success metadata parity plus login/session recovery evidence.
 26. Run Wave 29 manager handoff evidence regression suite and record additive assignment evidence plus recovery guardrail stability.
 27. Run Wave 30 manager provider directory/profile regression suite and record readiness-gated list/detail contract evidence plus guardrail stability.
+28. Run Wave 31 manager assignment center regression suite and record additive queue filter echoes, detail contract evidence, and queue-detail guardrail stability.
 
 ## Entry Criteria
 
