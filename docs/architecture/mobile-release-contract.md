@@ -1376,6 +1376,52 @@ Define the minimum environment and auth contract required for native app release
   - Wave 31 queue list/detail contracts remain stable
   - Wave 32 assignment status actions remain stable
 - Wave 33 introduces media/document evidence as a separate evidence collection contract, not a replacement for prior assignment state evidence.
+
+## Wave 34 Manager Provider Profile Scorecard Contract
+
+### Queue-Aware Provider Profile Contract
+
+- Endpoint:
+  - `GET /api/providers/{id}?queue_item_id={queueItemId}`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Baseline profile behavior:
+  - Missing `queue_item_id` must keep Wave 30 provider profile contract stable.
+  - Existing provider detail fields remain unchanged for non-assignment browsing flows.
+
+### Additive Assignment Fit Payload
+
+- When `queue_item_id` is provided and resolves successfully, response adds:
+  - `data.assignment_fit`
+    - `recommended` (`true|false`)
+    - `score_label` (string)
+    - `match_reasons[]` (string list)
+    - `warnings[]` (string list)
+    - `next_action` (nullable string)
+- `assignment_fit` is additive:
+  - It must not replace `services`, `coverage`, `availability_summary`, or `metrics`.
+  - It is optional only when no queue context was requested.
+
+### Guardrails and Error Semantics
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt path, then retry profile read once.
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`.
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - keep authenticated state explicit and route to `Unauthorized`.
+- `404 PROVIDER_NOT_FOUND`
+  - deterministic missing-provider state for manager profile.
+- `404 QUEUE_ITEM_NOT_FOUND`
+  - deterministic missing assignment-context state when `queue_item_id` does not resolve.
+
+### Compatibility Notes
+
+- Wave 34 is additive over Wave 30 and Wave 31:
+  - no endpoint removals
+  - no breaking provider detail field removals
+  - assignment-aware scorecard metadata is only added when queue context is requested
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):

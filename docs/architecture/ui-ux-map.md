@@ -1047,3 +1047,47 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend assignment evidence upload/list implementation (`BE-029`).
 3. Manager assignment detail evidence UI (`MOB-030`).
 4. Regression matrix for assignment evidence workflow (`QA-032`).
+
+## Wave 34 Manager Provider Profile Scorecard State Map
+
+### Provider Profile Scorecard States
+
+- `provider_profile_scorecard_loading`
+  - provider profile loads with `queue_item_id` assignment context
+  - keep base profile shell visible while scorecard metadata resolves
+- `provider_profile_scorecard_ready`
+  - render `assignment_fit` block with:
+    - recommendation badge
+    - score label
+    - match reasons
+    - warnings
+    - next-action hint
+- `provider_profile_scorecard_recommended`
+  - recommended provider state with positive guidance and visible primary CTA to select provider
+- `provider_profile_scorecard_warning`
+  - provider is selectable but warnings must remain visible before confirmation
+- `provider_profile_scorecard_unavailable`
+  - provider profile remains readable, but select CTA is disabled because assignment fit does not allow immediate selection
+- `provider_profile_scorecard_missing_context`
+  - queue item context missing/not found; fall back to baseline provider profile with deterministic warning banner
+- `provider_profile_scorecard_forbidden`
+  - route to `Unauthorized`
+- `provider_profile_scorecard_session_expired`
+  - route to `SessionExpired`
+
+### Interaction Rules
+
+- Enter profile from assignment center or reassignment flow with `queue_item_id` in navigation params.
+- When `queue_item_id` is absent:
+  - preserve Wave 30 provider profile behavior with no scorecard block required.
+- Select-from-profile CTA is available only when backend returns a valid assignment-aware profile state.
+- Warnings are advisory, not silent blockers:
+  - manager must see them before selecting provider.
+- Missing queue context never clears the underlying provider profile data already resolved.
+
+### Wave 34 Delivery Sequencing
+
+1. Provider profile scorecard contract and state map (`ARCH-028`).
+2. Backend assignment-aware provider profile contract (`BE-030`).
+3. Manager provider profile scorecard UI and select-from-profile flow (`MOB-031`).
+4. Regression matrix for provider profile scorecard workflow (`QA-021`).
