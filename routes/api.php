@@ -22,6 +22,8 @@ Route::get("/properties/priorities/queue", [PropertyController::class, "priority
 Route::get("/properties/priorities/queue/{queueItemId}", [PropertyController::class, "priorityQueueShow"]);
 Route::post("/properties/priorities/queue/{queueItemId}/complete", [PropertyController::class, "priorityQueueComplete"]);
 Route::patch("/properties/priorities/queue/{queueItemId}/assignment", [PropertyController::class, "priorityQueueAssignmentUpdate"]);
+Route::get("/properties/priorities/queue/{queueItemId}/evidence", [PropertyController::class, "priorityQueueAssignmentEvidence"]);
+Route::post("/properties/priorities/queue/{queueItemId}/evidence", [PropertyController::class, "priorityQueueAssignmentEvidenceUpload"]);
 Route::post("/properties", [PropertyController::class, "create"]);
 Route::get("/properties/{id}", [PropertyController::class, "show"]);
 Route::post("/properties/{id}/reserve", [PropertyController::class, "reserve"]);

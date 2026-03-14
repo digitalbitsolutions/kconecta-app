@@ -11,6 +11,7 @@ class PropertyService
     public const STATUS_AVAILABLE = "available";
     public const STATUS_RESERVED = "reserved";
     public const STATUS_MAINTENANCE = "maintenance";
+    public const ASSIGNMENT_EVIDENCE_CONTRACT = "manager-assignment-evidence-v1";
 
     private const DEFAULT_PROPERTY_TABLE = "properties";
     private const FALLBACK_PROPERTY_TABLE = "real_estate_properties";
@@ -18,10 +19,27 @@ class PropertyService
     private const DATA_SOURCE_DATABASE = "database";
     private const DATA_SOURCE_SEED = "seed";
     private const MAX_DB_ROWS = 500;
+    private const ASSIGNMENT_EVIDENCE_MAX_SIZE_BYTES = 5242880;
+    private const ASSIGNMENT_EVIDENCE_CATEGORIES = [
+        "before_photo",
+        "after_photo",
+        "invoice",
+        "report",
+        "permit",
+        "other",
+    ];
+    private const ASSIGNMENT_EVIDENCE_SUPPORTED_MIME_TYPES = [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "application/pdf",
+        "text/plain",
+    ];
     private static array $runtimeOverrides = [];
     private static array $runtimeCreated = [];
     private static array $runtimeQueueCompletions = [];
     private static array $runtimeAssignmentQueueItems = [];
+    private static array $runtimeAssignmentEvidence = [];
 
     /**
      * Returns property list payload with DB-first retrieval.
@@ -1256,6 +1274,127 @@ class PropertyService
             "assignment" => $assignmentContextPayload["data"]["assignment"] ?? null,
             "latest_timeline_event" => $latestAssignmentEvent,
         ];
+    }
+
+    public function listPriorityQueueEvidence(string $queueItemId): array
+    {
+        $queueItem = $this->findPriorityQueueItem($queueItemId);
+        if ($queueItem === null) {
+            return [
+                "ok" => false,
+                "status" => 404,
+                "reason" => "queue_item_not_found",
+                "code" => "QUEUE_ITEM_NOT_FOUND",
+                "message" => "Queue item not found",
+                "queue_item_id" => $queueItemId,
+                "retryable" => false,
+            ];
+        }
+
+        $items = array_values(self::$runtimeAssignmentEvidence[$queueItemId] ?? []);
+        usort(
+            $items,
+            static fn (array $left, array $right): int => strcmp(
+                (string) ($right["uploaded_at"] ?? ""),
+                (string) ($left["uploaded_at"] ?? "")
+            )
+        );
+
+        return [
+            "ok" => true,
+            "status" => 200,
+            "reason" => "assignment_evidence_loaded",
+            "data" => [
+                "queue_item_id" => $queueItemId,
+                "items" => $items,
+                "count" => count($items),
+            ],
+            "meta" => [
+                "source" => "in_memory",
+            ],
+        ];
+    }
+
+    public function uploadPriorityQueueEvidence(
+        string $queueItemId,
+        array $attributes,
+        ?string $uploadedBy = null
+    ): array {
+        $queueItem = $this->findPriorityQueueItem($queueItemId);
+        if ($queueItem === null) {
+            return [
+                "ok" => false,
+                "status" => 404,
+                "reason" => "queue_item_not_found",
+                "code" => "QUEUE_ITEM_NOT_FOUND",
+                "message" => "Queue item not found",
+                "queue_item_id" => $queueItemId,
+                "retryable" => false,
+            ];
+        }
+
+        $evidenceId = sprintf(
+            "evidence-%s-%d",
+            preg_replace("/[^a-z0-9\\-]/i", "-", $queueItemId) ?? "queue",
+            (count(self::$runtimeAssignmentEvidence[$queueItemId] ?? []) + 1)
+        );
+        $uploadedAt = now()->toIso8601String();
+        $mediaType = (string) ($attributes["media_type"] ?? "application/octet-stream");
+        $downloadUrl = sprintf(
+            "/api/properties/priorities/queue/%s/evidence/%s/download",
+            rawurlencode($queueItemId),
+            rawurlencode($evidenceId)
+        );
+
+        $item = [
+            "id" => $evidenceId,
+            "file_name" => (string) ($attributes["file_name"] ?? "evidence"),
+            "media_type" => $mediaType,
+            "category" => (string) ($attributes["category"] ?? "other"),
+            "size_bytes" => (int) ($attributes["size_bytes"] ?? 0),
+            "uploaded_by" => $uploadedBy !== null && trim($uploadedBy) !== "" ? trim($uploadedBy) : "manager",
+            "uploaded_at" => $uploadedAt,
+            "preview_url" => str_starts_with($mediaType, "image/") ? $downloadUrl : null,
+            "download_url" => $downloadUrl,
+            "note" => $attributes["note"] ?? null,
+        ];
+
+        self::$runtimeAssignmentEvidence[$queueItemId][$evidenceId] = $item;
+
+        $list = $this->listPriorityQueueEvidence($queueItemId);
+        if (($list["ok"] ?? false) !== true) {
+            return $list;
+        }
+
+        return [
+            "ok" => true,
+            "status" => 201,
+            "reason" => "assignment_evidence_uploaded",
+            "data" => [
+                "queue_item_id" => $queueItemId,
+                "items" => $list["data"]["items"] ?? [],
+                "count" => $list["data"]["count"] ?? 0,
+                "latest_item" => $item,
+            ],
+            "meta" => [
+                "source" => "in_memory",
+            ],
+        ];
+    }
+
+    public function assignmentEvidenceCategories(): array
+    {
+        return self::ASSIGNMENT_EVIDENCE_CATEGORIES;
+    }
+
+    public function assignmentEvidenceSupportedMimeTypes(): array
+    {
+        return self::ASSIGNMENT_EVIDENCE_SUPPORTED_MIME_TYPES;
+    }
+
+    public function assignmentEvidenceMaxSizeBytes(): int
+    {
+        return self::ASSIGNMENT_EVIDENCE_MAX_SIZE_BYTES;
     }
 
     /**
