@@ -1,0 +1,23 @@
+{
+  "id": "MOB-033",
+  "title": "Implement Wave 36 manager assignment center decision rollup UI",
+  "description": "Update the manager assignment center so provider-assignment queue cards render additive decision badges, evidence counts, and recommended next action hints while preserving current filters and navigation.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/screens/ManagerAssignmentCenterScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Assignment center cards render additive decision rollup metadata when available",
+    "Queue filters and card navigation remain unchanged for clients that ignore the new fields",
+    "Recommended next action and evidence count are visible without opening assignment detail"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave36",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-center-decision-rollup"
+  }
+}

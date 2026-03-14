@@ -145,3 +145,10 @@ Status update:
 - Backend: extend `GET /api/properties/priorities/queue/{queueItemId}` with additive decision summary and richer timeline metadata.
 - Mobile: render decision summary and richer timeline rows in `ManagerAssignmentDetailScreen` without breaking current actions or evidence flows.
 - QA: add regression coverage for additive decision summary behavior and timeline guardrails while preserving baseline assignment detail behavior.
+## Wave 36 - Manager Assignment Center Decision Rollup Parity
+
+- Goal: surface additive decision rollup metadata in the manager assignment center list so queue items expose latest decision state, evidence count, and recommended next action without opening every detail screen.
+- Architect: define queue-list additive contract and UX states for decision badges, evidence indicators, and recommended next action.
+- Backend: extend `GET /api/properties/priorities/queue` with additive decision rollup fields for provider-assignment items.
+- Mobile: render decision badges and evidence indicators in `ManagerAssignmentCenterScreen` while preserving current filters and navigation.
+- QA: add regression coverage for additive queue item rollup metadata and guardrails while protecting baseline queue behavior.
