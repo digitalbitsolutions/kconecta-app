@@ -875,3 +875,73 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend provider directory/detail hardening (`BE-026`).
 3. Manager provider directory/profile UX wiring (`MOB-027`).
 4. Regression matrix for manager provider directory/profile parity (`QA-029`).
+
+## Wave 31 Manager Assignment Center State Map
+
+### Manager Assignment Center List States
+
+- `assignment_center_loading`
+  - Initial queue read in flight.
+- `assignment_center_ready`
+  - Render queue sections/cards with filters and summary counts.
+- `assignment_center_empty`
+  - Render deterministic zero-state when no assignment work items match current filters.
+- `assignment_center_filtering`
+  - Preserve visible items while non-blocking filter refresh runs.
+- `assignment_center_error_retryable`
+  - Keep current filter/search state and show retry CTA.
+- `assignment_center_forbidden`
+  - Route to `Unauthorized`.
+- `assignment_center_session_expired`
+  - Route to `SessionExpired`.
+
+### Manager Assignment Detail States
+
+- `assignment_detail_loading`
+  - Fetch queue item detail by `queueItemId`.
+- `assignment_detail_ready`
+  - Render queue item evidence:
+    - property snapshot
+    - provider snapshot
+    - assignment state
+    - latest timeline events
+    - available manager action
+- `assignment_detail_not_found`
+  - Render deterministic missing-item state with CTA back to assignment center.
+- `assignment_detail_error_retryable`
+  - Keep navigation context and allow retry.
+- `assignment_detail_forbidden`
+  - Route to `Unauthorized`.
+- `assignment_detail_session_expired`
+  - Route to `SessionExpired`.
+
+### Manager Assignment Action States
+
+- `assignment_action_idle`
+  - No mutation currently running.
+- `assignment_action_pending`
+  - Disable duplicate action and show inline progress.
+- `assignment_action_success`
+  - Reflect completed state in detail and list without forcing full app reset.
+- `assignment_action_validation_error`
+  - Keep current screen mounted and expose deterministic validation copy.
+- `assignment_action_conflict`
+  - Preserve current data, surface conflict reason, and offer reload CTA.
+- `assignment_action_forbidden`
+  - Route to `Unauthorized`.
+- `assignment_action_session_expired`
+  - Route to `SessionExpired`.
+
+### Wave 31 Interaction Rules
+
+- Manager enters assignment center from dashboard priorities or a dedicated dashboard CTA.
+- Assignment center filters/search must survive retry and back-navigation from assignment detail.
+- Completing a queue action must optimistically update local UI, then reconcile with authoritative API response.
+- Assignment detail is authoritative for manager review; property detail remains a separate navigation concern.
+
+### Wave 31 Delivery Sequencing
+
+1. Assignment center contract and state map (`ARCH-025`).
+2. Backend assignment center API hardening (`BE-027`).
+3. Manager assignment center UI flow (`MOB-028`).
+4. Regression matrix for assignment center list/detail/action parity (`QA-030`).
