@@ -581,6 +581,33 @@ Validate end-to-end functional behavior of native app API contracts before relea
 4. `DEV-158` -> Mobile manager assignment center UI integration.
 5. `DEV-155` -> Regression matrix + readiness-gated API assertions in `tests/Feature/Api/Wave31RegressionMatrixTest.php`.
 
+## Wave 32 Manager Assignment Status Matrix
+
+1. Assignment status action success contract (`DEV-161`, `DEV-162`, `DEV-163`)
+  - `PATCH /api/properties/priorities/queue/{queueItemId}/assignment` returns deterministic envelope:
+    - `meta.contract=manager-assignment-status-v1`
+    - `meta.flow=properties_priority_queue_assignment_update`
+    - additive `data.assignment`
+    - additive `data.available_actions`
+  - `action=reassign` updates provider snapshot and leaves `available_actions=["complete","reassign","cancel"]`.
+  - `action=complete` transitions assignment to `completed`, preserves provider evidence, and clears follow-up actions.
+  - `action=cancel` transitions assignment to `cancelled`, clears provider linkage, and clears follow-up actions.
+2. Guardrails for assignment status actions (`DEV-161`, `DEV-163`)
+  - Provider role access returns `403 ROLE_SCOPE_FORBIDDEN` with `auth-session-v1` envelope.
+  - Invalid token returns deterministic `401 TOKEN_INVALID` envelope.
+  - Invalid payload returns `422 VALIDATION_ERROR`.
+  - Invalid transition or inactive-provider reassignment returns `409 ASSIGNMENT_ACTION_CONFLICT`.
+3. Cross-wave baseline safety (`DEV-163`)
+  - Wave 31 assignment center queue/detail list flows remain stable while assignment status mutations are introduced.
+
+## Wave 32 Ticket Mapping
+
+1. `DEV-160` -> Wave 32 orchestration epic and rollout tracking.
+2. `DEV-159` -> Assignment status architecture contract and UX state map.
+3. `DEV-161` -> Backend assignment status mutation endpoint implementation.
+4. `DEV-162` -> Mobile manager assignment detail actions and provider-directory selection flow.
+5. `DEV-163` -> Regression matrix + readiness-gated API assertions in `tests/Feature/Api/Wave32RegressionMatrixTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -613,6 +640,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 26. Run Wave 29 manager handoff evidence regression suite and record additive assignment evidence plus recovery guardrail stability.
 27. Run Wave 30 manager provider directory/profile regression suite and record readiness-gated list/detail contract evidence plus guardrail stability.
 28. Run Wave 31 manager assignment center regression suite and record additive queue filter echoes, detail contract evidence, and queue-detail guardrail stability.
+29. Run Wave 32 assignment status workflow regression suite and record reassign/complete/cancel evidence plus guardrail stability.
 
 ## Entry Criteria
 
