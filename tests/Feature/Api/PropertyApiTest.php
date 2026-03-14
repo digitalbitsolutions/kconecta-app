@@ -1215,7 +1215,7 @@ class PropertyApiTest extends TestCase
                     "contract",
                     "generated_at",
                     "source",
-                    "filters" => ["category", "severity", "limit"],
+                    "filters" => ["category", "severity", "status", "search", "limit"],
                     "count",
                 ],
             ])
@@ -1330,6 +1330,86 @@ class PropertyApiTest extends TestCase
         $this->assertCount(1, $items);
         $this->assertSame("provider_assignment", $items[0]["category"] ?? null);
         $this->assertSame("high", $items[0]["severity"] ?? null);
+    }
+
+    public function test_manager_priority_queue_supports_status_and_search_filters(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue?status=available&search=Loft&limit=5");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("meta.filters.status", "available")
+            ->assertJsonPath("meta.filters.search", "Loft")
+            ->assertJsonPath("meta.filters.limit", 5);
+
+        $items = $response->json("data.items", []);
+        $this->assertNotEmpty($items);
+
+        foreach ($items as $item) {
+            $this->assertSame("available", strtolower((string) ($item["status"] ?? "")));
+            $this->assertStringContainsStringIgnoringCase("Loft", (string) ($item["property_title"] ?? ""));
+        }
+    }
+
+    public function test_manager_can_fetch_priority_queue_detail_for_assignment_center(): void
+    {
+        $queueResponse = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue?category=provider_assignment&limit=1");
+
+        $queueResponse->assertOk();
+        $queueItemId = (string) ($queueResponse->json("data.items.0.id", ""));
+        $this->assertNotSame("", $queueItemId);
+
+        $detail = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue/{$queueItemId}");
+
+        $detail
+            ->assertOk()
+            ->assertJsonPath("meta.contract", "manager-assignment-center-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_detail")
+            ->assertJsonPath("meta.reason", "queue_item_loaded")
+            ->assertJsonPath("data.item.id", $queueItemId)
+            ->assertJsonPath("data.property.id", 101)
+            ->assertJsonPath("data.property.title", "Modern Loft Center")
+            ->assertJsonPath("data.assignment.state", "unassigned");
+
+        $timeline = $detail->json("data.timeline", []);
+        $this->assertNotEmpty($timeline);
+    }
+
+    public function test_priority_queue_detail_endpoint_is_forbidden_for_provider_role(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-ROLE" => "provider",
+            ])
+            ->getJson("/api/properties/priorities/queue/priority-provider-assignment-101");
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_detail")
+            ->assertJsonPath("meta.reason", "role_scope_forbidden");
+    }
+
+    public function test_priority_queue_detail_returns_not_found_for_unknown_queue_item(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue/priority-unknown-999");
+
+        $response
+            ->assertNotFound()
+            ->assertJsonPath("error.code", "QUEUE_ITEM_NOT_FOUND")
+            ->assertJsonPath("meta.contract", "manager-assignment-center-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_detail")
+            ->assertJsonPath("meta.reason", "queue_item_not_found");
     }
 
     public function test_priority_queue_endpoint_is_forbidden_for_provider_role(): void
