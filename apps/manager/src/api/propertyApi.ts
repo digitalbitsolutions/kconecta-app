@@ -238,6 +238,15 @@ type PriorityQueuePayload = {
       completed_at?: string | null;
       resolution_code?: string | null;
       note?: string | null;
+      decision_rollup?: {
+        current_state: "unassigned" | "assigned" | "provider_missing" | "completed" | "cancelled";
+        latest_decision_label: string;
+        latest_decision_at: string | null;
+        evidence_count: number;
+        has_evidence: boolean;
+        status_badge: string;
+        next_recommended_action: string | null;
+      } | null;
     }>;
   };
   meta: {
@@ -589,6 +598,15 @@ export type ManagerPriorityQueueItem = {
   completedAt: string | null;
   resolutionCode: ManagerPriorityQueueResolutionCode | null;
   note: string | null;
+  decisionRollup: {
+    currentState: "unassigned" | "assigned" | "provider_missing" | "completed" | "cancelled";
+    latestDecisionLabel: string;
+    latestDecisionAt: string | null;
+    evidenceCount: number;
+    hasEvidence: boolean;
+    statusBadge: string;
+    nextRecommendedAction: string | null;
+  } | null;
 };
 
 export type ManagerPriorityQueueResult = {
@@ -930,6 +948,17 @@ function mapPriorityQueueItem(
     completedAt: item.completed_at ?? null,
     resolutionCode: (item.resolution_code as ManagerPriorityQueueResolutionCode | null) ?? null,
     note: item.note ?? null,
+    decisionRollup: item.decision_rollup
+      ? {
+          currentState: item.decision_rollup.current_state,
+          latestDecisionLabel: item.decision_rollup.latest_decision_label,
+          latestDecisionAt: item.decision_rollup.latest_decision_at,
+          evidenceCount: item.decision_rollup.evidence_count,
+          hasEvidence: item.decision_rollup.has_evidence,
+          statusBadge: item.decision_rollup.status_badge,
+          nextRecommendedAction: item.decision_rollup.next_recommended_action,
+        }
+      : null,
   };
 }
 
