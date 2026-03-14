@@ -191,6 +191,29 @@ const ProviderProfileScreen = () => {
             </View>
 
             <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>Provider scorecard</Text>
+              <Text style={styles.sectionLine}>Status badge: {profile.scorecard.statusBadge}</Text>
+              <Text style={styles.sectionLine}>
+                Availability label: {profile.scorecard.availabilityLabel}
+              </Text>
+              <Text style={styles.sectionLine}>
+                Completed jobs: {String(profile.scorecard.completedJobs)}
+              </Text>
+              <Text style={styles.sectionLine}>
+                Response time: {profile.scorecard.responseTimeHours}h
+              </Text>
+              <Text style={styles.sectionLine}>
+                Customer score: {profile.scorecard.customerScoreLabel}
+              </Text>
+              <Text style={styles.sectionLine}>
+                Coverage count: {String(profile.scorecard.coverageCount)}
+              </Text>
+              <Text style={styles.sectionLine}>
+                Services count: {String(profile.scorecard.servicesCount)}
+              </Text>
+            </View>
+
+            <View style={styles.sectionCard}>
               <Text style={styles.sectionTitle}>Services</Text>
               <Text style={styles.sectionBody}>
                 {profile.services.length > 0 ? profile.services.join(", ") : "No services declared."}

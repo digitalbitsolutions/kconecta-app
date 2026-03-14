@@ -14,6 +14,14 @@ type ProviderDirectoryItemPayload = {
     next_open_slot: string | null;
   };
   services_preview: string[];
+  scorecard_preview?: {
+    completed_jobs: number;
+    customer_score: number | null;
+    response_time_hours: number;
+    availability_label: string;
+    coverage_count: number;
+    services_count: number;
+  };
 };
 
 type ProviderDirectoryPayload = {
@@ -59,6 +67,15 @@ type ProviderDetailPayload = {
       response_time_hours: number;
       customer_score: number | null;
     };
+    scorecard?: {
+      completed_jobs: number;
+      customer_score: number | null;
+      response_time_hours: number;
+      availability_label: string;
+      coverage_count: number;
+      services_count: number;
+      status_badge: string;
+    };
     assignment_fit?: {
       recommended: boolean;
       score_label: string;
@@ -95,6 +112,15 @@ export type ProviderDirectoryItem = {
     nextOpenSlot: string | null;
   };
   servicesPreview: string[];
+  scorecardPreview: {
+    completedJobs: number;
+    customerScore: number | null;
+    customerScoreLabel: string;
+    responseTimeHours: number;
+    availabilityLabel: string;
+    coverageCount: number;
+    servicesCount: number;
+  };
 };
 
 export type ProviderDirectoryResult = {
@@ -141,6 +167,16 @@ export type ProviderProfile = {
     customerScore: number | null;
     customerScoreLabel: string;
   };
+  scorecard: {
+    completedJobs: number;
+    customerScore: number | null;
+    customerScoreLabel: string;
+    responseTimeHours: number;
+    availabilityLabel: string;
+    coverageCount: number;
+    servicesCount: number;
+    statusBadge: string;
+  };
   assignmentFit: {
     recommended: boolean;
     scoreLabel: string;
@@ -158,6 +194,21 @@ function formatRating(value: number | null): string {
   return typeof value === "number" ? value.toFixed(1) : "n/a";
 }
 
+function toScorecardPreview(
+  item: ProviderDirectoryItemPayload
+): ProviderDirectoryItem["scorecardPreview"] {
+  const preview = item.scorecard_preview;
+  return {
+    completedJobs: preview?.completed_jobs ?? 0,
+    customerScore: preview?.customer_score ?? item.rating,
+    customerScoreLabel: formatRating(preview?.customer_score ?? item.rating),
+    responseTimeHours: preview?.response_time_hours ?? 0,
+    availabilityLabel: preview?.availability_label ?? item.availability_summary.label,
+    coverageCount: preview?.coverage_count ?? 0,
+    servicesCount: preview?.services_count ?? item.services_preview.length,
+  };
+}
+
 function toDirectoryItem(item: ProviderDirectoryItemPayload): ProviderDirectoryItem {
   return {
     id: String(item.id),
@@ -172,6 +223,7 @@ function toDirectoryItem(item: ProviderDirectoryItemPayload): ProviderDirectoryI
       nextOpenSlot: item.availability_summary.next_open_slot,
     },
     servicesPreview: item.services_preview,
+    scorecardPreview: toScorecardPreview(item),
   };
 }
 
@@ -258,6 +310,20 @@ export async function fetchManagerProviderProfile(
       responseTimeHours: data.metrics.response_time_hours,
       customerScore: data.metrics.customer_score,
       customerScoreLabel: formatRating(data.metrics.customer_score),
+    },
+    scorecard: {
+      completedJobs: data.scorecard?.completed_jobs ?? data.metrics.completed_jobs,
+      customerScore: data.scorecard?.customer_score ?? data.metrics.customer_score,
+      customerScoreLabel: formatRating(
+        data.scorecard?.customer_score ?? data.metrics.customer_score
+      ),
+      responseTimeHours:
+        data.scorecard?.response_time_hours ?? data.metrics.response_time_hours,
+      availabilityLabel:
+        data.scorecard?.availability_label ?? data.availability_summary.label,
+      coverageCount: data.scorecard?.coverage_count ?? data.coverage.length,
+      servicesCount: data.scorecard?.services_count ?? data.services.length,
+      statusBadge: data.scorecard?.status_badge ?? data.status,
     },
     assignmentFit: data.assignment_fit
       ? {
