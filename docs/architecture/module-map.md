@@ -639,7 +639,6 @@
 - Wave 32 extends manager assignment workflows from read-only inspection to controlled mutation without introducing a new manager-only provider source.
 - Reassign must depend on the existing provider directory contract and must not embed provider ownership logic into mobile-only state.
 - Assignment center list/detail remain backend-owned read models; assignment status mutation becomes the only write surface added in this wave.
-
 ## Wave 33 Manager Assignment Media Evidence Boundary
 
 ### Assignment Evidence Media Layer

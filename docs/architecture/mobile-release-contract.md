@@ -1376,7 +1376,6 @@ Define the minimum environment and auth contract required for native app release
   - Wave 31 queue list/detail contracts remain stable
   - Wave 32 assignment status actions remain stable
 - Wave 33 introduces media/document evidence as a separate evidence collection contract, not a replacement for prior assignment state evidence.
-
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):

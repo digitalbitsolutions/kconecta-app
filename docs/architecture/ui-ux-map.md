@@ -996,7 +996,6 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend assignment status endpoint implementation (`BE-028`).
 3. Manager assignment detail action UI (`MOB-029`).
 4. Regression matrix for assignment status workflow (`QA-031`).
-
 ## Wave 33 Manager Assignment Media Evidence State Map
 
 ### Assignment Evidence List States
