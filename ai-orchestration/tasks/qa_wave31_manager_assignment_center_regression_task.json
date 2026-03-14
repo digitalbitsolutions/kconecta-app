@@ -1,0 +1,24 @@
+{
+  "id": "QA-030",
+  "title": "Add Wave 31 manager assignment center regression matrix",
+  "description": "Extend QA coverage for the manager assignment center so queue list, detail, action evidence, and auth/session guardrails remain deterministic while protecting dashboard, handoff, and provider directory baselines.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/Wave31RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "QA strategy documents Wave 31 assignment center coverage and ticket mapping",
+    "Regression matrix asserts queue list/detail/action contract when Wave 31 endpoints are available",
+    "Guardrail tests preserve unauthorized, forbidden, and baseline manager parity behavior"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave31",
+    "executor_model": "gemini-2.5-flash",
+    "stack": "qa-core",
+    "domain": "manager-assignment-center"
+  }
+}

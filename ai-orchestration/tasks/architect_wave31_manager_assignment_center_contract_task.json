@@ -1,0 +1,24 @@
+{
+  "id": "ARCH-025",
+  "title": "Define Wave 31 manager assignment center contract",
+  "description": "Extend architecture docs with the manager assignment center API/UI contract, including queue list and detail payloads, action states, and manager-only auth/session behavior across assignment workflows.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Manager assignment center contract documents queue list payload, detail payload, and completion/retry action metadata",
+    "UI state map covers loading, empty, success, forbidden, unauthorized, session-expired, and action error states",
+    "Module ownership and API boundary for assignment center are explicit and additive to existing dashboard and handoff flows"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave31",
+    "executor_model": "gemini-2.5-flash",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-center"
+  }
+}

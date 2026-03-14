@@ -20,7 +20,8 @@ Define the first production-shaped mobile information architecture for manager a
 3. `PropertiesList`
 4. `PropertyDetail`
 5. `ProviderLookup`
-6. `SessionExpired`
+6. `ProviderProfile`
+7. `SessionExpired`
 
 ### Provider App
 
@@ -40,6 +41,7 @@ Define the first production-shaped mobile information architecture for manager a
 | Manager | PropertiesList | List | `GET /api/properties` |
 | Manager | PropertyDetail | Detail | `GET /api/properties/{id}` |
 | Manager | ProviderLookup | Search/List | `GET /api/providers` |
+| Manager | ProviderProfile | Detail | `GET /api/providers/{id}` |
 | Provider | AuthStack | Entry/Auth | `POST /api/auth/login` |
 | Provider | ProviderDashboard | Dashboard | `GET /api/providers/{id}` |
 | Provider | AvailabilityEditor | Form | `PATCH /api/providers/{id}/availability` |
@@ -632,3 +634,244 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend queue completion endpoint and deterministic guardrails (`BE-021`).
 3. Manager dashboard queue completion wiring (`MOB-023`).
 4. Regression matrix for queue completion + cross-wave baseline safety (`QA-025`).
+
+## Wave 27 Manager Property Form Parity State Map
+
+### Property Form Screen States
+
+- `property_form_create_idle`
+  - Empty create form with deterministic defaults for `status` and `operation_mode`.
+- `property_form_edit_loading`
+  - Existing property payload is loading before edit inputs become interactive.
+- `property_form_edit_ready`
+  - Existing property payload is mapped into grouped editor sections.
+- `property_form_submitting`
+  - Save mutation in flight; submit CTA disabled while inputs remain visible.
+- `property_form_validation_error`
+  - Inline field errors rendered from `error.fields` without clearing current inputs.
+- `property_form_conflict`
+  - On `409 PROPERTY_FORM_CONFLICT`, show retry/reload CTA while preserving user draft snapshot.
+- `property_form_save_success`
+  - Navigate deterministically to `PropertyDetail` with refreshed property context.
+- `property_form_unauthorized`
+  - On `403 ROLE_SCOPE_FORBIDDEN`, route to existing unauthorized shell.
+- `property_form_session_expired`
+  - On unrecoverable `401`, route to `SessionExpired`.
+- `property_form_load_error`
+  - Edit flow failed to load existing property; show deterministic retry state.
+
+### Field Taxonomy and UX Grouping
+
+- `identity_section`
+  - `title`
+  - `description`
+- `location_section`
+  - `address`
+  - `city`
+  - `postal_code`
+- `commercial_section`
+  - `property_type`
+  - `operation_mode`
+  - `status`
+- `pricing_section`
+  - `sale_price`
+  - `rental_price`
+  - `garage_price_category_id`
+  - `garage_price`
+- `characteristics_section`
+  - `bedrooms`
+  - `bathrooms`
+  - `rooms`
+  - `elevator`
+
+### Form Interaction Rules
+
+- Edit and create flows share the same canonical field taxonomy.
+- Conditional fields must remain deterministic:
+  - hide or disable `sale_price` when `operation_mode = rent`
+  - hide or disable `rental_price` when `operation_mode = sale`
+  - require/show garage pricing only for garage-capable property types
+  - require/show residential counters only for residential property types
+- Validation errors must map one-to-one to visible inputs and never collapse unrelated sections.
+- Successful save routes to `PropertyDetail`; create flow must not return to stale form screen.
+- Conflict state preserves local form draft until user explicitly reloads.
+
+### Create/Edit Transition Rules
+
+- `property_form_create_idle -> property_form_submitting`
+  - on save attempt with locally valid input.
+- `property_form_edit_loading -> property_form_edit_ready`
+  - after property payload resolves successfully.
+- `property_form_submitting -> property_form_validation_error`
+  - on `422 VALIDATION_ERROR`.
+- `property_form_submitting -> property_form_conflict`
+  - on `409 PROPERTY_FORM_CONFLICT`.
+- `property_form_submitting -> property_form_unauthorized`
+  - on `403 ROLE_SCOPE_FORBIDDEN`.
+- `property_form_submitting -> property_form_session_expired`
+  - on unrecoverable `401`.
+- `property_form_submitting -> property_form_save_success`
+  - on create/update success.
+- `property_form_edit_loading -> property_form_load_error`
+  - on deterministic load failure not caused by session expiry.
+
+### Wave 27 Delivery Sequencing
+
+1. Property form parity contract and UX state map (`ARCH-021`).
+2. Backend enriched property create/edit payload implementation (`BE-023`).
+3. Manager property create/edit UI parity wiring (`MOB-024`).
+4. Regression matrix for enriched property form parity (`QA-026`).
+
+## Wave 28 Manager Auth/Session UX State Map
+
+### Login Screen States
+
+- `manager_login_idle`
+  - Email/password fields empty by default.
+  - Explicit local bootstrap values may prefill only when configured intentionally.
+- `manager_login_validation_error`
+  - Missing/invalid input is rejected before shell transition.
+  - Field-level copy stays attached to `email`/`password`.
+- `manager_login_submitting`
+  - Disable duplicate submit and keep current screen context.
+- `manager_login_invalid_credentials`
+  - API returned `401 INVALID_CREDENTIALS`.
+  - Preserve email field and prompt retry.
+- `manager_login_transport_error`
+  - Network/system failure with retryable copy.
+- `manager_login_success`
+  - Persist session tokens and transition into session restore validation.
+
+### Session Restore and Guard States
+
+- `manager_session_restore_pending`
+  - Persisted token exists; app calls `GET /api/auth/me`.
+- `manager_session_refresh_pending`
+  - First `401 TOKEN_EXPIRED` triggers one refresh path.
+- `manager_session_ready`
+  - Session resolved with manager/admin role; route to dashboard shell.
+- `manager_session_unauthorized`
+  - `403 ROLE_SCOPE_FORBIDDEN`; route to `Unauthorized`.
+- `manager_session_expired`
+  - Unrecoverable auth failure; route to `SessionExpired`.
+
+### Recovery Rules
+
+- `Unauthorized`
+  - Keep deterministic recovery CTA back to `Login`.
+  - Never leave stale protected screens mounted.
+- `SessionExpired`
+  - Hard-clears session snapshot.
+  - Primary CTA returns to `Login`.
+- Diagnostics visibility:
+  - local/staging may show stage + API context
+  - production login surface must not depend on diagnostic banners to complete auth flow
+
+### Wave 28 Delivery Sequencing
+
+1. Auth/session UX hardening contract (`ARCH-022`).
+2. Backend auth success metadata hardening (`BE-024`).
+3. Manager login/session UX hardening (`MOB-025`).
+4. Regression matrix for manager auth/session UX (`QA-027`).
+
+## Wave 29 Manager Handoff Evidence State Map
+
+### Manager Handoff States
+
+- `handoff_loading`
+  - Load provider candidates for current property context.
+- `handoff_ready`
+  - Show provider candidates and optional assignment note input.
+- `handoff_assigning`
+  - Assignment mutation in flight; disable duplicate submit.
+- `handoff_success_evidence_ready`
+  - Render provider snapshot, assigned timestamp, note, and latest assignment event directly from assignment success payload.
+  - Allow deterministic CTA back to property detail.
+- `handoff_success_navigation_pending`
+  - Success evidence already rendered locally.
+  - Property detail refresh is scheduled after navigation, but success confirmation does not depend on it.
+- `handoff_validation_error`
+  - Keep selected provider and note input.
+  - Show deterministic validation copy.
+- `handoff_conflict`
+  - Preserve current context and show reload/retry CTA.
+- `handoff_forbidden`
+  - Route to `Unauthorized` while keeping auth state explicit.
+- `handoff_session_expired`
+  - Route to `SessionExpired` after unrecoverable auth failure.
+- `handoff_transport_error`
+  - Keep current screen context and allow retry without clearing local note input.
+
+### Wave 29 Interaction Rules
+
+- Assignment success must no longer depend on a follow-up `PropertyDetail` fetch to show evidence.
+- Success surface minimum evidence:
+  - assigned provider identity
+  - assigned timestamp
+  - assignment note (if present)
+  - latest assignment timeline event summary
+- Navigation rule:
+  - user may return to property detail immediately after success evidence is rendered.
+  - property detail then performs its own non-blocking refresh for long-lived consistency.
+- Recovery rule:
+  - conflict/validation/transport failures keep the handoff route mounted and preserve current draft inputs.
+
+### Wave 29 Delivery Sequencing
+
+1. Assignment evidence contract and state map (`ARCH-023`).
+2. Backend assignment evidence payload enrichment (`BE-025`).
+3. Manager handoff evidence UX wiring (`MOB-026`).
+4. Regression matrix for assignment evidence and recovery (`QA-028`).
+
+## Wave 30 Manager Provider Directory and Profile State Map
+
+### Manager Directory States
+
+- `provider_directory_loading`
+  - Initial manager provider list fetch in flight.
+- `provider_directory_ready`
+  - Render provider cards with filters and pagination metadata.
+- `provider_directory_empty`
+  - Render deterministic zero-state when no providers match current filters.
+- `provider_directory_filtering`
+  - Preserve visible results while non-blocking filter refresh runs.
+- `provider_directory_error_retryable`
+  - Keep current filter inputs and show retry CTA.
+- `provider_directory_forbidden`
+  - Route to `Unauthorized` while keeping auth state explicit.
+- `provider_directory_session_expired`
+  - Route to `SessionExpired` after unrecoverable auth failure.
+
+### Manager Provider Profile States
+
+- `provider_profile_loading`
+  - Fetch provider detail by id.
+- `provider_profile_ready`
+  - Render deterministic profile sections:
+    - identity
+    - services
+    - coverage
+    - availability summary
+    - performance metrics
+- `provider_profile_not_found`
+  - Render deterministic missing-provider state with back CTA to directory.
+- `provider_profile_error_retryable`
+  - Keep navigation context and allow retry.
+- `provider_profile_forbidden`
+  - Route to `Unauthorized`.
+- `provider_profile_session_expired`
+  - Route to `SessionExpired`.
+
+### Wave 30 Interaction Rules
+
+- Manager enters provider directory from existing provider lookup/navigation entrypoint.
+- Directory filters and search must survive retry and back-navigation from profile detail.
+- Provider profile is read-only in Wave 30; no mutation CTA is part of this flow.
+- Directory list payload can seed optimistic preview UI, but profile screen must hydrate detail from its dedicated endpoint.
+
+### Wave 30 Delivery Sequencing
+
+1. Directory/profile contract and state map (`ARCH-024`).
+2. Backend provider directory/detail hardening (`BE-026`).
+3. Manager provider directory/profile UX wiring (`MOB-027`).
+4. Regression matrix for manager provider directory/profile parity (`QA-029`).

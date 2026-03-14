@@ -1,0 +1,26 @@
+{
+  "id": "EPIC-W31",
+  "title": "Wave 31 - Manager assignment center parity",
+  "description": "Coordinate architecture, backend, mobile, and QA work to add a manager assignment center built on top of priority queue and assignment flows so managers can review, inspect, and complete assignment work with deterministic API and UI states.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/wave31-manager-assignment-center-plan.md",
+    "ai-orchestration/tasks/architect_wave31_manager_assignment_center_contract_task.json",
+    "ai-orchestration/tasks/backend_wave31_manager_assignment_center_endpoint_task.json",
+    "ai-orchestration/tasks/mobile_wave31_manager_assignment_center_ui_task.json",
+    "ai-orchestration/tasks/qa_wave31_manager_assignment_center_regression_task.json"
+  ],
+  "acceptance_criteria": [
+    "Wave 31 scope is documented for architect/backend/mobile/qa",
+    "Jira epic can be created directly from the task file",
+    "Scope aligns with manager assignment center parity and keeps executor load partitioned"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave31",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-center"
+  }
+}

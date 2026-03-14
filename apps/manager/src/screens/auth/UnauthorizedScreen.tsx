@@ -11,7 +11,7 @@ type UnauthorizedNavigation = NativeStackNavigationProp<ManagerStackParamList, "
 const UnauthorizedScreen = () => {
   const navigation = useNavigation<UnauthorizedNavigation>();
 
-  const onReauthenticate = () => {
+  const onReturnToLogin = () => {
     clearSession();
     navigation.reset({
       index: 0,
@@ -19,24 +19,17 @@ const UnauthorizedScreen = () => {
     });
   };
 
-  const onSessionExpired = () => {
-    navigation.navigate("SessionExpired");
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.card}>
         <Text style={styles.title}>Unauthorized Access</Text>
         <Text style={styles.body}>
-          Your current session cannot access this operation. Re-authenticate to continue.
+          Your current session does not have the manager scope required for this operation.
+          Return to login to clear the session and continue with a valid account.
         </Text>
 
-        <Pressable style={styles.primaryAction} onPress={onReauthenticate}>
-          <Text style={styles.primaryActionText}>Go to Login</Text>
-        </Pressable>
-
-        <Pressable style={styles.secondaryAction} onPress={onSessionExpired}>
-          <Text style={styles.secondaryActionText}>Mark as Session Expired</Text>
+        <Pressable style={styles.primaryAction} onPress={onReturnToLogin}>
+          <Text style={styles.primaryActionText}>Return to Login</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -79,19 +72,6 @@ const styles = StyleSheet.create({
     color: colors.surface,
     fontSize: fontSizes.sm,
     fontWeight: "700",
-  },
-  secondaryAction: {
-    alignItems: "center",
-    borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    marginTop: spacing.sm,
-    paddingVertical: spacing.md,
-  },
-  secondaryActionText: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.sm,
-    fontWeight: "600",
   },
 });
 
