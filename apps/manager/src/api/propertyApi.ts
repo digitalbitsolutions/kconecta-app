@@ -1,4 +1,9 @@
-import { getAccessToken } from "../auth/session";
+import {
+  getAccessToken,
+  getRefreshToken,
+  handleUnauthorizedSession,
+  refreshSessionTokens,
+} from "../auth/session";
 import { managerEnv } from "../config/env";
 import { ApiError, getApiBaseUrl, requestJson } from "./client";
 
@@ -303,6 +308,62 @@ type AssignmentStatusMutationPayload = {
   };
 };
 
+type AssignmentEvidencePayload = {
+  data: {
+    queue_item_id: string;
+    items: Array<{
+      id: string;
+      file_name: string;
+      media_type: string;
+      category: string;
+      size_bytes: number;
+      uploaded_by: string;
+      uploaded_at: string;
+      preview_url?: string | null;
+      download_url: string;
+      note?: string | null;
+    }>;
+    count: number;
+    latest_item?: {
+      id: string;
+      file_name: string;
+      media_type: string;
+      category: string;
+      size_bytes: number;
+      uploaded_by: string;
+      uploaded_at: string;
+      preview_url?: string | null;
+      download_url: string;
+      note?: string | null;
+    } | null;
+  };
+  meta: {
+    contract: string;
+    flow: string;
+    reason: string;
+    source?: string;
+  };
+};
+
+type AssignmentEvidenceErrorPayload = {
+  error?: {
+    code?: string;
+    message?: string;
+    fields?: Record<string, string[]>;
+  };
+  meta?: {
+    contract?: string;
+    flow?: string;
+    reason?: string;
+    retryable?: boolean;
+  };
+  queue_item_id?: string | null;
+  limits?: {
+    max_size_bytes?: number;
+  };
+  media_type?: string | null;
+};
+
 export type PropertyViewModel = {
   id: string;
   title: string;
@@ -383,6 +444,27 @@ export type PropertyAssignmentContext = {
   note: string | null;
   availableActions: ManagerAssignmentStatusAction[];
   provider: AssignmentProviderSnapshot | null;
+};
+
+export type ManagerAssignmentEvidenceCategory =
+  | "before_photo"
+  | "after_photo"
+  | "invoice"
+  | "report"
+  | "permit"
+  | "other";
+
+export type ManagerAssignmentEvidenceItem = {
+  id: string;
+  fileName: string;
+  mediaType: string;
+  category: ManagerAssignmentEvidenceCategory;
+  sizeBytes: number;
+  uploadedBy: string;
+  uploadedAt: string;
+  previewUrl: string | null;
+  downloadUrl: string;
+  note: string | null;
 };
 
 export type ManagerAssignmentSelectionContext = {
@@ -545,6 +627,58 @@ export type ManagerAssignmentDetail = {
     source: "database" | "in_memory";
   };
 };
+
+export type ManagerAssignmentEvidenceResult = {
+  queueItemId: string;
+  items: ManagerAssignmentEvidenceItem[];
+  count: number;
+  latestItem: ManagerAssignmentEvidenceItem | null;
+  meta: {
+    contract: string;
+    flow: string;
+    reason: string;
+    source: string;
+  };
+};
+
+export type ManagerAssignmentEvidenceUploadInput = {
+  category: ManagerAssignmentEvidenceCategory;
+  note?: string;
+  file: {
+    uri: string;
+    name: string;
+    mimeType: string;
+  };
+};
+
+export class AssignmentEvidenceApiError extends ApiError {
+  code: string;
+  fields: Record<string, string[]>;
+  retryable: boolean;
+  reason: string | null;
+  maxSizeBytes: number | null;
+  mediaType: string | null;
+
+  constructor(
+    message: string,
+    status: number,
+    code: string,
+    fields: Record<string, string[]>,
+    retryable: boolean,
+    reason: string | null,
+    maxSizeBytes: number | null,
+    mediaType: string | null
+  ) {
+    super(message, status);
+    this.name = "AssignmentEvidenceApiError";
+    this.code = code;
+    this.fields = fields;
+    this.retryable = retryable;
+    this.reason = reason;
+    this.maxSizeBytes = maxSizeBytes;
+    this.mediaType = mediaType;
+  }
+}
 
 export type PriorityQueueCompletionInput = {
   resolutionCode?: ManagerPriorityQueueResolutionCode;
@@ -854,6 +988,41 @@ function mapAssignmentContext(
   };
 }
 
+function mapAssignmentEvidenceItem(
+  item: AssignmentEvidencePayload["data"]["items"][number]
+): ManagerAssignmentEvidenceItem {
+  const category = item.category as ManagerAssignmentEvidenceCategory;
+  return {
+    id: item.id,
+    fileName: item.file_name,
+    mediaType: item.media_type,
+    category,
+    sizeBytes: item.size_bytes,
+    uploadedBy: item.uploaded_by,
+    uploadedAt: item.uploaded_at,
+    previewUrl: item.preview_url ?? null,
+    downloadUrl: item.download_url,
+    note: item.note ?? null,
+  };
+}
+
+function mapAssignmentEvidencePayload(
+  payload: AssignmentEvidencePayload
+): ManagerAssignmentEvidenceResult {
+  return {
+    queueItemId: payload.data.queue_item_id,
+    items: payload.data.items.map(mapAssignmentEvidenceItem),
+    count: payload.data.count,
+    latestItem: payload.data.latest_item ? mapAssignmentEvidenceItem(payload.data.latest_item) : null,
+    meta: {
+      contract: payload.meta.contract,
+      flow: payload.meta.flow,
+      reason: payload.meta.reason,
+      source: payload.meta.source ?? "in_memory",
+    },
+  };
+}
+
 function toMessage(payload: PropertyFormErrorPayload, status: number): string {
   if (typeof payload.error?.message === "string" && payload.error.message.trim().length > 0) {
     return payload.error.message;
@@ -862,6 +1031,133 @@ function toMessage(payload: PropertyFormErrorPayload, status: number): string {
     return payload.message;
   }
   return `HTTP ${status}`;
+}
+
+function shouldAttemptMultipartRefresh(path: string, status: number): boolean {
+  if (status !== 401) {
+    return false;
+  }
+  if (path.startsWith("/auth/")) {
+    return false;
+  }
+  return getRefreshToken() !== null;
+}
+
+type MultipartRawResponse = {
+  response: Response;
+  payload: unknown;
+};
+
+async function executeMultipartRequest(
+  path: string,
+  formData: FormData
+): Promise<MultipartRawResponse> {
+  const token = getAccessToken();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), managerEnv.requestTimeoutMs);
+
+  try {
+    const response = await fetch(`${getApiBaseUrl()}${path}`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+      signal: controller.signal,
+    });
+
+    const raw = await response.text();
+    let payload: unknown = {};
+    if (raw) {
+      try {
+        payload = JSON.parse(raw);
+      } catch {
+        payload = {};
+      }
+    }
+
+    return {
+      response,
+      payload,
+    };
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new AssignmentEvidenceApiError(
+        `Request timed out after ${managerEnv.requestTimeoutMs}ms`,
+        408,
+        "REQUEST_TIMEOUT",
+        {},
+        true,
+        "timeout",
+        null,
+        null
+      );
+    }
+    const message = error instanceof Error ? error.message : "Network request failed";
+    throw new AssignmentEvidenceApiError(
+      message,
+      0,
+      "NETWORK_ERROR",
+      {},
+      true,
+      "network_error",
+      null,
+      null
+    );
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function toAssignmentEvidenceError(
+  payload: unknown,
+  status: number
+): AssignmentEvidenceApiError {
+  const errorPayload =
+    typeof payload === "object" && payload !== null
+      ? (payload as AssignmentEvidenceErrorPayload)
+      : {};
+  const message =
+    typeof errorPayload.error?.message === "string" && errorPayload.error.message.trim().length > 0
+      ? errorPayload.error.message
+      : `HTTP ${status}`;
+
+  return new AssignmentEvidenceApiError(
+    message,
+    status,
+    errorPayload.error?.code ?? "ASSIGNMENT_EVIDENCE_ERROR",
+    errorPayload.error?.fields ?? {},
+    Boolean(errorPayload.meta?.retryable ?? true),
+    errorPayload.meta?.reason ?? null,
+    errorPayload.limits?.max_size_bytes ?? null,
+    errorPayload.media_type ?? null
+  );
+}
+
+async function requestMultipartJson<T>(path: string, formData: FormData): Promise<T> {
+  const firstAttempt = await executeMultipartRequest(path, formData);
+  if (!firstAttempt.response.ok && shouldAttemptMultipartRefresh(path, firstAttempt.response.status)) {
+    const refreshed = await refreshSessionTokens();
+    if (refreshed) {
+      const retryAttempt = await executeMultipartRequest(path, formData);
+      if (!retryAttempt.response.ok && retryAttempt.response.status === 401) {
+        handleUnauthorizedSession();
+      }
+      if (!retryAttempt.response.ok) {
+        throw toAssignmentEvidenceError(retryAttempt.payload, retryAttempt.response.status);
+      }
+      return retryAttempt.payload as T;
+    }
+
+    handleUnauthorizedSession();
+  }
+
+  if (!firstAttempt.response.ok) {
+    throw toAssignmentEvidenceError(firstAttempt.payload, firstAttempt.response.status);
+  }
+
+  return firstAttempt.payload as T;
 }
 
 export async function fetchPropertyPortfolio(
@@ -1000,6 +1296,42 @@ export async function fetchManagerAssignmentDetail(
       source: payload.meta.source,
     },
   };
+}
+
+export async function fetchManagerAssignmentEvidence(
+  queueItemId: string
+): Promise<ManagerAssignmentEvidenceResult> {
+  const payload = await requestJson<AssignmentEvidencePayload>(
+    `/properties/priorities/queue/${encodeURIComponent(queueItemId)}/evidence`
+  );
+
+  return mapAssignmentEvidencePayload(payload);
+}
+
+export async function uploadManagerAssignmentEvidence(
+  queueItemId: string,
+  input: ManagerAssignmentEvidenceUploadInput
+): Promise<ManagerAssignmentEvidenceResult> {
+  const formData = new FormData();
+  formData.append("category", input.category);
+  if (typeof input.note === "string" && input.note.trim().length > 0) {
+    formData.append("note", input.note.trim());
+  }
+  formData.append(
+    "file",
+    {
+      uri: input.file.uri,
+      name: input.file.name,
+      type: input.file.mimeType,
+    } as never
+  );
+
+  const payload = await requestMultipartJson<AssignmentEvidencePayload>(
+    `/properties/priorities/queue/${encodeURIComponent(queueItemId)}/evidence`,
+    formData
+  );
+
+  return mapAssignmentEvidencePayload(payload);
 }
 
 export async function completeManagerPriorityQueueItem(
