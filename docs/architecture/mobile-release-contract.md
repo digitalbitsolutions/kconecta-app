@@ -1652,3 +1652,64 @@ Define the minimum environment and auth contract required for native app release
   3. Keep static token acceptance enabled during rollout.
   4. Flip clients to login/refresh plus handoff validation flow.
   5. Retire static token from mobile once all clients are migrated.
+
+## Wave 38 Manager Provider Handoff Candidate Fit Contract
+
+### Manager Provider Candidates Additive Fit Contract
+
+- Endpoint:
+  - `GET /api/properties/{id}/provider-candidates`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Baseline behavior:
+  - Wave 29 handoff candidate list fields remain stable.
+  - Existing consumers that only read candidate identity, category, city, rating, and availability continue to work.
+
+### Additive Candidate Fit Preview
+
+- Each candidate row may add:
+  - `data[].fit_preview`
+    - `score_label` (string)
+    - `recommendation_badge` (`recommended|consider|warning|not_recommended`)
+    - `match_reasons[]` (string array)
+    - `warnings[]` (string array)
+    - `next_action_hint` (nullable string)
+- `fit_preview` is additive:
+  - it must not replace baseline candidate identity, availability, or pricing fields
+  - it must be safe for clients that ignore the new node entirely
+
+### Queue-Aware Selection State
+
+- Each candidate row may add:
+  - `data[].selection_state`
+    - `queue_status` (`ready|confirmation_required|already_selected|already_assigned|blocked`)
+    - `can_select` (`true|false`)
+    - `blocked_reason` (nullable string)
+    - `confirmation_copy`
+      - `title` (nullable string)
+      - `body` (nullable string)
+      - `confirm_label` (nullable string)
+- Selection-state semantics are authoritative from backend:
+  - mobile must not infer confirmation requirements from raw profile data alone
+  - `already_selected` and `already_assigned` suppress duplicate mutation affordances
+
+### Guardrails and Error Semantics
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt, then retry provider-candidates once
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - authenticated but unauthorized users route to `Unauthorized`
+- `404 PROPERTY_NOT_FOUND`
+  - deterministic missing-property recovery state for manager handoff
+
+### Compatibility Notes
+
+- Wave 38 is additive over Waves 29, 34, and 37:
+  - no endpoint removals
+  - no baseline candidate field removals
+  - provider profile scorecard remains the authoritative deep-read surface
+  - handoff candidate fit preview is a lighter comparison contract for manager assignment workflows
+

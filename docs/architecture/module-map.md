@@ -780,3 +780,39 @@
 - Provider directory rows are comparison previews only:
   - provider profile remains the authoritative read surface
   - assignment selection remains outside the directory/profile contract
+
+## Wave 38 Manager Provider Handoff Candidate Fit Boundary
+
+### Manager Handoff Candidate Fit Layer
+
+- Property / assignment module owns:
+  - provider-candidate query for a property handoff context
+  - additive `fit_preview` derivation
+  - additive `selection_state` derivation
+  - queue-aware recommendation, blocked, and confirmation semantics
+- Provider module owns:
+  - provider profile and score inputs reused by fit derivation
+  - canonical provider identity, services, coverage, and availability reads
+- Manager mobile module owns:
+  - candidate card presentation
+  - recommendation badge rendering
+  - warnings/reasons disclosure
+  - confirmation modal visibility and submit-pending UX
+  - preserving handoff navigation context across directory/profile detours
+- Auth session module owns:
+  - `401` recovery
+  - unauthorized/session-expired routing
+
+### Boundary Decision
+
+- Wave 38 keeps candidate fit reasoning backend-owned.
+- Manager mobile must not compute fit previews, recommendation badges, or confirmation requirements by stitching together:
+  - provider directory scorecards
+  - provider profile data
+  - local handoff selection history
+- Provider profile remains the authoritative deep-read surface.
+- Handoff candidate fit is a workflow-specific comparison contract:
+  - smaller than provider profile detail
+  - richer than the baseline Wave 29 candidate row
+  - authoritative for manager selection and confirmation state in handoff
+
