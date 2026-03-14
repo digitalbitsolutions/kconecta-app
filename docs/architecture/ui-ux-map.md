@@ -1180,3 +1180,68 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend additive queue-list decision rollup serialization (`BE-032`).
 3. Manager assignment center decision rollup UI (`MOB-033`).
 4. Regression matrix for assignment center decision rollup workflow (`QA-023`).
+
+## Wave 37 Manager Provider Directory Scorecard State Map
+
+### Manager Provider Directory States
+
+- `provider_directory_loading`
+  - initial provider list query in flight
+- `provider_directory_ready`
+  - render provider rows with:
+    - identity summary
+    - location/category badges
+    - rating
+    - additive scorecard preview
+- `provider_directory_filtering`
+  - preserve visible rows while search/city/category filters refresh
+- `provider_directory_empty`
+  - deterministic zero-state when no providers match the current filters
+- `provider_directory_error_retryable`
+  - keep filter/search state mounted and allow retry
+- `provider_directory_forbidden`
+  - route to `Unauthorized`
+- `provider_directory_session_expired`
+  - route to `SessionExpired`
+
+### Manager Provider Profile Scorecard States
+
+- `provider_profile_loading`
+  - fetch provider detail by id
+- `provider_profile_ready`
+  - render profile sections:
+    - identity
+    - services
+    - coverage
+    - availability summary
+    - additive scorecard
+- `provider_profile_contextual_ready`
+  - provider profile opened from handoff or assignment flow with enough context to resume back-navigation cleanly
+- `provider_profile_not_found`
+  - deterministic missing-provider state with back CTA to directory or handoff
+- `provider_profile_error_retryable`
+  - keep navigation context and allow retry
+- `provider_profile_forbidden`
+  - route to `Unauthorized`
+- `provider_profile_session_expired`
+  - route to `SessionExpired`
+
+### Wave 37 Interaction Rules
+
+- Manager can enter provider directory from dashboard without property context.
+- Manager can open provider profile from:
+  - provider directory
+  - manager-to-provider handoff candidate row
+- Returning from provider profile must preserve:
+  - current directory filters when entered from directory
+  - current property assignment context when entered from handoff
+- Wave 37 stays read-only:
+  - assignment selection remains in handoff
+  - directory/profile screens do not mutate provider data
+
+### Wave 37 Delivery Sequencing
+
+1. Manager provider directory/profile scorecard contract and state map (`ARCH-031`).
+2. Backend provider directory/profile scorecard contract hardening (`BE-033`).
+3. Manager provider directory/profile UI wiring (`MOB-034`).
+4. Regression matrix for manager provider directory/profile scorecard parity (`QA-024`).

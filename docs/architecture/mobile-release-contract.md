@@ -1542,6 +1542,88 @@ Define the minimum environment and auth contract required for native app release
   - no list node removals
   - no filter or pagination contract changes
   - assignment detail remains the authoritative surface for full timeline history and evidence drill-down
+
+## Wave 37 Manager Provider Directory Scorecard Contract
+
+### Manager Provider Directory Query Contract
+
+- Endpoint:
+  - `GET /api/providers`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Query parameters:
+  - `search` (free-text, optional)
+  - `city` (optional)
+  - `category` (optional)
+  - `status` (optional)
+  - `page` (optional integer)
+  - `per_page` (optional integer)
+- Baseline list behavior:
+  - Wave 30 provider directory fields remain stable.
+  - Existing consumers that only read `id`, `name`, `status`, `category`, `city`, and `rating` continue to work.
+
+### Additive Directory Scorecard Preview
+
+- Provider directory rows may add:
+  - `data[].scorecard_preview`
+    - `completed_jobs` (integer)
+    - `customer_score` (number or formatted string)
+    - `response_time_hours` (integer or `null`)
+    - `availability_label` (string)
+    - `coverage_count` (integer)
+    - `services_count` (integer)
+- `scorecard_preview` is additive:
+  - it must not replace `availability_summary` or `services_preview[]`
+  - it is safe for list rendering and lightweight provider comparison
+
+### Manager Provider Profile Scorecard Detail
+
+- Endpoint:
+  - `GET /api/providers/{id}`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Baseline profile behavior:
+  - Wave 30 provider profile contract remains stable.
+  - Wave 34 `assignment_fit` remains optional and contextual when `queue_item_id` is supplied.
+- Additive detail node:
+  - `data.scorecard`
+    - `completed_jobs`
+    - `customer_score`
+    - `response_time_hours`
+    - `availability_label`
+    - `coverage_count`
+    - `services_count`
+    - `status_badge`
+
+### Navigation Consumption Rules
+
+- Manager dashboard may expose a provider-directory CTA without requiring property context.
+- Manager handoff flow may deep-link to provider profile while preserving the current property assignment context.
+- Provider profile remains read-only:
+  - no provider mutation CTA is introduced in Wave 37
+  - assignment action entrypoints remain in manager handoff / assignment flows
+- Directory filters and profile preview context must survive back-navigation from provider profile.
+
+### Guardrails and Compatibility
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt path, then retry list/detail once.
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`.
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - keep authenticated state explicit and route to `Unauthorized`.
+- `404 PROVIDER_NOT_FOUND`
+  - deterministic missing-provider state for manager profile.
+
+### Compatibility Notes
+
+- Wave 37 is additive over Waves 30 and 34:
+  - no endpoint removals
+  - no breaking field removals
+  - `assignment_fit` remains contextual and optional
+  - `scorecard_preview` and `scorecard` are optional additive nodes for manager-native browsing surfaces
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
