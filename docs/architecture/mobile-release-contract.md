@@ -1309,6 +1309,74 @@ Define the minimum environment and auth contract required for native app release
   - provider directory contracts remain stable
   - assignment status mutation only extends manager assignment workflows from the existing detail surface
 
+## Wave 33 Manager Assignment Media Evidence Contract
+
+### Assignment Evidence Media Contracts
+
+- Endpoints:
+  - `GET /api/properties/priorities/queue/{queueItemId}/evidence`
+  - `POST /api/properties/priorities/queue/{queueItemId}/evidence`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Upload request minimum shape:
+  - multipart field `file`
+  - `category` (`before_photo|after_photo|invoice|report|permit|other`)
+  - `note` (optional)
+- Evidence list item minimum shape:
+  - `id`
+  - `file_name`
+  - `media_type`
+  - `category`
+  - `size_bytes`
+  - `uploaded_by`
+  - `uploaded_at`
+  - `preview_url` (nullable)
+  - `download_url`
+- Success response minimum shape:
+  - `data.items[]`
+  - `data.count`
+  - `meta.contract = manager-assignment-evidence-v1`
+  - `meta.flow = properties_priority_queue_assignment_evidence`
+  - `meta.reason`
+
+### Manager Mobile Consumption Rules
+
+- Assignment detail remains the host surface for evidence upload and review.
+- Media/document evidence is additive over the existing assignment detail payload:
+  - do not remove current assignment state, provider snapshot, or timeline fields
+  - evidence list refresh must not require re-entering assignment detail
+- Mobile must not talk directly to storage infrastructure:
+  - binary upload is mediated only by backend API
+  - download/preview URLs are backend-issued and scope-aware
+
+### Error and Recovery Semantics
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt, then retry upload/list request once.
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`.
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - authenticated but unauthorized manager/provider state routes to `Unauthorized`.
+- `404 QUEUE_ITEM_NOT_FOUND`
+  - render deterministic missing-assignment state and preserve CTA back to assignment center.
+- `413 FILE_TOO_LARGE`
+  - keep current assignment detail mounted and show upload-specific validation copy.
+- `415 UNSUPPORTED_MEDIA_TYPE`
+  - preserve current evidence list and show unsupported-file guidance inline.
+- `422 VALIDATION_ERROR`
+  - keep selected upload intent mounted and expose field/action-level validation copy.
+- transport/server errors
+  - preserve current evidence list and allow retry without resetting assignment detail context.
+
+### Compatibility Notes
+
+- Wave 33 is additive over Waves 29, 31, and 32:
+  - Wave 29 assignment evidence payload remains the confirmation contract for handoff mutation success
+  - Wave 31 queue list/detail contracts remain stable
+  - Wave 32 assignment status actions remain stable
+- Wave 33 introduces media/document evidence as a separate evidence collection contract, not a replacement for prior assignment state evidence.
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):

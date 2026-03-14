@@ -996,3 +996,55 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend assignment status endpoint implementation (`BE-028`).
 3. Manager assignment detail action UI (`MOB-029`).
 4. Regression matrix for assignment status workflow (`QA-031`).
+
+## Wave 33 Manager Assignment Media Evidence State Map
+
+### Assignment Evidence List States
+
+- `assignment_evidence_loading`
+  - Initial evidence list read in flight when assignment detail mounts or refreshes.
+- `assignment_evidence_empty`
+  - Render deterministic zero-state with upload CTA when no files exist yet.
+- `assignment_evidence_ready`
+  - Render uploaded files grouped as evidence cards/rows with metadata and preview/download CTA.
+- `assignment_evidence_error_retryable`
+  - Preserve assignment detail context and allow evidence list retry in place.
+- `assignment_evidence_not_found`
+  - Reuse existing missing-assignment recovery path.
+- `assignment_evidence_forbidden`
+  - Route to `Unauthorized`.
+- `assignment_evidence_session_expired`
+  - Route to `SessionExpired`.
+
+### Assignment Evidence Upload States
+
+- `assignment_evidence_picker_idle`
+  - No local file selection in progress.
+- `assignment_evidence_picker_open`
+  - Manager chooses photo/document source and evidence category.
+- `assignment_evidence_upload_pending`
+  - Upload in progress with visible busy/progress state and duplicate-submit protection.
+- `assignment_evidence_upload_success`
+  - Newly uploaded file appears in list after authoritative refresh.
+- `assignment_evidence_upload_validation_error`
+  - Preserve chosen evidence category and show inline validation copy.
+- `assignment_evidence_upload_unsupported`
+  - Unsupported file type or media category rejected without clearing current list.
+- `assignment_evidence_upload_too_large`
+  - File-size guardrail surfaced inline; manager can reselect file.
+- `assignment_evidence_upload_error_retryable`
+  - Preserve assignment detail context and allow retry.
+
+### Wave 33 Interaction Rules
+
+- Assignment detail remains the authoritative host surface for evidence upload and review.
+- Uploading evidence must not block existing status-action buttons longer than the active upload control itself.
+- Successful upload refreshes evidence list in place and must not reset note input or assignment action context.
+- Missing queue item state has precedence over upload retry states and routes to the shared `assignment_detail_not_found` recovery surface.
+
+### Wave 33 Delivery Sequencing
+
+1. Assignment media evidence contract and state map (`ARCH-027`).
+2. Backend assignment evidence upload/list implementation (`BE-029`).
+3. Manager assignment detail evidence UI (`MOB-030`).
+4. Regression matrix for assignment evidence workflow (`QA-032`).
