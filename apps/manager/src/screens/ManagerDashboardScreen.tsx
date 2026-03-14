@@ -191,6 +191,10 @@ const ManagerDashboardScreen = () => {
     void loadDashboard("refresh");
   }, [loadDashboard]);
 
+  const openAssignmentCenter = useCallback(() => {
+    navigation.navigate("ManagerAssignmentCenter");
+  }, [navigation]);
+
   const onLogout = () => {
     clearSession();
     navigation.reset({
@@ -332,6 +336,9 @@ const ManagerDashboardScreen = () => {
         <Pressable style={styles.primaryAction} onPress={() => navigation.navigate("PropertyList")}>
           <Text style={styles.primaryActionText}>Open Property Portfolio</Text>
         </Pressable>
+        <Pressable style={styles.secondaryAction} onPress={openAssignmentCenter}>
+          <Text style={styles.secondaryActionText}>Open Assignment Center</Text>
+        </Pressable>
         <Pressable
           style={styles.secondaryAction}
           onPress={() => navigation.navigate("ProviderDirectory")}
@@ -367,6 +374,9 @@ const ManagerDashboardScreen = () => {
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Priority queue</Text>
+          <Pressable style={styles.inlineLink} onPress={openAssignmentCenter}>
+            <Text style={styles.inlineLinkText}>View assignment workspace</Text>
+          </Pressable>
 
           {showEmptyQueue ? (
             <Text style={styles.emptyPriorityText}>No priority queue items. Pull to refresh to confirm latest state.</Text>
@@ -390,8 +400,19 @@ const ManagerDashboardScreen = () => {
                 SLA: {priority.slaState} | Due: {formatIsoDate(priority.slaDueAt)} | Updated: {formatIsoDate(priority.updatedAt)}
               </Text>
 
-              <Pressable style={styles.priorityActionButton} onPress={() => openQueueInPortfolio(priority)}>
-                <Text style={styles.priorityActionText}>Open in portfolio</Text>
+              <Pressable
+                style={styles.priorityActionButton}
+                onPress={() =>
+                  priority.category === "provider_assignment"
+                    ? navigation.navigate("ManagerAssignmentDetail", { queueItemId: priority.id })
+                    : openQueueInPortfolio(priority)
+                }
+              >
+                <Text style={styles.priorityActionText}>
+                  {priority.category === "provider_assignment"
+                    ? "Open assignment detail"
+                    : "Open in portfolio"}
+                </Text>
               </Pressable>
 
               <Pressable
@@ -576,6 +597,15 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     fontWeight: "700",
     marginBottom: spacing.sm,
+  },
+  inlineLink: {
+    alignSelf: "flex-start",
+    marginBottom: spacing.md,
+  },
+  inlineLinkText: {
+    color: colors.brand,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
   },
   emptyPriorityText: {
     color: colors.textSecondary,
