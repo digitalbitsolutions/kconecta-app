@@ -693,3 +693,30 @@
 - Scorecard reasoning is backend-owned; mobile consumes the additive `assignment_fit` contract instead of inferring fit from raw services, city, and availability fields.
 - Queue-aware profile enrichment is optional and contextual:
   - baseline provider directory/profile browsing remains valid without `queue_item_id`.
+
+## Wave 35 Manager Assignment Decision Timeline Boundary
+
+### Assignment Decision Visibility Layer
+
+- Property / assignment module owns:
+  - additive `decision_summary` serialization for assignment detail
+  - normalized timeline event metadata for manager decision visibility
+  - evidence-count rollup exposed to manager detail reads
+- Manager mobile module owns:
+  - decision summary card rendering in assignment detail
+  - richer timeline row presentation
+  - fallback to baseline detail UI when additive fields are absent
+- Evidence module owns:
+  - evidence list and upload lifecycle
+  - source data that may be summarized into `decision_summary.has_evidence` and timeline evidence counts
+- Auth session module owns:
+  - `401` recovery
+  - unauthorized and session-expired routing
+
+### Boundary Decision
+
+- Wave 35 does not introduce a new write surface.
+- Decision summary remains backend-owned derived state, not mobile-computed state.
+- Timeline enrichment is additive and read-only:
+  - manager mobile must not infer final decision badges from local action labels alone
+  - manager mobile must consume backend-issued semantics for reassignment, completion, cancellation, and evidence-backed events
