@@ -7,6 +7,8 @@ import {
   resolveManagerBootstrapState,
   type SessionBootstrapResult,
 } from "../auth/session";
+import ManagerAssignmentCenterScreen from "../screens/ManagerAssignmentCenterScreen";
+import ManagerAssignmentDetailScreen from "../screens/ManagerAssignmentDetailScreen";
 import ManagerDashboardScreen from "../screens/ManagerDashboardScreen";
 import ManagerProviderDirectoryScreen from "../screens/ManagerProviderDirectoryScreen";
 import ManagerToProviderHandoffScreen from "../screens/ManagerToProviderHandoffScreen";
@@ -24,6 +26,10 @@ export type ManagerStackParamList = {
   Bootstrap: undefined;
   Login: undefined;
   ManagerDashboard: undefined;
+  ManagerAssignmentCenter: undefined;
+  ManagerAssignmentDetail: {
+    queueItemId: string;
+  };
   ProviderDirectory: undefined;
   ProviderProfile: {
     providerId: string;
@@ -147,6 +153,16 @@ const ManagerStack = () => {
         name="ManagerDashboard"
         component={ManagerDashboardScreen}
         options={{ title: "Dashboard" }}
+      />
+      <Stack.Screen
+        name="ManagerAssignmentCenter"
+        component={ManagerAssignmentCenterScreen}
+        options={{ title: "Assignment Center" }}
+      />
+      <Stack.Screen
+        name="ManagerAssignmentDetail"
+        component={ManagerAssignmentDetailScreen}
+        options={{ title: "Assignment Detail" }}
       />
       <Stack.Screen
         name="ProviderDirectory"
