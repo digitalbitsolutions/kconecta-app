@@ -1,0 +1,26 @@
+{
+  "id": "EPIC-W33",
+  "title": "Wave 33 - Manager assignment media evidence",
+  "description": "Coordinate architecture, backend, mobile, and QA work to let managers attach and review assignment-specific photos and documents from assignment detail, with deterministic API contracts, evidence metadata, and regression coverage.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/wave33-manager-assignment-media-evidence-plan.md",
+    "ai-orchestration/tasks/architect_wave33_manager_assignment_media_contract_task.json",
+    "ai-orchestration/tasks/backend_wave33_assignment_media_evidence_endpoint_task.json",
+    "ai-orchestration/tasks/mobile_wave33_assignment_media_evidence_ui_task.json",
+    "ai-orchestration/tasks/qa_wave33_assignment_media_evidence_regression_task.json"
+  ],
+  "acceptance_criteria": [
+    "Wave 33 scope is documented for architect/backend/mobile/qa",
+    "Jira epic can be created directly from the task file",
+    "Scope aligns with manager assignment media evidence and keeps executor load partitioned"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave33",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-media-evidence"
+  }
+}

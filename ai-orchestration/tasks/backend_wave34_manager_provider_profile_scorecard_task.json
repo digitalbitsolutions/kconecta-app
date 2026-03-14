@@ -1,0 +1,25 @@
+{
+  "id": "BE-030",
+  "title": "Implement Wave 34 assignment-aware provider profile scorecard contract",
+  "description": "Extend the provider profile API so manager requests can optionally include queue_item_id and receive additive assignment-fit scorecard metadata without breaking the baseline provider profile contract.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Http/Controllers/Api/ProviderController.php",
+    "app/Services/ProviderService.php",
+    "routes/api.php",
+    "tests/Feature/Api/ProviderApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "GET /api/providers/{id}?queue_item_id=... returns additive assignment_fit metadata for manager role",
+    "Requests without queue context preserve the current provider profile contract",
+    "Guardrails cover invalid token, forbidden role, unknown provider, and unknown queue item"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave34",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-profile-scorecard"
+  }
+}

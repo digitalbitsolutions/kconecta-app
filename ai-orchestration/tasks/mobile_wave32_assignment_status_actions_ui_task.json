@@ -1,0 +1,25 @@
+{
+  "id": "MOB-029",
+  "title": "Implement assignment status actions on detail screen",
+  "description": "Wire manager assignment detail UI to new assignment lifecycle actions so managers can complete, reassign, and cancel assignments with deterministic button states, loading/error handling, and post-action refresh.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/navigation/index.tsx",
+    "apps/manager/src/screens/ManagerAssignmentDetailScreen.tsx",
+    "apps/manager/src/screens/ManagerProviderDirectoryScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Assignment detail screen exposes only valid actions for the current assignment state",
+    "Reassign flow can select a provider and complete the assignment update without leaving manager navigation context",
+    "Successful mutations refresh assignment detail and relevant assignment center state while error states remain explicit"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave32",
+    "executor_model": "deepseek-coder:6.7b",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-status"
+  }
+}

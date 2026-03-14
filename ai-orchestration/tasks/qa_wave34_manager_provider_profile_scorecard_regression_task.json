@@ -1,0 +1,23 @@
+{
+  "id": "QA-021",
+  "title": "Add Wave 34 provider profile scorecard regression matrix",
+  "description": "Add regression coverage for queue-aware provider profile scorecard success and failure paths while preserving baseline provider profile behavior when no queue_item_id is supplied.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/Wave34RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix covers success, forbidden, unauthorized, unknown provider, and unknown queue item cases",
+    "Baseline provider profile behavior without queue_item_id remains asserted",
+    "Testing strategy references Wave 34 scope and expected guardrails"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave34",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-profile-scorecard"
+  }
+}

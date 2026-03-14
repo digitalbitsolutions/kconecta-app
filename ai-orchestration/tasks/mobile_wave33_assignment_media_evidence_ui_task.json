@@ -1,0 +1,24 @@
+{
+  "id": "MOB-030",
+  "title": "Implement assignment evidence upload UI on detail screen",
+  "description": "Wire manager assignment detail UI to assignment evidence endpoints so managers can attach photos/documents, review uploaded evidence metadata, and recover cleanly from unsupported files or upload failures.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/screens/ManagerAssignmentDetailScreen.tsx",
+    "apps/manager/src/theme/tokens.ts"
+  ],
+  "acceptance_criteria": [
+    "Assignment detail exposes an evidence section with upload CTA and deterministic empty/loading/populated states",
+    "Successful uploads refresh the evidence list without breaking current assignment actions or navigation context",
+    "Unsupported file types, upload failures, forbidden, and unauthorized states remain explicit in the UI"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave33",
+    "executor_model": "deepseek-coder:6.7b",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-media-evidence"
+  }
+}

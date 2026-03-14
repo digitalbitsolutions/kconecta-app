@@ -4,7 +4,7 @@
 
 Build a local AI software factory for the CRM ecosystem with isolated agent execution, controlled merges, and traceable delivery.
 
-## Current Status (2026-03-12)
+## Current Status (2026-03-14)
 
 Completed:
 
@@ -15,54 +15,9 @@ Completed:
 - Human approval gate before merge.
 - MCP, RAG, and Skills v1.
 - Docker local stack for DB (`kconecta-app` volume).
-- Initial PR wave merged:
-  - PR #1 backend docs
-  - PR #2 devops CI
-  - PR #3 mobile scaffold
-  - PR #4 architecture docs
-- Wave 2 merged:
-  - PR #5 backend provider API
-  - PR #6 QA provider/auth smoke tests
-  - PR #7 mobile UI/UX baseline
-- Wave 3 merged:
-  - PR #8 architecture multi-app strategy
-  - PR #9 backend property API skeleton
-  - PR #10 manager mobile dashboard and property flows
-  - PR #11 QA property API smoke tests
-  - PR #12 devops dockerized PHP lint in CI
-  - PR #13 wave 3 task definitions tracked
-  - PR #14 orchestration log/roadmap update
-- Wave 4 merged:
-  - PR #17 backend property detail endpoint
-  - PR #16 QA property detail tests
-  - PR #15 manager app API client integration
-- Wave 5-8 merged:
-  - PR #19, #21, #22, #20 release env + token gate
-  - PR #23, #24, #25, #26 providers integration
-  - PR #27, #28 functional test strategy and API flow tests
-  - PR #29, #30, #31, #32 bugfix and regression hardening
-  - PR #33 release notes publication
-- Jira integration v1 (optional) added to orchestrator CLI.
-- Wave 9 started:
-  - DB-first provider/property retrieval with fallback controls.
-  - API `meta.source` contract in list endpoints.
-  - QA smoke suite aligned with data-source metadata.
-- Waves 10-16 completed and merged to `main` (manager parity foundation).
-- Wave 22 closed and merged (manager portfolio filters + pagination parity).
-- Wave 23 closed and merged (manager property detail + timeline parity).
-- Wave 24 partially closed:
-  - merged: `DEV-119` (architect, PR `#104`)
-  - merged: `DEV-121` (backend, PR `#105`)
-  - pending: mobile + QA closeout
-- Aider hardening applied in orchestrator:
-  - shorter execution prompts per task
-  - automatic change partitioning by files scope
-  - adaptive timeout/retry policy by agent
-  - policy visibility in `preflight` via `aider_agent_policies`
-- Executor strategy updated:
-  - `AI_EXECUTOR=auto` now selects `aider`
-  - runtime fallback `aider -> openclaw` implemented
-  - OpenClaw fallback remains in observation until edit-scope reliability is hardened
+- Manager parity waves merged through Wave 31.
+- `main` branch protection verified (`PR required`, direct push blocked).
+- `Google AG` added as planning/review assistant to reduce `aider` load on large tasks.
 
 ## Delivery Phases
 
@@ -74,33 +29,34 @@ Completed:
 
 ### Phase 2: Backend Delivery (In Progress)
 
-- Implement Laravel provider/property endpoints and service layer.
-- Add request validation and response resources.
-- Add migration-safe schema updates.
-- Define API auth and role scopes against CRM backend.
-- Current focus: Wave 24 manager dashboard summary/priorities data contract evolution.
+- Laravel provider/property endpoints and service layer evolved in waves.
+- Request validation and contract coverage expanded.
+- Current focus: manager assignment lifecycle mutations in Wave 32.
 
 ### Phase 3: Mobile Delivery (In Progress)
 
-- Expand React Native module structure.
-- Add shared API client and typed models. (Done for manager property flows)
-- Integrate auth/session handling and role-aware navigation. (Pending)
-- Implement providers, properties, and service-order flows.
-- Current focus: Wave 24 dashboard summary/priorities UI wiring (`MOB-021`).
+- React Native manager app has:
+  - auth/session bootstrap
+  - dashboard summary + priorities
+  - property list/detail/editor
+  - provider directory/profile
+  - provider handoff flow
+  - assignment center + assignment detail
+- Current focus: actionable assignment status transitions from the detail screen.
 
 ### Phase 4: QA + Security (In Progress)
 
-- Add API and mobile smoke tests.
-- Add regression suites for critical business flows.
-- Add security checks for auth and access control.
+- API regression matrices exist through Wave 31.
+- Auth and access-control guardrails are covered in dedicated tests.
+- Current focus: assignment status workflow regression matrix in Wave 32.
 
 ### Phase 5: Release Orchestration (In Progress)
 
-- Harden CI with mandatory checks for all agent PRs.
-- Add release tagging and changelog generation.
-- Define rollback procedures and staging validation gates.
+- CI remains mandatory on all agent PRs.
+- PR-only merge discipline is active.
+- Operational focus: keep waves smaller, avoid PR drift, and minimize `aider` timeout recovery.
 
-## Jira Tracking Model (Recommended)
+## Jira Tracking Model
 
 Board workflow:
 
@@ -116,24 +72,24 @@ Labels:
 - `agent-architect|agent-backend|agent-mobile|agent-qa|agent-devops`
 - `priority-high|priority-medium|priority-low`
 
-Automation:
+## Executor Policy
 
-- Create issue from task file via `jira-create-from-task`.
-- Link PRs with `jira-link-pr`.
-- Transition issue when PR status changes.
+- `aider`: primary file edit executor
+- `Google AG`: planning, decomposition, review, contract reasoning
+- `openclaw`: fallback only when `aider` fails and scope is tightly bounded
 
 ## Next Milestones
 
-1. Close Wave 24 end-to-end (mobile + QA tickets) with PR merge + Jira transitions.
-2. Keep `AI_EXECUTOR=aider` as operational default; keep OpenClaw as controlled fallback.
-3. Continue manager parity waves (Wave 25+) after dashboard summary/priorities baseline.
-4. Keep Docker-only backend runtime for tests (no XAMPP path).
-   - Mandatory command for test execution: `py ai-orchestration/orchestrator.py backend-test-docker` (never host `php artisan test`).
-5. Maintain PR-only merge discipline on protected `main`.
+1. Open and execute Wave 32 end-to-end.
+2. Keep `aider` prompts small and wave tasks narrowly scoped.
+3. Continue manager parity from assignment inspection to assignment mutation/completion flows.
+4. Preserve Docker-only backend validation path.
+5. Keep Jira board states synchronized with active agent execution.
 
-Status update:
+## Wave 34 - Manager Provider Profile Scorecard Parity
 
-- Jira environment remains active and board/timeline tracking is stable.
-- Main branch protection is enforced and validated (direct push rejected by rule).
-- Repository baseline includes merged waves through Wave 23, with Wave 24 in progress.
-- CI blocker from duplicate test methods was fixed in PR `#108`.
+- Goal: enable assignment-aware provider evaluation directly from the provider profile before reassignment.
+- Architect: define additive `assignment_fit` contract and UX states for queue-aware provider profiles.
+- Backend: extend `GET /api/providers/{id}` with optional `queue_item_id` context and additive scorecard metadata.
+- Mobile: render scorecard/fit guidance in `ProviderProfileScreen` and allow provider selection from profile.
+- QA: add regression coverage for scorecard success paths and guardrails while preserving baseline profile behavior.

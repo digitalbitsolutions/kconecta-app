@@ -1,0 +1,25 @@
+{
+  "id": "MOB-031",
+  "title": "Implement Wave 34 provider profile scorecard UI and select-from-profile flow",
+  "description": "Update the manager provider directory/profile flow so assignment-context navigation loads queue-aware provider scorecard data and allows provider selection directly from the provider profile screen.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/providerApi.ts",
+    "apps/manager/src/navigation/index.tsx",
+    "apps/manager/src/screens/ManagerProviderDirectoryScreen.tsx",
+    "apps/manager/src/screens/ProviderProfileScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Provider profile renders assignment_fit scorecard when opened from assignment selection context",
+    "Manager can select a provider directly from the provider profile screen",
+    "Generic provider directory browsing remains unchanged when no selection context is present"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave34",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-profile-scorecard"
+  }
+}

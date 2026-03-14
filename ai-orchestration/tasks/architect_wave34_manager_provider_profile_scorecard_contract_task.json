@@ -1,0 +1,24 @@
+{
+  "id": "ARCH-028",
+  "title": "Define Wave 34 manager provider profile scorecard contract",
+  "description": "Extend architecture docs with additive assignment-aware provider profile scorecard fields, optional queue-context behavior, and the UX state map for selection from provider profile.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Architecture docs define additive assignment_fit payload for queue-aware provider profile requests",
+    "UI/UX map documents recommended, warning, unavailable, unauthorized, and session-expired profile states",
+    "Module map clarifies backend/mobile ownership for queue-aware provider scorecard consumption"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave34",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-profile-scorecard"
+  }
+}
