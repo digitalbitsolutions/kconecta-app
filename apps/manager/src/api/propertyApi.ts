@@ -166,8 +166,13 @@ type PropertyAssignmentContextPayload = {
         rating: number | null;
       } | null;
       assigned_at: string | null;
+      completed_at?: string | null;
+      cancelled_at?: string | null;
+      provider_id?: number | null;
+      provider_name?: string | null;
       note: string | null;
-      state: "unassigned" | "assigned" | "provider_missing";
+      state: "unassigned" | "assigned" | "provider_missing" | "completed" | "cancelled";
+      available_actions?: Array<"complete" | "reassign" | "cancel">;
     };
   };
   meta: {
@@ -260,6 +265,7 @@ type AssignmentQueueDetailPayload = {
       rating: number | null;
     } | null;
     assignment: PropertyAssignmentContextPayload["data"]["assignment"] | null;
+    available_actions?: Array<"complete" | "reassign" | "cancel">;
     timeline: ApiPropertyTimelineEvent[];
   };
   meta: {
@@ -278,6 +284,22 @@ type PriorityQueueCompletionPayload = {
     contract: string;
     flow: string;
     reason: string;
+  };
+};
+
+type AssignmentStatusMutationPayload = {
+  data: {
+    id: string;
+    status: "unassigned" | "assigned" | "provider_missing" | "completed" | "cancelled";
+    property_id: number;
+    assignment: PropertyAssignmentContextPayload["data"]["assignment"] | null;
+    available_actions: Array<"complete" | "reassign" | "cancel">;
+  };
+  meta: {
+    contract: string;
+    flow: string;
+    reason: string;
+    retryable?: boolean;
   };
 };
 
@@ -354,10 +376,25 @@ export type AssignmentProviderSnapshot = {
 export type PropertyAssignmentContext = {
   propertyId: string;
   assigned: boolean;
-  state: "unassigned" | "assigned" | "provider_missing";
+  state: "unassigned" | "assigned" | "provider_missing" | "completed" | "cancelled";
   assignedAt: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
   note: string | null;
+  availableActions: ManagerAssignmentStatusAction[];
   provider: AssignmentProviderSnapshot | null;
+};
+
+export type ManagerAssignmentSelectionContext = {
+  queueItemId: string;
+  propertyTitle: string;
+  currentProviderId?: string;
+};
+
+type ManagerAssignmentSelectionResult = {
+  queueItemId: string;
+  providerId: string;
+  providerName: string;
 };
 
 export type PropertyFormInput = {
@@ -443,6 +480,7 @@ export type ManagerDashboardSummary = {
 export type ManagerPriorityQueueAction = "open_property" | "open_handoff" | "review_status";
 export type ManagerPriorityQueueSlaState = "on_track" | "at_risk" | "overdue" | "no_deadline";
 export type ManagerPriorityQueueResolutionCode = "assigned" | "deferred" | "resolved" | "dismissed";
+export type ManagerAssignmentStatusAction = "complete" | "reassign" | "cancel";
 
 export type ManagerPriorityQueueItem = {
   id: string;
@@ -498,6 +536,7 @@ export type ManagerAssignmentDetail = {
   property: PropertyDetailViewModel | null;
   provider: AssignmentProviderSnapshot | null;
   assignment: PropertyAssignmentContext | null;
+  availableActions: ManagerAssignmentStatusAction[];
   timeline: PropertyTimelineEvent[];
   meta: {
     contract: string;
@@ -743,6 +782,7 @@ function mapPriorityQueueItem(
 }
 
 let managerPortfolioLaunchContext: ManagerPortfolioLaunchContext | null = null;
+let managerAssignmentSelectionResult: ManagerAssignmentSelectionResult | null = null;
 
 export function setManagerPortfolioLaunchContext(context: ManagerPortfolioLaunchContext): void {
   managerPortfolioLaunchContext = context;
@@ -752,6 +792,66 @@ export function consumeManagerPortfolioLaunchContext(): ManagerPortfolioLaunchCo
   const snapshot = managerPortfolioLaunchContext;
   managerPortfolioLaunchContext = null;
   return snapshot;
+}
+
+export function setManagerAssignmentSelectionResult(
+  result: ManagerAssignmentSelectionResult
+): void {
+  managerAssignmentSelectionResult = result;
+}
+
+export function consumeManagerAssignmentSelectionResult(
+  queueItemId: string
+): ManagerAssignmentSelectionResult | null {
+  if (managerAssignmentSelectionResult?.queueItemId !== queueItemId) {
+    return null;
+  }
+
+  const snapshot = managerAssignmentSelectionResult;
+  managerAssignmentSelectionResult = null;
+  return snapshot;
+}
+
+function normalizeAssignmentAvailableActions(
+  actions: Array<ManagerAssignmentStatusAction> | undefined
+): ManagerAssignmentStatusAction[] {
+  if (!Array.isArray(actions)) {
+    return [];
+  }
+
+  return actions.filter(
+    (action): action is ManagerAssignmentStatusAction =>
+      action === "complete" || action === "reassign" || action === "cancel"
+  );
+}
+
+function mapAssignmentContext(
+  propertyId: number | string,
+  assignment: PropertyAssignmentContextPayload["data"]["assignment"]
+): PropertyAssignmentContext {
+  return {
+    propertyId: String(propertyId),
+    assigned: assignment.assigned,
+    state: assignment.state,
+    assignedAt: assignment.assigned_at,
+    completedAt: assignment.completed_at ?? null,
+    cancelledAt: assignment.cancelled_at ?? null,
+    note: assignment.note,
+    availableActions: normalizeAssignmentAvailableActions(assignment.available_actions),
+    provider: assignment.provider
+      ? {
+          id: String(assignment.provider.id),
+          name: assignment.provider.name,
+          category: assignment.provider.category ?? "General",
+          city: assignment.provider.city ?? "Unknown",
+          status: assignment.provider.status ?? "unknown",
+          rating:
+            typeof assignment.provider.rating === "number"
+              ? assignment.provider.rating.toFixed(1)
+              : "n/a",
+        }
+      : null,
+  };
 }
 
 function toMessage(payload: PropertyFormErrorPayload, status: number): string {
@@ -882,27 +982,14 @@ export async function fetchManagerAssignmentDetail(
         }
       : null,
     assignment: payload.data.assignment
-      ? {
-          propertyId: String(payload.data.property?.id ?? payload.data.item.property_id),
-          assigned: payload.data.assignment.assigned,
-          state: payload.data.assignment.state,
-          assignedAt: payload.data.assignment.assigned_at,
-          note: payload.data.assignment.note,
-          provider: payload.data.assignment.provider
-            ? {
-                id: String(payload.data.assignment.provider.id),
-                name: payload.data.assignment.provider.name,
-                category: payload.data.assignment.provider.category ?? "General",
-                city: payload.data.assignment.provider.city ?? "Unknown",
-                status: payload.data.assignment.provider.status ?? "unknown",
-                rating:
-                  typeof payload.data.assignment.provider.rating === "number"
-                    ? payload.data.assignment.provider.rating.toFixed(1)
-                    : "n/a",
-              }
-            : null,
-        }
+      ? mapAssignmentContext(
+          payload.data.property?.id ?? payload.data.item.property_id,
+          payload.data.assignment
+        )
       : null,
+    availableActions: normalizeAssignmentAvailableActions(
+      payload.data.available_actions ?? payload.data.assignment?.available_actions
+    ),
     timeline: Array.isArray(payload.data.timeline)
       ? payload.data.timeline.map(mapTimelineEvent)
       : [],
@@ -936,6 +1023,47 @@ export async function completeManagerPriorityQueueItem(
   );
 
   return mapPriorityQueueItem(payload.data.item);
+}
+
+export async function updateManagerAssignmentStatus(
+  queueItemId: string,
+  input: {
+    action: ManagerAssignmentStatusAction;
+    providerId?: string;
+    note?: string;
+  }
+): Promise<{
+  assignment: PropertyAssignmentContext | null;
+  availableActions: ManagerAssignmentStatusAction[];
+  meta: AssignmentStatusMutationPayload["meta"];
+}> {
+  const body: Record<string, unknown> = {
+    action: input.action,
+  };
+
+  if (typeof input.providerId === "string" && input.providerId.trim().length > 0) {
+    body.provider_id = Number(input.providerId);
+  }
+
+  if (typeof input.note === "string" && input.note.trim().length > 0) {
+    body.note = input.note.trim();
+  }
+
+  const payload = await requestJson<AssignmentStatusMutationPayload>(
+    `/properties/priorities/queue/${encodeURIComponent(queueItemId)}/assignment`,
+    {
+      method: "PATCH",
+      body,
+    }
+  );
+
+  return {
+    assignment: payload.data.assignment
+      ? mapAssignmentContext(payload.data.property_id, payload.data.assignment)
+      : null,
+    availableActions: normalizeAssignmentAvailableActions(payload.data.available_actions),
+    meta: payload.meta,
+  };
 }
 
 export async function fetchProperties(query: PropertyListQuery = {}): Promise<PropertyViewModel[]> {
@@ -1141,7 +1269,6 @@ export async function assignProviderToProperty(
   );
 
   const assignment = payload.data.assignment;
-  const assignmentProvider = assignment?.provider ?? null;
 
   return {
     propertyId: String(payload.data.property_id),
@@ -1150,27 +1277,7 @@ export async function assignProviderToProperty(
     property: toViewModel(payload.data.property),
     assignment:
       assignment !== null && assignment !== undefined
-        ? {
-            propertyId: String(payload.data.property_id),
-            assigned: assignment.assigned,
-            state: assignment.state,
-            assignedAt: assignment.assigned_at,
-            note: assignment.note,
-            provider:
-              assignmentProvider !== null
-                ? {
-                    id: String(assignmentProvider.id),
-                    name: assignmentProvider.name,
-                    category: assignmentProvider.category ?? "General",
-                    city: assignmentProvider.city ?? "Unknown",
-                    status: assignmentProvider.status ?? "unknown",
-                    rating:
-                      typeof assignmentProvider.rating === "number"
-                        ? assignmentProvider.rating.toFixed(1)
-                        : "n/a",
-                  }
-                : null,
-          }
+        ? mapAssignmentContext(payload.data.property_id, assignment)
         : null,
     latestTimelineEvent:
       payload.data.latest_timeline_event !== null && payload.data.latest_timeline_event !== undefined
@@ -1186,24 +1293,5 @@ export async function fetchPropertyAssignmentContext(
     `/properties/${propertyId}/assignment-context`
   );
 
-  const provider = payload.data.assignment.provider;
-  return {
-    propertyId: String(payload.data.property_id),
-    assigned: payload.data.assignment.assigned,
-    state: payload.data.assignment.state,
-    assignedAt: payload.data.assignment.assigned_at,
-    note: payload.data.assignment.note,
-    provider:
-      provider !== null
-        ? {
-            id: String(provider.id),
-            name: provider.name,
-            category: provider.category ?? "General",
-            city: provider.city ?? "Unknown",
-            status: provider.status ?? "unknown",
-            rating:
-              typeof provider.rating === "number" ? provider.rating.toFixed(1) : "n/a",
-          }
-        : null,
-  };
+  return mapAssignmentContext(payload.data.property_id, payload.data.assignment);
 }
