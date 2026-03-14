@@ -1410,7 +1410,12 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("data.item.id", $queueItemId)
             ->assertJsonPath("data.property.id", 101)
             ->assertJsonPath("data.property.title", "Modern Loft Center")
-            ->assertJsonPath("data.assignment.state", "unassigned");
+            ->assertJsonPath("data.assignment.state", "unassigned")
+            ->assertJsonPath("data.decision_summary.current_state", "unassigned")
+            ->assertJsonPath("data.decision_summary.latest_decision_label", "Awaiting assignment")
+            ->assertJsonPath("data.decision_summary.evidence_count", 0)
+            ->assertJsonPath("data.decision_summary.has_evidence", false)
+            ->assertJsonPath("data.decision_summary.next_recommended_action", "reassign");
 
         $timeline = $detail->json("data.timeline", []);
         $this->assertNotEmpty($timeline);
@@ -1673,7 +1678,14 @@ class PropertyApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath("data.assignment.state", "assigned")
             ->assertJsonPath("data.assignment.provider_id", 1)
-            ->assertJsonPath("data.assignment.provider_name", "CleanHome Pro");
+            ->assertJsonPath("data.assignment.provider_name", "CleanHome Pro")
+            ->assertJsonPath("data.decision_summary.current_state", "assigned")
+            ->assertJsonPath("data.decision_summary.latest_decision_label", "Provider reassigned")
+            ->assertJsonPath("data.decision_summary.next_recommended_action", "complete");
+
+        $this->assertSame("provider_reassigned", $detail->json("data.timeline.0.metadata.event_kind"));
+        $this->assertSame("Assigned", $detail->json("data.timeline.0.metadata.status_badge"));
+        $this->assertSame(1, $detail->json("data.timeline.0.metadata.provider_id"));
     }
 
     public function test_manager_can_complete_assigned_priority_queue_item_from_assignment_status_endpoint(): void
@@ -1903,6 +1915,19 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("data.items.0.uploaded_by", "mgr-wave33")
             ->assertJsonPath("meta.contract", "manager-assignment-evidence-v1")
             ->assertJsonPath("meta.reason", "assignment_evidence_loaded");
+
+        $detail = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue/priority-provider-assignment-101");
+
+        $detail
+            ->assertOk()
+            ->assertJsonPath("data.decision_summary.has_evidence", true)
+            ->assertJsonPath("data.decision_summary.evidence_count", 1)
+            ->assertJsonPath("data.decision_summary.latest_decision_label", "Evidence uploaded");
+
+        $this->assertSame("evidence_uploaded", $detail->json("data.timeline.0.metadata.event_kind"));
+        $this->assertSame(1, $detail->json("data.timeline.0.metadata.evidence_count"));
     }
 
     public function test_assignment_evidence_upload_returns_unauthorized_for_invalid_token(): void
