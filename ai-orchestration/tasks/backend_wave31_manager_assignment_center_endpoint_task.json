@@ -1,0 +1,26 @@
+{
+  "id": "BE-027",
+  "title": "Implement manager assignment center API contract",
+  "description": "Harden backend support for the manager assignment center by adding deterministic queue detail and action evidence around assignment work items while preserving manager-only guardrails and stable meta contract fields.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "routes/api.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "Manager assignment center exposes deterministic queue detail contract for a queue item or assignment work item",
+    "Queue action responses return stable meta contract, flow, and reason fields for manager completion/retry operations",
+    "Unauthorized, forbidden, not-found, and validation behavior remain deterministic for manager assignment center routes",
+    "Feature tests cover new assignment center API contract without regressing prior manager dashboard and handoff behavior"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave31",
+    "executor_model": "deepseek-coder:6.7b",
+    "stack": "laravel-api",
+    "domain": "manager-assignment-center"
+  }
+}
