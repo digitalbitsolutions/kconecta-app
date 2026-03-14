@@ -1146,7 +1146,7 @@ Define the minimum environment and auth contract required for native app release
   - `search` (optional)
   - `limit` (optional integer)
 - Queue list success response minimum shape:
-  - `data[]`
+  - `data.items[]`
     - `id`
     - `category`
     - `severity`
@@ -1162,10 +1162,11 @@ Define the minimum environment and auth contract required for native app release
     - `description`
     - `completed`
     - `completed_at` (nullable)
-  - `meta.contract = manager-assignment-center-v1`
+  - `meta.contract = manager-priority-queue-v1`
   - `meta.flow = properties_priority_queue`
   - `meta.filters`
   - `meta.source`
+  - existing Wave 25 queue envelope remains backward-compatible; Wave 31 only extends additive filters and additive item fields for assignment-center consumers
 
 ### Manager Assignment Detail Contract
 
@@ -1206,13 +1207,17 @@ Define the minimum environment and auth contract required for native app release
 - Endpoint:
   - `POST /api/properties/priorities/queue/{queueItemId}/complete`
 - Action success response minimum shape:
-  - `data.id`
-  - `data.completed = true`
-  - `data.completed_at`
-  - `data.resolution_code`
-  - `meta.contract = manager-assignment-center-v1`
+  - `data.item.id`
+  - `data.item.completed = true`
+  - `data.item.completed_at`
+  - `data.item.resolution_code`
+  - `meta.contract = manager-priority-queue-action-v1`
   - `meta.flow = properties_priority_queue_complete`
   - `meta.reason`
+- Guardrail semantics preserved for assignment-center consumers:
+  - `409 QUEUE_ACTION_CONFLICT`
+    - stale/already-completed queue action remains a deterministic conflict response
+    - mobile state `assignment_action_conflict` must continue to map to refresh/retry recovery
 
 ### Manager Mobile Consumption Rules
 
