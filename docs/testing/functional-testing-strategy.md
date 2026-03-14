@@ -784,6 +784,35 @@ Validate end-to-end functional behavior of native app API contracts before relea
 31. Run Wave 34 provider profile scorecard regression suite and record queue-aware success, guardrail stability, and baseline provider profile compatibility.
 32. Run Wave 35 assignment decision timeline regression suite and record additive decision summary semantics plus reassignment/evidence/completion/cancellation metadata stability.
 33. Run Wave 36 assignment center decision rollup regression suite and record additive queue-card status/evidence/next-action semantics plus queue-list guardrail stability.
+34. Run Wave 37 manager provider directory scorecard regression suite and record additive list/detail scorecard semantics plus provider directory guardrail stability.
+
+## Wave 37 Manager Provider Directory Scorecard Matrix
+
+1. Provider directory success contract (`DEV-185`, `DEV-187`, `DEV-188`)
+  - `GET /api/providers` keeps `meta.contract=manager-provider-directory-v1` while extending each list row with additive `scorecard_preview`:
+    - `completed_jobs`
+    - `customer_score`
+    - `response_time_hours`
+    - `availability_label`
+    - `coverage_count`
+    - `services_count`
+  - Manager-safe filters stay deterministic for `status`, `category`, `city`, and `search`.
+  - Baseline list nodes remain stable: `availability_summary`, `services_preview`, pagination metadata, and filter echoes.
+2. Provider profile scorecard success contract (`DEV-185`, `DEV-187`, `DEV-188`)
+  - `GET /api/providers/{id}` keeps `meta.contract=manager-provider-directory-v1` while extending provider detail with additive `scorecard`:
+    - `completed_jobs`
+    - `customer_score`
+    - `response_time_hours`
+    - `availability_label`
+    - `coverage_count`
+    - `services_count`
+    - `status_badge`
+  - Baseline detail nodes remain stable: `bio`, `phone`, `email`, `services`, `coverage`, `availability_summary`, and `metrics`.
+3. Role/session guardrails and cross-wave baseline safety (`DEV-188`)
+  - Invalid token on provider directory/profile routes returns deterministic `401 TOKEN_INVALID` auth-session envelope.
+  - Invalid role on provider directory/profile routes returns deterministic `403 ROLE_SCOPE_FORBIDDEN` auth-session envelope.
+  - Unknown provider detail keeps deterministic `404` payload with `message=Provider not found` and `provider_id`.
+  - Queue-aware provider profile behavior from Wave 34 remains additive and optional when `queue_item_id` is absent.
 
 ## Entry Criteria
 
