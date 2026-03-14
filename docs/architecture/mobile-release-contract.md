@@ -1128,6 +1128,126 @@ Define the minimum environment and auth contract required for native app release
   - no breaking removal of provider detail fields already consumed by provider runtime
   - `manager-provider-directory-v1` standardizes manager-facing list/detail payload expectations without changing auth lifecycle contracts
 
+## Wave 31 Manager Assignment Center Contract
+
+### Manager Assignment Center Read Contract
+
+- Endpoints:
+  - `GET /api/properties/priorities/queue`
+  - `GET /api/properties/priorities/queue/{queueItemId}`
+  - `POST /api/properties/priorities/queue/{queueItemId}/complete`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Queue list request query parameters:
+  - `category` (optional)
+  - `severity` (optional)
+  - `status` (optional)
+  - `search` (optional)
+  - `limit` (optional integer)
+- Queue list success response minimum shape:
+  - `data.items[]`
+    - `id`
+    - `category`
+    - `severity`
+    - `action`
+    - `status`
+    - `property_id`
+    - `property_title`
+    - `provider_id` (nullable)
+    - `provider_name` (nullable)
+    - `city`
+    - `due_at` (nullable)
+    - `summary`
+    - `description`
+    - `completed`
+    - `completed_at` (nullable)
+  - `meta.contract = manager-priority-queue-v1`
+  - `meta.flow = properties_priority_queue`
+  - `meta.filters`
+  - `meta.source`
+  - existing Wave 25 queue envelope remains backward-compatible; Wave 31 only extends additive filters and additive item fields for assignment-center consumers
+
+### Manager Assignment Detail Contract
+
+- Endpoint:
+  - `GET /api/properties/priorities/queue/{queueItemId}`
+- Success response minimum shape:
+  - `data.id`
+  - `data.category`
+  - `data.severity`
+  - `data.status`
+  - `data.action`
+  - `data.property`
+    - `id`
+    - `title`
+    - `status`
+    - `city`
+  - `data.provider` (nullable)
+    - `id`
+    - `name`
+    - `status`
+  - `data.assignment`
+    - `state`
+    - `assigned`
+    - `assigned_at` (nullable)
+    - `note` (nullable)
+  - `data.timeline[]`
+    - `id`
+    - `type`
+    - `summary`
+    - `occurred_at`
+    - `actor`
+  - `meta.contract = manager-assignment-center-v1`
+  - `meta.flow = properties_priority_queue_detail`
+  - `meta.reason`
+
+### Queue Action Contract
+
+- Endpoint:
+  - `POST /api/properties/priorities/queue/{queueItemId}/complete`
+- Action success response minimum shape:
+  - `data.item.id`
+  - `data.item.completed = true`
+  - `data.item.completed_at`
+  - `data.item.resolution_code`
+  - `meta.contract = manager-priority-queue-action-v1`
+  - `meta.flow = properties_priority_queue_complete`
+  - `meta.reason`
+- Guardrail semantics preserved for assignment-center consumers:
+  - `409 QUEUE_ACTION_CONFLICT`
+    - stale/already-completed queue action remains a deterministic conflict response
+    - mobile state `assignment_action_conflict` must continue to map to refresh/retry recovery
+
+### Manager Mobile Consumption Rules
+
+- Assignment center is a dedicated manager workspace, not a replacement for dashboard priorities.
+- Dashboard can deep-link into assignment center filtered context, but assignment center becomes the authoritative surface for queue review and queue-item detail.
+- Manager app must not infer assignment detail by stitching unrelated property-detail and provider-directory reads when the queue detail endpoint is available.
+- Queue list filters must survive refresh, retry, and back-navigation from assignment detail.
+
+### Error and Recovery Semantics
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt, then retry current queue read/action once.
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`.
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - keep authenticated state explicit and route to `Unauthorized`.
+- `404 QUEUE_ITEM_NOT_FOUND`
+  - keep manager app authenticated and render deterministic missing-assignment state.
+- `422 VALIDATION_ERROR`
+  - keep current resolution inputs and expose validation copy in place.
+- transport/server errors
+  - keep current assignment center context mounted and expose retry CTA without clearing filters.
+
+### Compatibility Notes
+
+- Wave 31 is additive over Wave 24, Wave 29, and Wave 30:
+  - no endpoint removals
+  - no breaking field removals from dashboard priority queue payloads
+  - `manager-assignment-center-v1` standardizes manager queue list/detail/action expectations without changing existing handoff mutation contracts
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
