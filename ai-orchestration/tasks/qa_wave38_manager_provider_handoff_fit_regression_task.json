@@ -1,0 +1,23 @@
+{
+  "id": "QA-025",
+  "title": "Add Wave 38 manager provider handoff fit regression matrix",
+  "description": "Add regression coverage for manager handoff candidate fit preview payloads, recommendation guardrails, and baseline assignment behavior while preserving current provider directory/profile flows.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/Wave38RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix covers provider-candidate fit preview success and manager-role guardrail scenarios",
+    "Assertions verify additive candidate recommendation metadata without breaking the baseline handoff contract",
+    "Testing strategy references Wave 38 scope and protects current provider directory and handoff behavior"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave38",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-handoff-fit"
+  }
+}
