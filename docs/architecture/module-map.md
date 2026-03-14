@@ -639,3 +639,30 @@
 - Wave 32 extends manager assignment workflows from read-only inspection to controlled mutation without introducing a new manager-only provider source.
 - Reassign must depend on the existing provider directory contract and must not embed provider ownership logic into mobile-only state.
 - Assignment center list/detail remain backend-owned read models; assignment status mutation becomes the only write surface added in this wave.
+## Wave 33 Manager Assignment Media Evidence Boundary
+
+### Assignment Evidence Media Layer
+
+- Property API / assignment module owns:
+  - assignment evidence upload validation
+  - authoritative evidence list serialization for a queue item
+  - upload metadata (`file_name`, `media_type`, `category`, `size_bytes`, `uploaded_by`, `uploaded_at`)
+  - assignment-scoped authorization and not-found semantics
+- Storage integration layer owns:
+  - binary persistence
+  - preview/download URL generation
+  - storage-facing media constraints and retention hooks
+- Manager mobile module owns:
+  - file selection intent
+  - upload-progress and retry UI
+  - evidence list rendering inside assignment detail
+- Auth session module owns:
+  - `401` recovery path
+  - unauthorized/session-expired transitions for evidence reads/writes
+
+### Boundary Decision
+
+- Wave 33 introduces assignment media/document evidence as a backend-owned contract.
+- Manager mobile must not upload directly to storage with client-managed credentials.
+- Manager mobile must not infer evidence list state from timeline events or prior handoff confirmation payloads.
+- Wave 29 assignment confirmation evidence remains a mutation-success snapshot; Wave 33 media evidence is a durable list/read-write concern attached to the same assignment workspace.
