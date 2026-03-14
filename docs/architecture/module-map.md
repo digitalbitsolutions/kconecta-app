@@ -666,3 +666,30 @@
 - Manager mobile must not upload directly to storage with client-managed credentials.
 - Manager mobile must not infer evidence list state from timeline events or prior handoff confirmation payloads.
 - Wave 29 assignment confirmation evidence remains a mutation-success snapshot; Wave 33 media evidence is a durable list/read-write concern attached to the same assignment workspace.
+
+## Wave 34 Manager Provider Profile Scorecard Boundary
+
+### Assignment-Aware Provider Profile Layer
+
+- Provider module owns:
+  - queue-aware provider profile enrichment for manager/admin reads
+  - additive `assignment_fit` serialization on `GET /api/providers/{id}?queue_item_id=...`
+  - compatibility with baseline Wave 30 provider detail reads when queue context is absent
+- Property/assignment module owns:
+  - queue item lookup and assignment-context validation for `queue_item_id`
+  - deterministic missing-context semantics (`404 QUEUE_ITEM_NOT_FOUND`)
+  - recommendation inputs derived from assignment state and queue context
+- Manager mobile module owns:
+  - passing `queue_item_id` from assignment selection flow into provider profile navigation
+  - rendering recommended/warning/unavailable states from `assignment_fit`
+  - exposing select-from-profile CTA only when assignment-aware profile context is valid
+- Auth session module owns:
+  - refresh/session-expired behavior
+  - forbidden-role and invalid-token envelopes
+
+### Boundary Decision
+
+- Wave 34 keeps provider profile as the authoritative read surface for manager evaluation.
+- Scorecard reasoning is backend-owned; mobile consumes the additive `assignment_fit` contract instead of inferring fit from raw services, city, and availability fields.
+- Queue-aware profile enrichment is optional and contextual:
+  - baseline provider directory/profile browsing remains valid without `queue_item_id`.
