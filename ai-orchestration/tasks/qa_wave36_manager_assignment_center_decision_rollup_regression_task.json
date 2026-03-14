@@ -1,0 +1,23 @@
+{
+  "id": "QA-023",
+  "title": "Add Wave 36 manager assignment center decision rollup regression matrix",
+  "description": "Add regression coverage for additive queue decision rollup metadata and guardrails while preserving the existing manager assignment center list contract.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/Wave36RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix covers additive decision rollup success and guardrail scenarios",
+    "Queue assertions verify deterministic badge/evidence/next-action metadata for provider-assignment items",
+    "Testing strategy references Wave 36 scope and protects baseline queue behavior"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave36",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-center-decision-rollup"
+  }
+}

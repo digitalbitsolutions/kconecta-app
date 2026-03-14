@@ -1,0 +1,27 @@
+{
+  "id": "EPIC-W36",
+  "title": "Wave 36 - Manager assignment center decision rollup parity",
+  "description": "Coordinate architect, backend, mobile, and QA work to expose additive decision summary cues in the manager assignment center list without breaking current queue consumers.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/ai-orchestration-roadmap.md",
+    "docs/roadmap/wave36-manager-assignment-center-decision-rollup-plan.md",
+    "ai-orchestration/tasks/wave36_epic_manager_assignment_center_decision_rollup_task.json",
+    "ai-orchestration/tasks/architect_wave36_manager_assignment_center_decision_rollup_contract_task.json",
+    "ai-orchestration/tasks/backend_wave36_manager_assignment_center_decision_rollup_task.json",
+    "ai-orchestration/tasks/mobile_wave36_manager_assignment_center_decision_rollup_ui_task.json",
+    "ai-orchestration/tasks/qa_wave36_manager_assignment_center_decision_rollup_regression_task.json"
+  ],
+  "acceptance_criteria": [
+    "Wave 36 plan and task files are committed and linked to Jira epic/tickets",
+    "Architect, backend, mobile, and QA tasks are created with additive queue-rollup scope",
+    "Wave 36 appears in Jira backlog/board with architect ready to execute"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave36",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-center-decision-rollup"
+  }
+}
