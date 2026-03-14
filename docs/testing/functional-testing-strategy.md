@@ -714,6 +714,39 @@ Validate end-to-end functional behavior of native app API contracts before relea
 3. `DEV-176` -> Backend additive decision summary + timeline metadata implementation.
 4. `DEV-177` -> Mobile assignment detail decision summary + timeline rendering.
 5. `DEV-178` -> Regression matrix + readiness-gated API assertions in `tests/Feature/Api/Wave35RegressionMatrixTest.php`.
+
+## Wave 36 Manager Assignment Center Decision Rollup Matrix
+
+1. Assignment center additive decision rollup contract (`DEV-180`, `DEV-181`, `DEV-182`, `DEV-183`)
+  - `GET /api/properties/priorities/queue?category=provider_assignment`
+    preserves:
+    - `meta.contract=manager-priority-queue-v1`
+    - baseline queue card fields (`id`, `property_id`, `property_title`, `city`, `status`, `severity`, `sla_*`, `action`)
+  - Additive Wave 36 node:
+    - `data.items[*].decision_rollup`
+      - `current_state`
+      - `latest_decision_label`
+      - `latest_decision_at`
+      - `evidence_count`
+      - `has_evidence`
+      - `status_badge`
+      - `next_recommended_action`
+2. Decision rollup semantics (`DEV-181`, `DEV-182`, `DEV-183`)
+  - Provider-assignment queue cards expose deterministic list-level state hints without opening detail.
+  - Reassignment + evidence upload must update rollup state to assigned/evidence-backed semantics.
+  - Completion must update rollup state to terminal completed semantics with no follow-up recommendation.
+3. Guardrails and compatibility (`DEV-182`, `DEV-183`)
+  - Provider role hitting queue list returns `403 ROLE_SCOPE_FORBIDDEN` with `auth-session-v1` envelope.
+  - Invalid token returns deterministic `401 TOKEN_INVALID` envelope.
+  - Baseline queue behavior remains additive: consumers ignoring `decision_rollup` continue to function.
+
+## Wave 36 Ticket Mapping
+
+1. `DEV-179` -> Wave 36 orchestration epic and rollout tracking.
+2. `DEV-180` -> Manager assignment center decision rollup architecture contract and UX state map.
+3. `DEV-182` -> Backend additive queue-list decision rollup implementation.
+4. `DEV-181` -> Mobile assignment center decision rollup UI.
+5. `DEV-183` -> Regression matrix + readiness-gated API assertions in `tests/Feature/Api/Wave36RegressionMatrixTest.php`.
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -750,6 +783,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
 30. Run Wave 33 assignment media evidence regression suite and record list/upload success envelopes plus guardrail stability.
 31. Run Wave 34 provider profile scorecard regression suite and record queue-aware success, guardrail stability, and baseline provider profile compatibility.
 32. Run Wave 35 assignment decision timeline regression suite and record additive decision summary semantics plus reassignment/evidence/completion/cancellation metadata stability.
+33. Run Wave 36 assignment center decision rollup regression suite and record additive queue-card status/evidence/next-action semantics plus queue-list guardrail stability.
 
 ## Entry Criteria
 
