@@ -20,6 +20,7 @@ class PropertyService
     private const MAX_DB_ROWS = 500;
     private static array $runtimeOverrides = [];
     private static array $runtimeCreated = [];
+    private static array $runtimeQueueCompletions = [];
 
     /**
      * Returns property list payload with DB-first retrieval.
@@ -174,6 +175,90 @@ class PropertyService
         ];
     }
 
+    public function completePriorityQueueItem(
+        string $queueItemId,
+        array $payload = [],
+        ?string $managerId = null
+    ): array {
+        $normalizedQueueItemId = trim($queueItemId);
+        if ($normalizedQueueItemId === "") {
+            return [
+                "ok" => false,
+                "status" => 404,
+                "reason" => "queue_item_not_found",
+                "code" => "QUEUE_ITEM_NOT_FOUND",
+                "message" => "Queue item not found",
+                "queue_item_id" => $queueItemId,
+                "retryable" => false,
+            ];
+        }
+
+        $dataset = $this->loadRows();
+        $items = $this->buildPriorityQueueItems($dataset["rows"]);
+
+        $target = null;
+        foreach ($items as $item) {
+            if ((string) ($item["id"] ?? "") === $normalizedQueueItemId) {
+                $target = $item;
+                break;
+            }
+        }
+
+        if ($target === null) {
+            return [
+                "ok" => false,
+                "status" => 404,
+                "reason" => "queue_item_not_found",
+                "code" => "QUEUE_ITEM_NOT_FOUND",
+                "message" => "Queue item not found",
+                "queue_item_id" => $normalizedQueueItemId,
+                "retryable" => false,
+            ];
+        }
+
+        if ((bool) ($target["completed"] ?? false)) {
+            return [
+                "ok" => false,
+                "status" => 409,
+                "reason" => "queue_item_already_completed",
+                "code" => "QUEUE_ACTION_CONFLICT",
+                "message" => "Queue item is already completed",
+                "queue_item_id" => $normalizedQueueItemId,
+                "retryable" => true,
+            ];
+        }
+
+        $normalizedNote = isset($payload["note"]) ? trim((string) $payload["note"]) : null;
+        if ($normalizedNote === "") {
+            $normalizedNote = null;
+        }
+
+        $normalizedResolutionCode = isset($payload["resolution_code"])
+            ? strtolower(trim((string) $payload["resolution_code"]))
+            : null;
+        if ($normalizedResolutionCode === "") {
+            $normalizedResolutionCode = null;
+        }
+
+        $completedAt = now()->toIso8601String();
+        self::$runtimeQueueCompletions[$normalizedQueueItemId] = [
+            "completed" => true,
+            "completed_at" => $completedAt,
+            "resolution_code" => $normalizedResolutionCode,
+            "note" => $normalizedNote,
+            "completed_by" => $managerId !== null && trim($managerId) !== "" ? trim($managerId) : null,
+        ];
+
+        $updatedItem = $this->applyQueueCompletionState($target);
+
+        return [
+            "ok" => true,
+            "status" => 200,
+            "reason" => "queue_item_completed",
+            "data" => $updatedItem,
+        ];
+    }
+
     private function buildPriorityQueueItems(array $rows): array
     {
         $items = [];
@@ -198,6 +283,10 @@ class PropertyService
                 "sla_state" => "no_deadline",
                 "updated_at" => $this->buildQueueTimestamp(70, $propertyId),
                 "action" => "open_property",
+                "completed" => false,
+                "completed_at" => null,
+                "resolution_code" => null,
+                "note" => null,
             ];
 
             if ($status === self::STATUS_AVAILABLE && $providerId <= 0) {
@@ -231,6 +320,7 @@ class PropertyService
             }
 
             $item["sla_state"] = $this->resolveQueueSlaState($item["sla_due_at"]);
+            $item = $this->applyQueueCompletionState($item);
             $items[] = $item;
         }
 
@@ -269,6 +359,12 @@ class PropertyService
 
     private function comparePriorityQueueItems(array $left, array $right): int
     {
+        $leftCompleted = (bool) ($left["completed"] ?? false);
+        $rightCompleted = (bool) ($right["completed"] ?? false);
+        if ($leftCompleted !== $rightCompleted) {
+            return $leftCompleted ? 1 : -1;
+        }
+
         $severityOrder = [
             "high" => 0,
             "medium" => 1,
@@ -299,6 +395,26 @@ class PropertyService
         }
 
         return strcmp((string) ($left["id"] ?? ""), (string) ($right["id"] ?? ""));
+    }
+
+    private function applyQueueCompletionState(array $item): array
+    {
+        $queueItemId = (string) ($item["id"] ?? "");
+        if ($queueItemId === "" || !isset(self::$runtimeQueueCompletions[$queueItemId])) {
+            return $item;
+        }
+
+        $completion = self::$runtimeQueueCompletions[$queueItemId];
+        $item["completed"] = (bool) ($completion["completed"] ?? false);
+        $item["completed_at"] = $completion["completed_at"] ?? null;
+        $item["resolution_code"] = $completion["resolution_code"] ?? null;
+        $item["note"] = $completion["note"] ?? null;
+        if ($item["completed"] === true) {
+            $item["updated_at"] = $completion["completed_at"] ?? ($item["updated_at"] ?? null);
+            $item["action"] = "open_property";
+        }
+
+        return $item;
     }
 
     private function buildKpis(array $rows): array
@@ -480,7 +596,7 @@ class PropertyService
      */
     public function buildPropertyDetailPayload(array $property): array
     {
-        $detail = $property;
+        $detail = $this->buildPropertyContractPayload($property);
         $detail["timeline"] = $this->buildTimelineEvents($property);
 
         return $detail;
@@ -567,10 +683,30 @@ class PropertyService
         $property = [
             "id" => $id,
             "title" => trim((string) ($payload["title"] ?? "Property {$id}")),
+            "description" => $this->asString($payload["description"] ?? null),
+            "address" => $this->asString($payload["address"] ?? null),
             "city" => trim((string) ($payload["city"] ?? "Unknown")),
+            "postal_code" => $this->asString($payload["postal_code"] ?? null),
             "status" => $this->normalizeStatus($payload["status"] ?? self::STATUS_AVAILABLE),
+            "property_type" => $this->asString($payload["property_type"] ?? null),
+            "operation_mode" => $this->normalizeOperationMode($payload["operation_mode"] ?? null),
+            "sale_price" => $this->asFloat($payload["sale_price"] ?? null),
+            "rental_price" => $this->asFloat($payload["rental_price"] ?? null),
+            "garage_price_category_id" => $this->asInt($payload["garage_price_category_id"] ?? null),
+            "garage_price" => $this->asFloat($payload["garage_price"] ?? null),
+            "bedrooms" => $this->asInt($payload["bedrooms"] ?? null),
+            "bathrooms" => $this->asInt($payload["bathrooms"] ?? null),
+            "rooms" => $this->asInt($payload["rooms"] ?? null),
+            "elevator" => $this->asNullableBoolean($payload["elevator"] ?? null),
             "manager_id" => $this->resolveMutationManagerId($payload["manager_id"] ?? null, $managerId, $role),
-            "price" => $this->asFloat($payload["price"] ?? null),
+            "price" => array_key_exists("price", $payload)
+                ? $this->asFloat($payload["price"])
+                : $this->resolveDisplayPrice([
+                    "sale_price" => $this->asFloat($payload["sale_price"] ?? null),
+                    "rental_price" => $this->asFloat($payload["rental_price"] ?? null),
+                    "garage_price" => $this->asFloat($payload["garage_price"] ?? null),
+                ]),
+            "updated_at" => now()->toIso8601String(),
         ];
 
         self::$runtimeCreated[$id] = $property;
@@ -628,6 +764,58 @@ class PropertyService
             }
         }
 
+        foreach (["description", "address", "postal_code", "property_type"] as $field) {
+            if (!array_key_exists($field, $payload)) {
+                continue;
+            }
+
+            $nextValue = $this->asString($payload[$field]);
+            if ($nextValue !== ($property[$field] ?? null)) {
+                $updated[$field] = $nextValue;
+                $changed = true;
+            }
+        }
+
+        if (array_key_exists("operation_mode", $payload)) {
+            $nextOperationMode = $this->normalizeOperationMode($payload["operation_mode"]);
+            if ($nextOperationMode !== ($property["operation_mode"] ?? null)) {
+                $updated["operation_mode"] = $nextOperationMode;
+                $changed = true;
+            }
+        }
+
+        foreach (["sale_price", "rental_price", "garage_price"] as $field) {
+            if (!array_key_exists($field, $payload)) {
+                continue;
+            }
+
+            $nextValue = $this->asFloat($payload[$field]);
+            if ($nextValue !== ($property[$field] ?? null)) {
+                $updated[$field] = $nextValue;
+                $changed = true;
+            }
+        }
+
+        foreach (["garage_price_category_id", "bedrooms", "bathrooms", "rooms"] as $field) {
+            if (!array_key_exists($field, $payload)) {
+                continue;
+            }
+
+            $nextValue = $this->asInt($payload[$field]);
+            if ($nextValue !== ($property[$field] ?? null)) {
+                $updated[$field] = $nextValue;
+                $changed = true;
+            }
+        }
+
+        if (array_key_exists("elevator", $payload)) {
+            $nextElevator = $this->asNullableBoolean($payload["elevator"]);
+            if ($nextElevator !== ($property["elevator"] ?? null)) {
+                $updated["elevator"] = $nextElevator;
+                $changed = true;
+            }
+        }
+
         if (array_key_exists("manager_id", $payload)) {
             $nextManagerId = $this->resolveMutationManagerId($payload["manager_id"], $managerId, $role);
             if ($nextManagerId !== $property["manager_id"]) {
@@ -639,10 +827,26 @@ class PropertyService
             $changed = true;
         }
 
+        if (
+            !array_key_exists("price", $payload) &&
+            (
+                array_key_exists("sale_price", $payload) ||
+                array_key_exists("rental_price", $payload) ||
+                array_key_exists("garage_price", $payload)
+            )
+        ) {
+            $nextDerivedPrice = $this->resolveDisplayPrice($updated, false);
+            if ($nextDerivedPrice !== ($property["price"] ?? null)) {
+                $updated["price"] = $nextDerivedPrice;
+                $changed = true;
+            }
+        }
+
         if (!$changed) {
             return $this->conflictResult("No property changes detected", "no_changes");
         }
 
+        $updated["updated_at"] = now()->toIso8601String();
         $this->rememberRuntimeOverride($updated);
         if (array_key_exists($id, self::$runtimeCreated)) {
             self::$runtimeCreated[$id] = $updated;
@@ -748,6 +952,28 @@ class PropertyService
                 "flow" => "properties_assignment_context",
                 "reason" => "assignment_context_loaded",
             ],
+        ];
+    }
+
+    /**
+     * Build additive assignment evidence payload for manager handoff success responses.
+     */
+    public function buildAssignmentEvidencePayload(int $propertyId, array $property, ?array $provider): array
+    {
+        $assignmentContextPayload = $this->buildAssignmentContextPayload($propertyId, $property, $provider);
+        $timelineEvents = $this->buildTimelineEvents($property);
+        $latestAssignmentEvent = null;
+
+        foreach ($timelineEvents as $event) {
+            if (($event["type"] ?? null) === "assignment") {
+                $latestAssignmentEvent = $event;
+                break;
+            }
+        }
+
+        return [
+            "assignment" => $assignmentContextPayload["data"]["assignment"] ?? null,
+            "latest_timeline_event" => $latestAssignmentEvent,
         ];
     }
 
@@ -889,14 +1115,132 @@ class PropertyService
             )
         );
 
+        $description = $this->asString(
+            $this->pickFirst(
+                $row,
+                ["description", "notes", "summary"]
+            )
+        );
+
+        $address = $this->asString(
+            $this->pickFirst(
+                $row,
+                ["address", "street_address", "location_address"]
+            )
+        );
+
+        $postalCode = $this->asString(
+            $this->pickFirst(
+                $row,
+                ["postal_code", "zip_code", "zip"]
+            )
+        );
+
+        $propertyType = $this->asString(
+            $this->pickFirst(
+                $row,
+                ["property_type", "type", "property_category"]
+            )
+        );
+
+        $operationMode = $this->normalizeOperationMode(
+            $this->pickFirst(
+                $row,
+                ["operation_mode", "operation_type", "listing_mode"]
+            )
+        );
+
+        $salePrice = $this->asFloat(
+            $this->pickFirst(
+                $row,
+                ["sale_price", "salePrice", "price_sale", "sale_amount"]
+            )
+        );
+
+        $rentalPrice = $this->asFloat(
+            $this->pickFirst(
+                $row,
+                ["rental_price", "rent_price", "rentalPrice", "rent_amount"]
+            )
+        );
+
+        $garagePriceCategoryId = $this->asInt(
+            $this->pickFirst(
+                $row,
+                ["garage_price_category_id", "garage_category_id"]
+            )
+        );
+
+        $garagePrice = $this->asFloat(
+            $this->pickFirst(
+                $row,
+                ["garage_price", "garagePrice"]
+            )
+        );
+
+        $bedrooms = $this->asInt(
+            $this->pickFirst(
+                $row,
+                ["bedrooms", "bedrooms_count", "beds"]
+            )
+        );
+
+        $bathrooms = $this->asInt(
+            $this->pickFirst(
+                $row,
+                ["bathrooms", "bathrooms_count", "baths"]
+            )
+        );
+
+        $rooms = $this->asInt(
+            $this->pickFirst(
+                $row,
+                ["rooms", "rooms_count"]
+            )
+        );
+
+        $elevator = $this->asNullableBoolean(
+            $this->pickFirst(
+                $row,
+                ["elevator", "has_elevator"]
+            )
+        );
+
+        $updatedAt = $this->asString(
+            $this->pickFirst(
+                $row,
+                ["updated_at", "updatedAt"]
+            )
+        );
+
+        $derivedPrice = $this->resolveDisplayPrice([
+            "sale_price" => $salePrice,
+            "rental_price" => $rentalPrice,
+            "garage_price" => $garagePrice,
+        ], false);
+
         return $this->applyRuntimeOverrides([
             "id" => $id,
             "title" => $title !== null && $title !== "" ? $title : "Property {$id}",
+            "description" => $description,
+            "address" => $address,
             "city" => $city !== null && $city !== "" ? $city : "Unknown",
+            "postal_code" => $postalCode,
             "status" => $status,
+            "property_type" => $propertyType,
+            "operation_mode" => $operationMode,
+            "sale_price" => $salePrice,
+            "rental_price" => $rentalPrice,
+            "garage_price_category_id" => $garagePriceCategoryId,
+            "garage_price" => $garagePrice,
+            "bedrooms" => $bedrooms,
+            "bathrooms" => $bathrooms,
+            "rooms" => $rooms,
+            "elevator" => $elevator,
             "manager_id" => $managerId,
             "provider_id" => $providerId,
-            "price" => $price,
+            "price" => $derivedPrice ?? $price,
+            "updated_at" => $updatedAt,
         ]);
     }
 
@@ -935,6 +1279,32 @@ class PropertyService
         return null;
     }
 
+    private function asNullableBoolean(mixed $value): ?bool
+    {
+        if ($value === null || $value === "") {
+            return null;
+        }
+
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_numeric($value)) {
+            return ((int) $value) > 0;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+        if (in_array($normalized, ["true", "1", "yes", "on"], true)) {
+            return true;
+        }
+
+        if (in_array($normalized, ["false", "0", "no", "off"], true)) {
+            return false;
+        }
+
+        return null;
+    }
+
     private function asString(mixed $value): ?string
     {
         if ($value === null) {
@@ -943,6 +1313,20 @@ class PropertyService
 
         $normalized = trim((string) $value);
         return $normalized !== "" ? $normalized : null;
+    }
+
+    private function normalizeOperationMode(mixed $value): ?string
+    {
+        $normalized = strtolower(trim((string) $value));
+        if ($normalized === "") {
+            return null;
+        }
+
+        if (in_array($normalized, ["sale", "rent", "both"], true)) {
+            return $normalized;
+        }
+
+        return $normalized;
     }
 
     private function normalizeStatus(mixed $value): string
@@ -1044,29 +1428,71 @@ class PropertyService
             [
                 "id" => 101,
                 "title" => "Modern Loft Center",
+                "description" => "Open-plan loft prepared for sale showcase appointments.",
+                "address" => "Calle Gran Via 45",
                 "city" => "Madrid",
+                "postal_code" => "28013",
                 "status" => "available",
+                "property_type" => "apartment",
+                "operation_mode" => "sale",
+                "sale_price" => 235000,
+                "rental_price" => null,
+                "garage_price_category_id" => null,
+                "garage_price" => null,
+                "bedrooms" => 1,
+                "bathrooms" => 1,
+                "rooms" => 2,
+                "elevator" => true,
                 "manager_id" => "mgr-001",
                 "provider_id" => null,
                 "price" => 235000,
+                "updated_at" => "2026-03-13T10:00:00Z",
             ],
             [
                 "id" => 102,
                 "title" => "Family Home North",
+                "description" => "Family-oriented detached home with active reservation.",
+                "address" => "Passeig del Nord 18",
                 "city" => "Barcelona",
+                "postal_code" => "08021",
                 "status" => "reserved",
+                "property_type" => "house",
+                "operation_mode" => "sale",
+                "sale_price" => 310000,
+                "rental_price" => null,
+                "garage_price_category_id" => 1,
+                "garage_price" => 18000,
+                "bedrooms" => 4,
+                "bathrooms" => 2,
+                "rooms" => 6,
+                "elevator" => false,
                 "manager_id" => "mgr-001",
                 "provider_id" => 2,
                 "price" => 310000,
+                "updated_at" => "2026-03-13T09:30:00Z",
             ],
             [
                 "id" => 103,
                 "title" => "City Apartment East",
+                "description" => "Compact apartment with recent maintenance history.",
+                "address" => "Avenida del Puerto 9",
                 "city" => "Valencia",
+                "postal_code" => "46023",
                 "status" => "available",
+                "property_type" => "apartment",
+                "operation_mode" => "rent",
+                "sale_price" => null,
+                "rental_price" => 1250,
+                "garage_price_category_id" => null,
+                "garage_price" => null,
+                "bedrooms" => 2,
+                "bathrooms" => 1,
+                "rooms" => 3,
+                "elevator" => true,
                 "manager_id" => "mgr-002",
                 "provider_id" => null,
-                "price" => 198000,
+                "price" => 1250,
+                "updated_at" => "2026-03-13T08:45:00Z",
             ],
         ]);
     }
@@ -1128,7 +1554,7 @@ class PropertyService
             "ok" => true,
             "status" => $status,
             "reason" => $reason,
-            "data" => $property,
+            "data" => $this->buildPropertyContractPayload($property),
         ];
     }
 
@@ -1176,13 +1602,65 @@ class PropertyService
 
         self::$runtimeOverrides[$id] = [
             "title" => $property["title"] ?? "Property {$id}",
+            "description" => $property["description"] ?? null,
+            "address" => $property["address"] ?? null,
             "city" => $property["city"] ?? "Unknown",
+            "postal_code" => $property["postal_code"] ?? null,
             "status" => $property["status"] ?? self::STATUS_AVAILABLE,
+            "property_type" => $property["property_type"] ?? null,
+            "operation_mode" => $property["operation_mode"] ?? null,
+            "sale_price" => $property["sale_price"] ?? null,
+            "rental_price" => $property["rental_price"] ?? null,
+            "garage_price_category_id" => $property["garage_price_category_id"] ?? null,
+            "garage_price" => $property["garage_price"] ?? null,
+            "bedrooms" => $property["bedrooms"] ?? null,
+            "bathrooms" => $property["bathrooms"] ?? null,
+            "rooms" => $property["rooms"] ?? null,
+            "elevator" => $property["elevator"] ?? null,
             "manager_id" => $property["manager_id"] ?? null,
             "provider_id" => $property["provider_id"] ?? null,
             "assigned_at" => $property["assigned_at"] ?? null,
             "handoff_note" => $property["handoff_note"] ?? null,
             "price" => $property["price"] ?? null,
+            "updated_at" => $property["updated_at"] ?? null,
         ];
+    }
+
+    private function buildPropertyContractPayload(array $property): array
+    {
+        $payload = $property;
+        $payload["price"] = $property["price"] ?? $this->resolveDisplayPrice($property);
+        $payload["pricing"] = [
+            "sale_price" => $property["sale_price"] ?? null,
+            "rental_price" => $property["rental_price"] ?? null,
+            "garage_price_category_id" => $property["garage_price_category_id"] ?? null,
+            "garage_price" => $property["garage_price"] ?? null,
+        ];
+        $payload["characteristics"] = [
+            "bedrooms" => $property["bedrooms"] ?? null,
+            "bathrooms" => $property["bathrooms"] ?? null,
+            "rooms" => $property["rooms"] ?? null,
+            "elevator" => $property["elevator"] ?? null,
+        ];
+        $payload["updated_at"] = $property["updated_at"] ?? null;
+
+        return $payload;
+    }
+
+    private function resolveDisplayPrice(array $property, bool $includeLegacyPrice = true): ?float
+    {
+        $fields = ["sale_price", "rental_price", "garage_price"];
+        if ($includeLegacyPrice) {
+            $fields[] = "price";
+        }
+
+        foreach ($fields as $field) {
+            $value = $this->asFloat($property[$field] ?? null);
+            if ($value !== null) {
+                return $value;
+            }
+        }
+
+        return null;
     }
 }

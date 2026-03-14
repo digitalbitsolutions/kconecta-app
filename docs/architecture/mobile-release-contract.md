@@ -748,6 +748,386 @@ Define the minimum environment and auth contract required for native app release
   - no endpoint removals
   - Wave 24 dashboard summary contract remains unchanged
   - queue endpoint extends manager dashboard parity without breaking prior consumers
+
+## Wave 26 Manager Priority Queue Action Completion Contract
+
+### Queue Action Completion Endpoint Contract
+
+- Endpoint:
+  - `POST /api/properties/priorities/queue/{queue_item_id}/complete`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Request shape (additive):
+  - `note` (optional string, max length bounded)
+  - `resolution_code` (optional enum: `assigned|deferred|resolved|dismissed`)
+- Response shape:
+  - `data.item`:
+    - `id` (queue item id)
+    - `property_id` (number)
+    - `category` (queue taxonomy category)
+    - `severity` (`high|medium|low`)
+    - `action` (`open_property|open_handoff|review_status`)
+    - `completed` (boolean)
+    - `completed_at` (ISO-8601 UTC)
+    - `resolution_code` (nullable string)
+    - `note` (nullable string)
+    - `updated_at` (ISO-8601 UTC)
+  - `meta.contract = manager-priority-queue-action-v1`
+  - `meta.flow = properties_priority_queue_complete`
+  - `meta.reason` (`queue_item_completed|validation_error|queue_item_not_found|queue_conflict`)
+  - `meta.retryable` (boolean)
+
+### Queue Action Guardrail Semantics
+
+- `401 TOKEN_EXPIRED`:
+  - one refresh attempt path, then session-expired fallback.
+- `401 TOKEN_INVALID|TOKEN_REVOKED`:
+  - deterministic hard session reset.
+- `403 ROLE_SCOPE_FORBIDDEN`:
+  - provider role cannot mutate manager queue state.
+- `404 QUEUE_ITEM_NOT_FOUND`:
+  - unknown queue id returns deterministic not-found envelope.
+- `409 QUEUE_ACTION_CONFLICT`:
+  - already-completed or stale queue action mutation.
+- `422 VALIDATION_ERROR`:
+  - invalid `resolution_code`/`note` payload validation.
+
+### Compatibility Notes
+
+- Wave 26 is additive:
+  - no endpoint removals
+  - `GET /api/properties/priorities/queue` contract remains stable
+  - completion endpoint only enriches manager action loop without breaking Wave 24/25 consumers
+
+## Wave 27 Manager Property Form Parity Contract
+
+### Manager Property Create/Edit Endpoint Contract
+
+- Endpoints:
+  - `POST /api/properties`
+  - `PATCH /api/properties/{id}`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Request shape (additive target contract):
+  - `title` (required string)
+  - `description` (required string)
+  - `address` (required string)
+  - `city` (required string)
+  - `postal_code` (required string)
+  - `status` (required enum: `available|reserved|maintenance`)
+  - `property_type` (required stable slug or catalog id)
+  - `operation_mode` (required enum: `sale|rent|both`)
+  - `sale_price` (nullable numeric, required when `operation_mode` includes `sale`)
+  - `rental_price` (nullable numeric, required when `operation_mode` includes `rent`)
+  - `garage_price_category_id` (nullable catalog id, conditional for garage inventory)
+  - `garage_price` (nullable numeric, required when `garage_price_category_id` is present)
+  - `bedrooms` (nullable integer, required for residential property types)
+  - `bathrooms` (nullable integer, required for residential property types)
+  - `rooms` (nullable integer)
+  - `elevator` (nullable boolean)
+  - `manager_id` (nullable string, server-owned default for manager role)
+- Success response shape:
+  - `data.property`:
+    - `id` (number)
+    - `title` (string)
+    - `description` (string)
+    - `address` (string)
+    - `city` (string)
+    - `postal_code` (string)
+    - `status` (`available|reserved|maintenance`)
+    - `property_type` (stable slug or resolved catalog object)
+    - `operation_mode` (`sale|rent|both`)
+    - `pricing`:
+      - `sale_price` (nullable numeric)
+      - `rental_price` (nullable numeric)
+      - `garage_price_category_id` (nullable number)
+      - `garage_price` (nullable numeric)
+    - `characteristics`:
+      - `bedrooms` (nullable integer)
+      - `bathrooms` (nullable integer)
+      - `rooms` (nullable integer)
+      - `elevator` (nullable boolean)
+    - `manager_id` (string)
+    - `updated_at` (ISO-8601 UTC)
+  - `meta.contract = manager-property-form-v1`
+  - `meta.flow = properties_create|properties_update`
+  - `meta.reason = property_created|property_updated`
+  - `meta.source = database|in_memory`
+
+### Deterministic Validation Semantics
+
+- Required field validation:
+  - During rollout, the enriched form fields are accepted additively and legacy minimal manager payloads remain valid.
+  - Once Wave 27 contract enforcement is enabled on the backend, empty `title`, `description`, `address`, `city`, `postal_code`, `property_type`, `operation_mode`, or `status` returns `422 VALIDATION_ERROR`.
+- Conditional pricing validation:
+  - `sale_price` required for `sale|both`.
+  - `rental_price` required for `rent|both`.
+  - `garage_price` required when `garage_price_category_id` is present.
+- Numeric validation:
+  - price fields must be numeric and non-negative.
+  - `bedrooms`, `bathrooms`, and `rooms` must be integers and non-negative.
+- Enum validation:
+  - `status` and `operation_mode` must map to allowed enums only.
+- Role validation:
+  - manager role cannot override another manager through arbitrary `manager_id`.
+- Error envelope mapping:
+  - `error.code = VALIDATION_ERROR`
+  - `error.fields` uses backend-owned field keys that match mobile inputs exactly.
+  - Example keys:
+    - `title`
+    - `description`
+    - `address`
+    - `city`
+    - `postal_code`
+    - `property_type`
+    - `operation_mode`
+    - `sale_price`
+    - `rental_price`
+    - `garage_price_category_id`
+    - `garage_price`
+    - `bedrooms`
+    - `bathrooms`
+    - `rooms`
+    - `status`
+
+### Error and Guardrail Semantics
+
+- `401 TOKEN_EXPIRED`:
+  - one refresh attempt path before session-expired fallback.
+- `401 TOKEN_INVALID|TOKEN_REVOKED`:
+  - deterministic hard session reset.
+- `403 ROLE_SCOPE_FORBIDDEN`:
+  - provider role or unauthorized manager scope cannot create/edit property inventory.
+- `404 PROPERTY_NOT_FOUND`:
+  - edit flow target is missing or inaccessible.
+- `409 PROPERTY_STATE_CONFLICT`:
+  - stale update or ownership/version conflict on edit.
+- `422 VALIDATION_ERROR`:
+  - deterministic field-level validation mapping for mobile form rendering.
+
+### Compatibility Notes
+
+- Wave 27 is additive:
+  - current minimal title/city/status/price payload remains backward compatible during rollout.
+  - enriched contract extends property form parity without breaking Wave 22-26 manager flows.
+  - detail/list/dashboard consumers may continue using their current read models while editor payload expands.
+
+## Wave 28 Manager Auth/Session UX Hardening Contract
+
+### Manager Login UX Rules
+
+- Manager login remains:
+  - `POST /api/auth/login`
+- Native manager login must default to blank credentials unless explicit bootstrap env values are provided for local diagnostics.
+- Production-shaped flow assumptions:
+  - env bootstrap credentials are optional debug-only helpers, not the primary contract.
+  - login screen must not rely on hidden defaults to enter the manager shell.
+
+### Success Contract Hardening
+
+- `POST /api/auth/login`
+- `POST /api/auth/refresh`
+- `GET /api/auth/me`
+- Successful manager-facing auth responses must remain aligned under `auth-session-v1` and provide:
+  - `data.access_token` where applicable
+  - `data.refresh_token` where applicable
+  - `data.role`
+  - `data.scope[]`
+  - `data.subject`
+  - `data.email`
+  - `data.display_name` (nullable/additive)
+  - `meta.contract = auth-session-v1`
+  - `meta.flow = login|refresh|me`
+  - `meta.reason = login_success|refresh_success|session_resolved`
+
+### Failure Envelope and Recovery Rules
+
+- Validation failure:
+  - `422 VALIDATION_ERROR`
+  - field-level feedback remains deterministic for `email` and `password` inputs.
+- Invalid credentials:
+  - `401 INVALID_CREDENTIALS`
+  - keep user on login screen
+  - preserve email input
+  - never enter authenticated shell
+- Session restore:
+  - persisted token present -> `GET /api/auth/me`
+  - `401 TOKEN_EXPIRED` -> one `refresh` attempt, then retry `me`
+  - unrecoverable `401 TOKEN_INVALID|TOKEN_REVOKED` -> clear session and route to `SessionExpired`
+  - `403 ROLE_SCOPE_FORBIDDEN` -> keep session state explicit and route to `Unauthorized`
+
+### Compatibility Notes
+
+- Wave 28 is additive over Wave 20 session parity:
+  - no endpoint removals
+  - no breaking removal of existing token fields
+  - success metadata is enriched so manager mobile can render deterministic login/session UX without dev-first assumptions
+
+## Wave 29 Manager Provider Handoff Evidence Contract
+
+### Assignment Success Evidence Rules
+
+- Endpoint remains:
+  - `POST /api/properties/{id}/assign-provider`
+- Allowed roles remain:
+  - `manager`
+  - `admin`
+- Existing success fields remain backward compatible:
+  - `data.property_id`
+  - `data.provider_id`
+  - `data.assigned_at`
+  - `data.property`
+  - `meta.contract = manager-provider-handoff-v1`
+  - `meta.flow = properties_assign_provider`
+  - `meta.reason = provider_assigned`
+
+### Additive Success Payload
+
+- Success response adds assignment evidence so manager mobile can confirm mutation outcome without a follow-up property-detail fetch:
+  - `data.assignment`
+    - `assigned` (`true`)
+    - `state` (`assigned`)
+    - `assigned_at` (ISO-8601 UTC)
+    - `note` (nullable string)
+    - `provider`
+      - `id`
+      - `name`
+      - `category`
+      - `city`
+      - `status`
+      - `rating`
+  - `data.latest_timeline_event`
+    - `id`
+    - `type` (`assignment`)
+    - `occurred_at` (ISO-8601 UTC)
+    - `actor`
+    - `summary`
+    - `metadata`
+
+### Mobile Consumption Rules
+
+- Manager handoff screen must treat `assign-provider` response as the primary success source.
+- Mobile must not require `GET /api/properties/{id}` immediately after assignment just to render success evidence.
+- Property detail refresh remains allowed after navigation, but it is a secondary consistency step, not a success prerequisite.
+- If additive evidence fields are missing during rollout:
+  - use existing success path
+  - mark response as partial evidence in diagnostics-only mode
+  - keep navigation deterministic back to property detail
+
+### Error and Recovery Semantics
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt path, then retry assignment once.
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`.
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - keep authenticated state explicit and route to `Unauthorized`.
+- `409 ASSIGNMENT_CONFLICT`
+  - keep manager on handoff surface.
+  - preserve selected provider + note input.
+  - show deterministic reload/retry CTA.
+- `422 VALIDATION_ERROR`
+  - keep current inputs and show deterministic validation copy.
+
+### Compatibility Notes
+
+- Wave 29 is additive over Wave 19 and Wave 21:
+  - no endpoint removals
+  - no breaking field removals from `manager-provider-handoff-v1`
+  - `assignment` and `latest_timeline_event` are additive fields in assignment success payload
+
+## Wave 30 Manager Provider Directory and Profile Contract
+
+### Provider Directory Read Contract
+
+- Endpoint:
+  - `GET /api/providers`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Provider role behavior:
+  - existing provider self-service reads remain valid for provider runtime
+  - manager directory contract must not require provider-role tokens
+- Request query parameters:
+  - `search` (free-text, optional)
+  - `city` (optional)
+  - `category` (optional)
+  - `status` (optional)
+  - `page` (optional, integer)
+  - `per_page` (optional, integer)
+- Success response minimum shape:
+  - `data[]`
+    - `id`
+    - `name`
+    - `category`
+    - `city`
+    - `status`
+    - `rating`
+    - `availability_summary`
+      - `label`
+      - `next_open_slot` (nullable)
+    - `services_preview[]`
+  - `meta.contract = manager-provider-directory-v1`
+  - `meta.filters`
+  - `meta.pagination`
+  - `meta.source`
+
+### Provider Profile Detail Contract
+
+- Endpoint:
+  - `GET /api/providers/{id}`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Success response minimum shape:
+  - `data.id`
+  - `data.name`
+  - `data.category`
+  - `data.city`
+  - `data.status`
+  - `data.rating`
+  - `data.bio` (nullable)
+  - `data.phone` (nullable/masked by policy)
+  - `data.email` (nullable/masked by policy)
+  - `data.services[]`
+  - `data.coverage[]`
+  - `data.availability_summary`
+  - `data.metrics`
+    - `completed_jobs`
+    - `response_time_hours`
+    - `customer_score`
+  - `meta.contract = manager-provider-directory-v1`
+  - `meta.source`
+
+### Manager Mobile Consumption Rules
+
+- Manager directory and provider profile remain read-only surfaces in Wave 30.
+- Manager app must be able to render provider list cards from `GET /api/providers` without composing profile data from unrelated property or handoff payloads.
+- Provider profile screen must accept list payload as preview context, but authoritative detail rendering comes from `GET /api/providers/{id}`.
+- Empty list responses are valid business outcomes and must not be treated as transport failures.
+
+### Error and Recovery Semantics
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt, then retry current read once.
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`.
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - keep authenticated state explicit and route to `Unauthorized`.
+- `404 PROVIDER_NOT_FOUND`
+  - keep manager app authenticated and render deterministic profile not-found state.
+- transport/server errors
+  - keep current screen mounted and expose retry CTA without clearing filter state.
+
+### Compatibility Notes
+
+- Wave 30 is additive over existing provider reads and manager parity flows:
+  - no endpoint removals
+  - no breaking removal of provider detail fields already consumed by provider runtime
+  - `manager-provider-directory-v1` standardizes manager-facing list/detail payload expectations without changing auth lifecycle contracts
+
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):

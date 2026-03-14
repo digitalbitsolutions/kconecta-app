@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 class PropertyApiTest extends TestCase
@@ -506,6 +507,117 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("meta.reason", "property_updated");
     }
 
+    public function test_manager_can_create_property_with_enriched_wave27_form_contract(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-MANAGER-ID" => "mgr-wave27",
+            ])
+            ->postJson("/api/properties", [
+                "title" => "Wave 27 Penthouse",
+                "description" => "Expanded property form contract coverage for manager create flow.",
+                "address" => "Calle Serrano 120",
+                "city" => "Madrid",
+                "postal_code" => "28006",
+                "status" => "available",
+                "property_type" => "apartment",
+                "operation_mode" => "sale",
+                "sale_price" => 420000,
+                "bedrooms" => 3,
+                "bathrooms" => 2,
+                "rooms" => 5,
+                "elevator" => true,
+            ]);
+
+        $response
+            ->assertStatus(201)
+            ->assertJsonPath("data.title", "Wave 27 Penthouse")
+            ->assertJsonPath("data.description", "Expanded property form contract coverage for manager create flow.")
+            ->assertJsonPath("data.address", "Calle Serrano 120")
+            ->assertJsonPath("data.city", "Madrid")
+            ->assertJsonPath("data.postal_code", "28006")
+            ->assertJsonPath("data.property_type", "apartment")
+            ->assertJsonPath("data.operation_mode", "sale")
+            ->assertJsonPath("data.manager_id", "mgr-wave27")
+            ->assertJsonPath("data.price", 420000)
+            ->assertJsonPath("data.pricing.sale_price", 420000)
+            ->assertJsonPath("data.characteristics.bedrooms", 3)
+            ->assertJsonPath("data.characteristics.bathrooms", 2)
+            ->assertJsonPath("data.characteristics.elevator", true)
+            ->assertJsonPath("meta.contract", "manager-property-form-v1")
+            ->assertJsonPath("meta.flow", "properties_create")
+            ->assertJsonPath("meta.reason", "property_created");
+
+        $updatedAt = (string) $response->json("data.updated_at", "");
+        $this->assertNotSame("", trim($updatedAt));
+    }
+
+    public function test_enriched_property_form_returns_deterministic_validation_errors(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties", [
+                "title" => "Wave 27 Invalid Property",
+                "city" => "Madrid",
+                "status" => "available",
+                "property_type" => "apartment",
+                "operation_mode" => "both",
+                "garage_price_category_id" => 2,
+            ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonPath("error.code", "VALIDATION_ERROR")
+            ->assertJsonPath("meta.contract", "manager-property-form-v1")
+            ->assertJsonPath("meta.flow", "properties_create")
+            ->assertJsonPath("meta.reason", "validation_error")
+            ->assertJsonPath("meta.retryable", true)
+            ->assertJsonPath("error.fields.sale_price.0", "Sale price is required for the selected operation mode.")
+            ->assertJsonPath("error.fields.rental_price.0", "Rental price is required for the selected operation mode.")
+            ->assertJsonPath("error.fields.garage_price.0", "Garage price is required when a garage price category is selected.")
+            ->assertJsonPath("error.fields.bedrooms.0", "Bedrooms are required for residential property types.")
+            ->assertJsonPath("error.fields.bathrooms.0", "Bathrooms are required for residential property types.");
+    }
+
+    public function test_manager_can_edit_enriched_property_form_fields(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-MANAGER-ID" => "mgr-wave27",
+            ])
+            ->patchJson("/api/properties/101", [
+                "description" => "Updated Wave 27 property description.",
+                "address" => "Calle Alcala 87",
+                "postal_code" => "28009",
+                "property_type" => "apartment",
+                "operation_mode" => "both",
+                "sale_price" => 440000,
+                "rental_price" => 1800,
+                "bedrooms" => 2,
+                "bathrooms" => 2,
+                "rooms" => 4,
+                "elevator" => false,
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("data.id", 101)
+            ->assertJsonPath("data.description", "Updated Wave 27 property description.")
+            ->assertJsonPath("data.address", "Calle Alcala 87")
+            ->assertJsonPath("data.postal_code", "28009")
+            ->assertJsonPath("data.operation_mode", "both")
+            ->assertJsonPath("data.price", 440000)
+            ->assertJsonPath("data.pricing.sale_price", 440000)
+            ->assertJsonPath("data.pricing.rental_price", 1800)
+            ->assertJsonPath("data.characteristics.rooms", 4)
+            ->assertJsonPath("data.characteristics.elevator", false)
+            ->assertJsonPath("meta.contract", "manager-property-form-v1")
+            ->assertJsonPath("meta.flow", "properties_update")
+            ->assertJsonPath("meta.reason", "property_updated");
+    }
+
     public function test_property_update_requires_editable_fields(): void
     {
         $response = $this
@@ -538,6 +650,33 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
             ->assertJsonPath("meta.flow", "properties_create")
             ->assertJsonPath("meta.reason", "role_scope_forbidden")
+            ->assertJsonPath("meta.retryable", false);
+    }
+
+    public function test_property_form_create_requires_valid_token_for_enriched_payload(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer invalid-token"])
+            ->postJson("/api/properties", [
+                "title" => "Unauthorized Wave 27 Property",
+                "description" => "Should not be created",
+                "address" => "Invalid Route 1",
+                "city" => "Madrid",
+                "postal_code" => "28001",
+                "status" => "available",
+                "property_type" => "apartment",
+                "operation_mode" => "sale",
+                "sale_price" => 100000,
+                "bedrooms" => 1,
+                "bathrooms" => 1,
+            ]);
+
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("error.code", "TOKEN_INVALID")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_create")
+            ->assertJsonPath("meta.reason", "token_invalid")
             ->assertJsonPath("meta.retryable", false);
     }
 
@@ -686,6 +825,13 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("data.provider_id", 1)
             ->assertJsonPath("data.property.provider_id", 1)
             ->assertJsonPath("data.property.manager_id", "mgr-009")
+            ->assertJsonPath("data.assignment.assigned", true)
+            ->assertJsonPath("data.assignment.state", "assigned")
+            ->assertJsonPath("data.assignment.provider.id", 1)
+            ->assertJsonPath("data.assignment.provider.name", "CleanHome Pro")
+            ->assertJsonPath("data.assignment.note", "Priority match for tenant request")
+            ->assertJsonPath("data.latest_timeline_event.type", "assignment")
+            ->assertJsonPath("data.latest_timeline_event.metadata.provider_id", 1)
             ->assertJsonPath("meta.contract", "manager-provider-handoff-v1")
             ->assertJsonPath("meta.flow", "properties_assign_provider")
             ->assertJsonPath("meta.reason", "provider_assigned");
@@ -905,6 +1051,12 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("data.property_id", 101)
             ->assertJsonPath("data.provider_id", 1)
             ->assertJsonPath("data.property.provider_id", 1)
+            ->assertJsonPath("data.assignment.assigned", true)
+            ->assertJsonPath("data.assignment.state", "assigned")
+            ->assertJsonPath("data.assignment.provider.id", 1)
+            ->assertJsonPath("data.assignment.note", "QA wave19 assignment")
+            ->assertJsonPath("data.latest_timeline_event.type", "assignment")
+            ->assertJsonPath("data.latest_timeline_event.metadata.assignment_state", "assigned")
             ->assertJsonPath("meta.contract", "manager-provider-handoff-v1")
             ->assertJsonPath("meta.flow", "properties_assign_provider")
             ->assertJsonPath("meta.reason", "provider_assigned");
@@ -984,6 +1136,39 @@ class PropertyApiTest extends TestCase
         );
     }
 
+    public function test_wave29_assign_provider_returns_additive_assignment_evidence_when_contract_is_ready(): void
+    {
+        $success = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-MANAGER-ID" => "mgr-wave29-qa",
+            ])
+            ->postJson("/api/properties/101/assign-provider", [
+                "provider_id" => 1,
+                "note" => "Wave 29 QA assignment evidence",
+            ]);
+
+        if (!$this->isWave29AssignmentEvidenceReady($success)) {
+            $this->markTestIncomplete(
+                "Wave 29 additive assignment evidence contract is not merged in this branch yet."
+            );
+            return;
+        }
+
+        $success
+            ->assertOk()
+            ->assertJsonPath("meta.contract", "manager-provider-handoff-v1")
+            ->assertJsonPath("meta.flow", "properties_assign_provider")
+            ->assertJsonPath("meta.reason", "provider_assigned")
+            ->assertJsonPath("data.assignment.assigned", true)
+            ->assertJsonPath("data.assignment.state", "assigned")
+            ->assertJsonPath("data.assignment.note", "Wave 29 QA assignment evidence")
+            ->assertJsonPath("data.assignment.provider.id", 1)
+            ->assertJsonPath("data.assignment.provider.name", "CleanHome Pro")
+            ->assertJsonPath("data.latest_timeline_event.type", "assignment")
+            ->assertJsonPath("data.latest_timeline_event.metadata.provider_id", 1);
+    }
+
     public function test_wave21_assignment_context_contract_when_endpoint_is_available(): void
     {
         $unassigned = $this
@@ -1053,6 +1238,10 @@ class PropertyApiTest extends TestCase
                             "sla_state",
                             "updated_at",
                             "action",
+                            "completed",
+                            "completed_at",
+                            "resolution_code",
+                            "note",
                         ],
                     ],
                 ],
@@ -1120,6 +1309,44 @@ class PropertyApiTest extends TestCase
         $this->assertSame($expected, $items, "Priority queue must be deterministic for identical inputs.");
     }
 
+    public function test_manager_priority_queue_exposes_valid_sla_and_action_fields(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue");
+
+        $response->assertOk();
+        $items = $response->json("data.items", []);
+        $this->assertNotEmpty($items);
+
+        foreach ($items as $item) {
+            $this->assertContains(
+                strtolower((string) ($item["category"] ?? "")),
+                ["provider_assignment", "maintenance_follow_up", "portfolio_review", "quality_alert"]
+            );
+            $this->assertContains(
+                strtolower((string) ($item["severity"] ?? "")),
+                ["high", "medium", "low"]
+            );
+            $this->assertContains(
+                strtolower((string) ($item["sla_state"] ?? "")),
+                ["on_track", "at_risk", "overdue", "no_deadline"]
+            );
+            $this->assertContains(
+                strtolower((string) ($item["action"] ?? "")),
+                ["open_handoff", "open_property", "review_status"]
+            );
+
+            $slaDueAt = $item["sla_due_at"] ?? null;
+            if ($slaDueAt === null) {
+                $this->assertSame("no_deadline", strtolower((string) ($item["sla_state"] ?? "")));
+                continue;
+            }
+
+            $this->assertNotSame("", trim((string) $slaDueAt));
+        }
+    }
+
     public function test_manager_priority_queue_supports_filter_and_limit_query_params(): void
     {
         $response = $this
@@ -1153,7 +1380,8 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
             ->assertJsonPath("meta.contract", "auth-session-v1")
             ->assertJsonPath("meta.flow", "properties_priority_queue")
-            ->assertJsonPath("meta.reason", "role_scope_forbidden");
+            ->assertJsonPath("meta.reason", "role_scope_forbidden")
+            ->assertJsonPath("meta.retryable", false);
     }
 
     public function test_invalid_bearer_token_returns_unauthorized_for_priority_queue_endpoint(): void
@@ -1167,7 +1395,8 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("error.code", "TOKEN_INVALID")
             ->assertJsonPath("meta.contract", "auth-session-v1")
             ->assertJsonPath("meta.flow", "properties_priority_queue")
-            ->assertJsonPath("meta.reason", "token_invalid");
+            ->assertJsonPath("meta.reason", "token_invalid")
+            ->assertJsonPath("meta.retryable", false);
     }
 
     public function test_priority_queue_rejects_invalid_filter_values(): void
@@ -1179,6 +1408,153 @@ class PropertyApiTest extends TestCase
         $response
             ->assertStatus(422)
             ->assertJsonValidationErrors(["severity", "limit"]);
+    }
+
+    public function test_manager_can_complete_priority_queue_item_and_queue_reflects_completion_state(): void
+    {
+        $queueSnapshot = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue");
+
+        $queueSnapshot->assertOk();
+        $items = $queueSnapshot->json("data.items", []);
+        $this->assertNotEmpty($items);
+
+        $queueItemId = (string) ($items[0]["id"] ?? "");
+        $this->assertNotSame("", $queueItemId);
+
+        $completion = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/priorities/queue/{$queueItemId}/complete", [
+                "resolution_code" => "resolved",
+                "note" => "Resolved during wave26 backend regression",
+            ]);
+
+        $completion
+            ->assertOk()
+            ->assertJsonPath("meta.contract", "manager-priority-queue-action-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_complete")
+            ->assertJsonPath("meta.reason", "queue_item_completed")
+            ->assertJsonPath("data.item.id", $queueItemId)
+            ->assertJsonPath("data.item.completed", true)
+            ->assertJsonPath("data.item.resolution_code", "resolved")
+            ->assertJsonPath("data.item.note", "Resolved during wave26 backend regression");
+
+        $completedAt = (string) $completion->json("data.item.completed_at", "");
+        $this->assertNotSame("", trim($completedAt));
+
+        $afterCompletion = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue");
+        $afterCompletion->assertOk();
+
+        $itemsAfter = $afterCompletion->json("data.items", []);
+        $matched = array_values(
+            array_filter(
+                $itemsAfter,
+                static fn (array $item): bool => (string) ($item["id"] ?? "") === $queueItemId
+            )
+        );
+
+        $this->assertCount(1, $matched);
+        $this->assertTrue((bool) ($matched[0]["completed"] ?? false));
+        $this->assertSame("resolved", (string) ($matched[0]["resolution_code"] ?? ""));
+    }
+
+    public function test_priority_queue_complete_endpoint_is_forbidden_for_provider_role(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-ROLE" => "provider",
+            ])
+            ->postJson("/api/properties/priorities/queue/priority-provider-assignment-101/complete", [
+                "resolution_code" => "resolved",
+            ]);
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_complete")
+            ->assertJsonPath("meta.reason", "role_scope_forbidden")
+            ->assertJsonPath("meta.retryable", false);
+    }
+
+    public function test_invalid_bearer_token_returns_unauthorized_for_priority_queue_complete_endpoint(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer invalid-token"])
+            ->postJson("/api/properties/priorities/queue/priority-provider-assignment-101/complete", [
+                "resolution_code" => "resolved",
+            ]);
+
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("error.code", "TOKEN_INVALID")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_complete")
+            ->assertJsonPath("meta.reason", "token_invalid")
+            ->assertJsonPath("meta.retryable", false);
+    }
+
+    public function test_priority_queue_complete_returns_not_found_for_unknown_queue_item(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/priorities/queue/priority-missing-999/complete", [
+                "resolution_code" => "resolved",
+            ]);
+
+        $response
+            ->assertNotFound()
+            ->assertJsonPath("error.code", "QUEUE_ITEM_NOT_FOUND")
+            ->assertJsonPath("meta.contract", "manager-priority-queue-action-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_complete")
+            ->assertJsonPath("meta.reason", "queue_item_not_found")
+            ->assertJsonPath("queue_item_id", "priority-missing-999");
+    }
+
+    public function test_priority_queue_complete_rejects_invalid_payload_values(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/priorities/queue/priority-provider-assignment-101/complete", [
+                "resolution_code" => "invalid",
+                "note" => str_repeat("a", 301),
+            ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonPath("error.code", "VALIDATION_ERROR")
+            ->assertJsonPath("meta.contract", "manager-priority-queue-action-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_complete")
+            ->assertJsonPath("meta.reason", "validation_error")
+            ->assertJsonValidationErrors(["resolution_code", "note"]);
+    }
+
+    public function test_priority_queue_complete_returns_conflict_when_item_already_completed(): void
+    {
+        $first = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/priorities/queue/priority-provider-assignment-101/complete", [
+                "resolution_code" => "resolved",
+            ]);
+        $first->assertOk();
+
+        $second = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->postJson("/api/properties/priorities/queue/priority-provider-assignment-101/complete", [
+                "resolution_code" => "resolved",
+            ]);
+
+        $second
+            ->assertStatus(409)
+            ->assertJsonPath("error.code", "QUEUE_ACTION_CONFLICT")
+            ->assertJsonPath("meta.contract", "manager-priority-queue-action-v1")
+            ->assertJsonPath("meta.flow", "properties_priority_queue_complete")
+            ->assertJsonPath("meta.reason", "queue_item_already_completed")
+            ->assertJsonPath("meta.retryable", true);
     }
 
     private function assertValidDataSource(mixed $source): void
@@ -1202,5 +1578,17 @@ class PropertyApiTest extends TestCase
     private function isWave21AssignmentContextEndpointUnavailable(int $status): bool
     {
         return $status === 404 || $status === 405;
+    }
+
+    private function isWave29AssignmentEvidenceReady(TestResponse $response): bool
+    {
+        if ($response->status() !== 200) {
+            return false;
+        }
+
+        return $response->json("meta.contract") === "manager-provider-handoff-v1"
+            && $response->json("meta.flow") === "properties_assign_provider"
+            && is_array($response->json("data.assignment"))
+            && is_array($response->json("data.latest_timeline_event"));
     }
 }

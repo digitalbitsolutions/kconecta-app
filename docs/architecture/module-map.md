@@ -32,8 +32,10 @@
   - Weekly availability slot orchestration for provider workflows.
   - Identity-bound availability writes for provider self-scope.
   - Provider quality indicators (rating, active status).
+  - Manager-facing provider directory and profile read projections.
 - Main contracts:
-  - `/api/providers/{id}` (self/admin reads)
+  - `/api/providers` (manager/admin directory reads)
+  - `/api/providers/{id}` (manager/admin detail reads, provider self-read remains valid)
   - `/api/providers/{id}/availability` (read and mutate with role guard)
 
 ### Admin Module
@@ -65,7 +67,7 @@
 
 ## Surface to Module Mapping
 
-- `manager-app` -> Property Module + Auth Session Module.
+- `manager-app` -> Property Module + Provider Module + Auth Session Module.
 - `provider-app` -> Provider Module + Auth Session Module.
 - `admin-surface` -> Admin Module + Auth Session Module.
 
@@ -391,6 +393,187 @@
 - Manager mobile module owns:
   - queue rendering states
   - route actions derived from backend `action` hints
+
+## Wave 26 Manager Queue Action Completion Boundary
+
+### Queue Action Mutation Layer
+
+- Responsibilities:
+  - Resolve manager queue completion mutation for actionable queue items.
+  - Apply deterministic completion metadata (`completed`, `completed_at`, `resolution_code`, `note`).
+  - Enforce idempotent-safe conflict semantics for repeated queue actions.
+- Main contracts:
+  - `POST /api/properties/priorities/queue/{queue_item_id}/complete`
+  - Existing dependency:
+    - `GET /api/properties/priorities/queue` (Wave 25 queue snapshot source)
+
+### Queue Completion Validation and Conflict Layer
+
+- Responsibilities:
+  - Validate bounded completion payload fields (`resolution_code`, `note`).
+  - Emit deterministic envelopes for not-found/conflict/validation outcomes.
+  - Preserve manager-only role guard and auth-session envelope invariants.
+- Guardrail contract outcomes:
+  - `401 TOKEN_INVALID|TOKEN_EXPIRED`
+  - `403 ROLE_SCOPE_FORBIDDEN`
+  - `404 QUEUE_ITEM_NOT_FOUND`
+  - `409 QUEUE_ACTION_CONFLICT`
+  - `422 VALIDATION_ERROR`
+
+### Ownership Notes
+
+- Property module owns:
+  - queue completion mutation semantics
+  - completion conflict detection and deterministic reason codes
+- Auth Session module owns:
+  - token/role envelope consistency for mutation route
+- Manager mobile module owns:
+  - optimistic completion UX state
+  - retry and fallback navigation for mutation failures
+
+## Wave 27 Manager Property Form Parity Boundary
+
+### Property Form Schema Composition Layer
+
+- Responsibilities:
+  - Define canonical create/edit schema for manager property inventory.
+  - Normalize legacy CRM field taxonomy into stable mobile contract groups.
+  - Keep create and edit payloads additive over the current minimal property mutation contract.
+- Main contracts:
+  - `POST /api/properties`
+  - `PATCH /api/properties/{id}`
+
+### Property Form Validation Orchestration Layer
+
+- Responsibilities:
+  - Enforce deterministic required and conditional validation rules for enriched property inputs.
+  - Emit field-keyed `422 VALIDATION_ERROR` envelopes aligned to mobile input ids.
+  - Protect manager scope ownership for create/edit mutations.
+- Guardrails:
+  - `401` auth envelope from Auth Session Module.
+  - `403 ROLE_SCOPE_FORBIDDEN` for unauthorized roles/scopes.
+  - `404 PROPERTY_NOT_FOUND` for edit targets outside allowed scope.
+  - `409 PROPERTY_FORM_CONFLICT` for stale or conflicting edits.
+
+### Ownership Notes
+
+- Property module owns:
+  - canonical property form schema
+  - conditional pricing and characteristics validation
+  - create/edit persistence semantics and response shaping
+- Auth Session module owns:
+  - session expiry and role envelope invariants
+- Manager mobile module owns:
+  - local form draft state
+  - grouped field presentation
+  - client-side pre-validation and deterministic error rendering
+- CRM web parity remains source reference for field taxonomy, but native manager app consumes only the public API contract.
+
+## Wave 28 Manager Auth/Session UX Boundary
+
+### Auth Session Presentation Layer
+
+- Responsibilities:
+  - expose deterministic success metadata for manager login, refresh, and me flows
+  - keep auth-session-v1 envelope parity across success and failure paths
+  - separate debug/bootstrap helpers from production-shaped session bootstrap behavior
+- Main contracts:
+  - `POST /api/auth/login`
+  - `POST /api/auth/refresh`
+  - `GET /api/auth/me`
+- Success metadata baseline:
+  - `data.role`
+  - `data.scope[]`
+  - `data.subject`
+  - `data.email`
+  - `data.display_name` (additive)
+  - `meta.flow`
+  - `meta.reason`
+
+### Manager Login Session Shell Boundary
+
+- Responsibilities:
+  - start manager auth flow from blank credentials by default
+  - resolve persisted sessions through `auth/me` before mounting protected manager screens
+  - collapse invalid/expired/forbidden outcomes into deterministic `Login`, `SessionExpired`, or `Unauthorized` routes
+- Ownership notes:
+  - Auth Session module owns token lifecycle and success/error contract metadata
+  - Manager mobile module owns login form state, session restore UX, and recovery navigation
+  - Debug env bootstrap values remain opt-in local tooling, not a required runtime dependency
+
+## Wave 29 Manager Handoff Evidence Boundary
+
+### Assignment Evidence Composition Layer
+
+- Responsibilities:
+  - enrich `POST /api/properties/{id}/assign-provider` success payload with enough assignment evidence for manager mobile confirmation
+  - keep legacy success fields intact while adding assignment snapshot and latest assignment timeline event
+  - ensure evidence payload is deterministic and derived from the same backend mutation transaction
+- Main contracts:
+  - `POST /api/properties/{id}/assign-provider`
+  - dependent read models reused for composition:
+    - assignment state owned by Property module
+    - provider snapshot owned by Provider module
+    - latest assignment event owned by Property timeline composition
+
+### Ownership Rules
+
+- Property module owns:
+  - assignment mutation
+  - authoritative `assigned_at`, `note`, and assigned property state
+  - latest assignment timeline event serialization
+- Provider module owns:
+  - provider snapshot fields returned inside assignment evidence:
+    - `id`
+    - `name`
+    - `category`
+    - `city`
+    - `status`
+    - `rating`
+- Manager mobile module owns:
+  - rendering success evidence in handoff UI
+  - preserving retry/recovery states on conflict/validation/transport failures
+  - optional post-navigation property detail refresh
+
+### Boundary Decision
+
+- Assignment confirmation evidence is backend-owned.
+- Manager mobile must not reconstruct assignment evidence by issuing an immediate second `GET /api/properties/{id}` just to infer success.
+- Property detail refresh remains a separate read concern for long-lived consistency, not part of mutation confirmation responsibility.
+
+## Wave 30 Manager Provider Directory Boundary
+
+### Provider Directory/Profile Read Layer
+
+- Responsibilities:
+  - expose deterministic provider directory results for manager role
+  - expose provider profile detail read model for manager review surfaces
+  - normalize filters, pagination metadata, and not-found semantics for native consumption
+- Main contracts:
+  - `GET /api/providers`
+  - `GET /api/providers/{id}`
+
+### Ownership Rules
+
+- Provider module owns:
+  - provider directory list serialization
+  - provider profile detail serialization
+  - service/coverage/availability summary read composition
+  - role guard semantics for manager/admin reads
+- Manager mobile module owns:
+  - directory filter state
+  - navigation from directory to provider profile
+  - retry and empty-state rendering
+- Auth Session module owns:
+  - `401` recovery path
+  - unauthorized/session-expired transitions
+
+### Boundary Decision
+
+- Wave 30 establishes provider directory/profile parity as backend-owned read contracts.
+- Manager mobile must not reconstruct provider profile by stitching together handoff payloads, property assignment context, or partial provider previews.
+- Directory list payload is a preview contract; profile detail remains the authoritative read surface.
+
 ## Compatibility Rules
 
 - Existing CRM contracts remain valid while native apps are onboarded.

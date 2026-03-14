@@ -173,6 +173,9 @@ class AuthController extends Controller
                 "data" => [
                     "subject" => $email,
                     "email" => $email,
+                    "display_name" => $role === "admin"
+                        ? "Admin"
+                        : ($role === "provider" && $providerId ? sprintf("Provider #%d", $providerId) : "Manager"),
                     "role" => $role,
                     "scope" => array_values($scope),
                     "provider_id" => $providerId,
