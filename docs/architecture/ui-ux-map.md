@@ -1133,3 +1133,50 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend additive decision summary and timeline metadata (`BE-031`).
 3. Manager assignment detail summary/timeline UI (`MOB-032`).
 4. Regression matrix for assignment decision timeline workflow (`QA-022`).
+
+## Wave 36 Manager Assignment Center Decision Rollup State Map
+
+### Assignment Center Card States
+
+- `assignment_center_rollup_loading`
+  - queue list is available, but additive decision rollup metadata is still resolving
+  - keep existing assignment center skeleton/loading behavior stable
+- `assignment_center_rollup_ready`
+  - queue card renders latest decision label, status badge, and recommended next action
+- `assignment_center_rollup_with_evidence`
+  - queue card surfaces evidence count and evidence-present affordance without opening detail
+- `assignment_center_rollup_no_evidence`
+  - queue card renders latest decision state explicitly showing no evidence attached
+- `assignment_center_rollup_provider_missing`
+  - queue card highlights provider-missing state with visible remediation CTA back into provider selection
+- `assignment_center_rollup_terminal_completed`
+  - queue card shows completed badge and suppresses mutation-oriented recommendation copy
+- `assignment_center_rollup_terminal_cancelled`
+  - queue card shows cancelled badge and suppresses mutation-oriented recommendation copy
+- `assignment_center_rollup_missing`
+  - fallback to baseline Wave 31 assignment center card when additive payload is absent
+
+### Interaction Rules
+
+- Decision rollup is a list-level hint surface:
+  - it must not replace assignment detail as the authoritative review screen
+- Assignment center filters remain stable when rollup metadata refreshes after a mutation performed elsewhere.
+- Queue cards must not derive badge copy or recommendation text from local optimistic state alone.
+- Evidence count shown in the list is informational:
+  - opening detail remains required for evidence review and upload actions
+- Missing additive payload must degrade cleanly to the baseline assignment center presentation.
+
+### Navigation and Recovery Rules
+
+- Manager can enter assignment detail from any queue card regardless of rollup presence.
+- `Unauthorized`, `SessionExpired`, and generic retry states continue to use shared manager recovery screens.
+- If a queue item disappears between list read and detail navigation:
+  - keep assignment center list mounted
+  - route to shared missing-assignment recovery state without clearing current filters
+
+### Wave 36 Delivery Sequencing
+
+1. Assignment center decision rollup contract/state map (`ARCH-030`).
+2. Backend additive queue-list decision rollup serialization (`BE-032`).
+3. Manager assignment center decision rollup UI (`MOB-033`).
+4. Regression matrix for assignment center decision rollup workflow (`QA-023`).
