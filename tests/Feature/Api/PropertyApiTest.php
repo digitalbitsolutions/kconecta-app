@@ -1365,6 +1365,12 @@ class PropertyApiTest extends TestCase
         $this->assertCount(1, $items);
         $this->assertSame("provider_assignment", $items[0]["category"] ?? null);
         $this->assertSame("high", $items[0]["severity"] ?? null);
+        $this->assertSame("unassigned", $items[0]["decision_rollup"]["current_state"] ?? null);
+        $this->assertSame("Awaiting assignment", $items[0]["decision_rollup"]["latest_decision_label"] ?? null);
+        $this->assertSame(0, $items[0]["decision_rollup"]["evidence_count"] ?? null);
+        $this->assertSame(false, $items[0]["decision_rollup"]["has_evidence"] ?? null);
+        $this->assertSame("Awaiting assignment", $items[0]["decision_rollup"]["status_badge"] ?? null);
+        $this->assertSame("reassign", $items[0]["decision_rollup"]["next_recommended_action"] ?? null);
     }
 
     public function test_manager_priority_queue_supports_status_and_search_filters(): void
@@ -1928,6 +1934,22 @@ class PropertyApiTest extends TestCase
 
         $this->assertSame("evidence_uploaded", $detail->json("data.timeline.0.metadata.event_kind"));
         $this->assertSame(1, $detail->json("data.timeline.0.metadata.evidence_count"));
+
+        $queue = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue?category=provider_assignment&search=Loft&limit=5");
+
+        $queue->assertOk();
+        $item = collect($queue->json("data.items", []))
+            ->first(static fn (array $candidate): bool => ($candidate["id"] ?? null) === "priority-provider-assignment-101");
+
+        $this->assertIsArray($item);
+        $this->assertSame("assigned", $item["decision_rollup"]["current_state"] ?? null);
+        $this->assertSame("Evidence uploaded", $item["decision_rollup"]["latest_decision_label"] ?? null);
+        $this->assertSame(1, $item["decision_rollup"]["evidence_count"] ?? null);
+        $this->assertSame(true, $item["decision_rollup"]["has_evidence"] ?? null);
+        $this->assertSame("Evidence", $item["decision_rollup"]["status_badge"] ?? null);
+        $this->assertSame("complete", $item["decision_rollup"]["next_recommended_action"] ?? null);
     }
 
     public function test_assignment_evidence_upload_returns_unauthorized_for_invalid_token(): void

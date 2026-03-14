@@ -646,6 +646,9 @@ class PropertyService
 
             $item["sla_state"] = $this->resolveQueueSlaState($item["sla_due_at"]);
             $item = $this->applyQueueCompletionState($item);
+            if (($item["category"] ?? null) === "provider_assignment") {
+                $item["decision_rollup"] = $this->buildPriorityQueueDecisionRollup($item["id"], $row);
+            }
             $items[] = $item;
         }
 
@@ -1935,6 +1938,25 @@ class PropertyService
         ];
     }
 
+    private function buildPriorityQueueDecisionRollup(string $queueItemId, array $property): array
+    {
+        $timeline = $this->buildPriorityQueueDecisionTimeline($queueItemId, $property);
+        $currentState = $this->resolveDecisionRollupState($property);
+        $latestTimelineEvent = $timeline[0] ?? null;
+        $latestEventKind = $latestTimelineEvent["metadata"]["event_kind"] ?? null;
+        $evidenceCount = count(self::$runtimeAssignmentEvidence[$queueItemId] ?? []);
+
+        return [
+            "current_state" => $currentState,
+            "latest_decision_label" => $this->resolveDecisionSummaryLabel($latestEventKind, $currentState),
+            "latest_decision_at" => $latestTimelineEvent["occurred_at"] ?? null,
+            "evidence_count" => $evidenceCount,
+            "has_evidence" => $evidenceCount > 0,
+            "status_badge" => $this->resolveDecisionRollupStatusBadge($latestTimelineEvent, $currentState),
+            "next_recommended_action" => $this->resolveDecisionSummaryRecommendedAction($currentState),
+        ];
+    }
+
     private function buildAssignmentEvidenceTimelineEvents(string $queueItemId): array
     {
         $items = array_values(self::$runtimeAssignmentEvidence[$queueItemId] ?? []);
@@ -2296,6 +2318,23 @@ class PropertyService
         return $state;
     }
 
+    private function resolveDecisionRollupState(array $property): string
+    {
+        if (!empty($property["assignment_cancelled_at"])) {
+            return "cancelled";
+        }
+
+        if (!empty($property["assignment_completed_at"])) {
+            return "completed";
+        }
+
+        if ((int) ($property["provider_id"] ?? 0) > 0) {
+            return "assigned";
+        }
+
+        return "unassigned";
+    }
+
     private function resolveDecisionSummaryLabel(?string $eventKind, string $currentState): string
     {
         if ($eventKind !== null && $eventKind !== "") {
@@ -2314,6 +2353,22 @@ class PropertyService
             "completed" => "Assignment completed",
             "cancelled" => "Assignment cancelled",
             "provider_missing" => "Provider record missing",
+            default => "Awaiting assignment",
+        };
+    }
+
+    private function resolveDecisionRollupStatusBadge(?array $latestTimelineEvent, string $currentState): string
+    {
+        $statusBadge = $latestTimelineEvent["metadata"]["status_badge"] ?? null;
+        if (is_string($statusBadge) && trim($statusBadge) !== "") {
+            return trim($statusBadge);
+        }
+
+        return match ($currentState) {
+            "assigned" => "Assigned",
+            "completed" => "Completed",
+            "cancelled" => "Cancelled",
+            "provider_missing" => "Provider missing",
             default => "Awaiting assignment",
         };
     }
