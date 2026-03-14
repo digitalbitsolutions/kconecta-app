@@ -642,6 +642,7 @@ const ManagerAssignmentDetailScreen = () => {
                     propertyId: detail.property!.id,
                     propertyTitle: detail.property!.title,
                     preselectedProviderId: detail.provider?.id,
+                    queueItemId: detail.item.id,
                   })
                 }
               >

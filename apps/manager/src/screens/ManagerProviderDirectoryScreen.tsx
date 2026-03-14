@@ -219,6 +219,7 @@ const ManagerProviderDirectoryScreen = () => {
               navigation.navigate("ProviderProfile", {
                 providerId: item.id,
                 providerName: item.name,
+                selectionContext,
               })
             }
           >
