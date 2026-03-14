@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Services\ApiAccessService;
 use App\Services\AuthSessionService;
+use App\Services\PropertyService;
 use App\Services\ProviderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +17,7 @@ class ProviderController extends Controller
 
     public function __construct(
         private readonly ProviderService $providerService,
+        private readonly PropertyService $propertyService,
         private readonly ApiAccessService $apiAccessService,
         private readonly AuthSessionService $authSessionService
     )
@@ -103,7 +105,48 @@ class ProviderController extends Controller
             );
         }
 
-        $provider = $this->providerService->getProviderDetail($id);
+        $validated = $request->validate([
+            "queue_item_id" => ["nullable", "string", "max:120"],
+        ]);
+
+        $queueItemId = trim((string) ($validated["queue_item_id"] ?? ""));
+        $queueItem = null;
+        if ($queueItemId !== "") {
+            if (!$this->hasAllowedRole($request, ["manager", "admin"])) {
+                return response()->json(
+                    $this->authSessionService->buildErrorPayload(
+                        AuthSessionService::ERROR_ROLE_SCOPE_FORBIDDEN,
+                        "Forbidden",
+                        "providers_show",
+                        "role_scope_forbidden",
+                        false
+                    ),
+                    403
+                );
+            }
+
+            $queueItem = $this->propertyService->findPriorityQueueItem($queueItemId);
+            if ($queueItem === null) {
+                return response()->json(
+                    [
+                        "error" => [
+                            "code" => "QUEUE_ITEM_NOT_FOUND",
+                            "message" => "Queue item not found",
+                        ],
+                        "meta" => [
+                            "contract" => ProviderService::DIRECTORY_CONTRACT,
+                            "flow" => "providers_show",
+                            "reason" => "queue_item_not_found",
+                            "retryable" => false,
+                        ],
+                        "queue_item_id" => $queueItemId,
+                    ],
+                    404
+                );
+            }
+        }
+
+        $provider = $this->providerService->getProviderDetail($id, $queueItem);
         if ($provider === null) {
             return response()->json(
                 [

@@ -163,7 +163,8 @@ class ProviderApiTest extends TestCase
                 "meta" => ["contract", "source"],
             ])
             ->assertJsonPath("data.id", 1)
-            ->assertJsonPath("meta.contract", "manager-provider-directory-v1");
+            ->assertJsonPath("meta.contract", "manager-provider-directory-v1")
+            ->assertJsonMissingPath("data.assignment_fit");
         $this->assertValidDataSource($response->json("meta.source"));
     }
 
@@ -196,6 +197,74 @@ class ProviderApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath("data.id", 1)
             ->assertJsonPath("meta.contract", "manager-provider-directory-v1");
+    }
+
+    public function test_manager_can_fetch_assignment_aware_provider_profile_scorecard_when_wave34_contract_is_ready(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->getJson("/api/providers/1?queue_item_id=priority-provider-assignment-101");
+
+        if (!$this->isWave30ProviderProfileReady($response)) {
+            $this->markTestIncomplete(
+                "Wave 30 manager provider profile contract is not merged in this branch yet."
+            );
+            return;
+        }
+
+        $response
+            ->assertOk()
+            ->assertJsonStructure([
+                "data" => [
+                    "assignment_fit" => [
+                        "recommended",
+                        "score_label",
+                        "match_reasons",
+                        "warnings",
+                        "next_action",
+                    ],
+                ],
+                "meta" => ["contract", "source"],
+            ])
+            ->assertJsonPath("data.assignment_fit.recommended", true)
+            ->assertJsonPath("data.assignment_fit.score_label", "Recommended")
+            ->assertJsonPath("data.assignment_fit.next_action", "select_provider");
+    }
+
+    public function test_provider_role_cannot_request_assignment_aware_provider_profile_scorecard(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-ROLE" => "provider",
+                "X-KCONECTA-PROVIDER-ID" => "1",
+            ])
+            ->getJson("/api/providers/1?queue_item_id=priority-provider-assignment-101");
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "providers_show");
+    }
+
+    public function test_manager_gets_not_found_for_unknown_queue_context_in_provider_profile(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->getJson("/api/providers/1?queue_item_id=priority-missing-999");
+
+        $response
+            ->assertNotFound()
+            ->assertJsonPath("error.code", "QUEUE_ITEM_NOT_FOUND")
+            ->assertJsonPath("meta.contract", "manager-provider-directory-v1")
+            ->assertJsonPath("meta.flow", "providers_show")
+            ->assertJsonPath("meta.reason", "queue_item_not_found")
+            ->assertJsonPath("queue_item_id", "priority-missing-999");
     }
 
     public function test_provider_directory_rejects_invalid_bearer_token_with_auth_contract(): void
