@@ -59,6 +59,8 @@ class AuthSessionService
             role: $role,
             providerId: $providerId,
             refreshTokenOverride: null,
+            flow: "login",
+            reason: "login_success",
         );
     }
 
@@ -89,6 +91,8 @@ class AuthSessionService
             role: $role,
             providerId: $providerId,
             refreshTokenOverride: null,
+            flow: "refresh",
+            reason: "refresh_success",
         );
     }
 
@@ -101,6 +105,8 @@ class AuthSessionService
         $nextRefresh = $normalizedRefresh !== ""
             ? $normalizedRefresh
             : $this->issueLegacyToken("rtk", "refresh");
+        $email = "refresh@kconecta.local";
+        $role = "manager";
 
         return [
             "data" => [
@@ -110,12 +116,18 @@ class AuthSessionService
                 "expires_in" => self::DEFAULT_ACCESS_TTL_SECONDS,
                 "issued_at" => gmdate("c"),
                 "expires_at" => gmdate("c", time() + self::DEFAULT_ACCESS_TTL_SECONDS),
-                "role" => "manager",
+                "role" => $role,
+                "scope" => $this->scopesForRole($role),
+                "subject" => $email,
+                "email" => $email,
+                "display_name" => $this->resolveDisplayName($email, $role, null),
                 "provider_id" => null,
             ],
             "meta" => [
                 "contract" => self::CONTRACT,
                 "mode" => self::MODE,
+                "flow" => "refresh",
+                "reason" => "refresh_success",
             ],
         ];
     }
@@ -130,6 +142,8 @@ class AuthSessionService
             "meta" => [
                 "contract" => self::CONTRACT,
                 "mode" => self::MODE,
+                "flow" => "logout",
+                "reason" => "logout_success",
             ],
         ];
     }
@@ -220,7 +234,9 @@ class AuthSessionService
         string $email,
         string $role,
         ?int $providerId,
-        ?string $refreshTokenOverride
+        ?string $refreshTokenOverride,
+        string $flow,
+        string $reason
     ): array {
         $issuedAt = time();
         $accessTtl = (int) env("KC_AUTH_ACCESS_TTL", self::DEFAULT_ACCESS_TTL_SECONDS);
@@ -266,6 +282,9 @@ class AuthSessionService
                 "expires_in" => $accessTtl,
                 "expires_at" => gmdate("c", $accessExp),
                 "scope" => $this->scopesForRole($role),
+                "subject" => $email,
+                "email" => $email,
+                "display_name" => $this->resolveDisplayName($email, $role, $providerId),
                 "role" => $role,
                 "provider_id" => $providerId,
                 "issued_at" => gmdate("c", $issuedAt),
@@ -273,6 +292,8 @@ class AuthSessionService
             "meta" => [
                 "contract" => self::CONTRACT,
                 "mode" => self::MODE,
+                "flow" => $flow,
+                "reason" => $reason,
             ],
         ];
     }
@@ -411,6 +432,15 @@ class AuthSessionService
             "admin" => ["admin:*", "properties:*", "providers:*"],
             "provider" => ["providers:read", "providers:write", "jobs:read"],
             default => ["properties:*", "providers:read", "dashboard:read"],
+        };
+    }
+
+    private function resolveDisplayName(string $email, string $role, ?int $providerId): string
+    {
+        return match ($role) {
+            "admin" => "Admin",
+            "provider" => $providerId ? sprintf("Provider #%d", $providerId) : "Provider",
+            default => "Manager",
         };
     }
 }

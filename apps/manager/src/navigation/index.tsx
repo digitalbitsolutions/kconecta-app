@@ -8,10 +8,12 @@ import {
   type SessionBootstrapResult,
 } from "../auth/session";
 import ManagerDashboardScreen from "../screens/ManagerDashboardScreen";
+import ManagerProviderDirectoryScreen from "../screens/ManagerProviderDirectoryScreen";
 import ManagerToProviderHandoffScreen from "../screens/ManagerToProviderHandoffScreen";
 import PropertyDetailScreen from "../screens/PropertyDetailScreen";
 import PropertyEditorScreen from "../screens/PropertyEditorScreen";
 import PropertyListScreen from "../screens/PropertyListScreen";
+import ProviderProfileScreen from "../screens/ProviderProfileScreen";
 import RoleMismatchScreen from "../screens/RoleMismatchScreen";
 import LoginScreen from "../screens/auth/LoginScreen";
 import SessionExpiredScreen from "../screens/auth/SessionExpiredScreen";
@@ -22,6 +24,11 @@ export type ManagerStackParamList = {
   Bootstrap: undefined;
   Login: undefined;
   ManagerDashboard: undefined;
+  ProviderDirectory: undefined;
+  ProviderProfile: {
+    providerId: string;
+    providerName?: string;
+  };
   ManagerToProviderHandoff: {
     propertyId: string;
     propertyTitle?: string;
@@ -140,6 +147,16 @@ const ManagerStack = () => {
         name="ManagerDashboard"
         component={ManagerDashboardScreen}
         options={{ title: "Dashboard" }}
+      />
+      <Stack.Screen
+        name="ProviderDirectory"
+        component={ManagerProviderDirectoryScreen}
+        options={{ title: "Provider Directory" }}
+      />
+      <Stack.Screen
+        name="ProviderProfile"
+        component={ProviderProfileScreen}
+        options={{ title: "Provider Profile" }}
       />
       <Stack.Screen
         name="ManagerToProviderHandoff"

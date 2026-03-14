@@ -334,6 +334,12 @@ const ManagerDashboardScreen = () => {
         </Pressable>
         <Pressable
           style={styles.secondaryAction}
+          onPress={() => navigation.navigate("ProviderDirectory")}
+        >
+          <Text style={styles.secondaryActionText}>Open Provider Directory</Text>
+        </Pressable>
+        <Pressable
+          style={styles.secondaryAction}
           onPress={() =>
             navigation.navigate("ManagerToProviderHandoff", {
               propertyId: "101",
@@ -346,11 +352,11 @@ const ManagerDashboardScreen = () => {
         </Pressable>
 
         {managerEnv.diagnosticsEnabled ? (
-          <View style={styles.diagnosticsCard}>
-            <Text style={styles.diagnosticsTitle}>Environment diagnostics</Text>
-            <Text style={styles.diagnosticsItem}>Stage: {managerEnv.stage}</Text>
-            <Text style={styles.diagnosticsItem}>API: {managerEnv.apiBaseUrl}</Text>
-            <Text style={styles.diagnosticsItem}>Role: {roleLabel}</Text>
+        <View style={styles.diagnosticsCard}>
+          <Text style={styles.diagnosticsTitle}>Environment diagnostics</Text>
+          <Text style={styles.diagnosticsItem}>Stage: {managerEnv.stage}</Text>
+          <Text style={styles.diagnosticsItem}>API: {managerEnv.apiBaseUrl}</Text>
+          <Text style={styles.diagnosticsItem}>Role: {roleLabel}</Text>
             <Text style={styles.diagnosticsItem}>
               Token: {sessionSnapshot.hasToken ? `loaded (${sessionSnapshot.source})` : "missing"}
             </Text>

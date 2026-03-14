@@ -430,6 +430,126 @@ Validate end-to-end functional behavior of native app API contracts before relea
 4. `DEV-132` -> Mobile manager queue action completion flow with optimistic/retry/error states.
 5. `DEV-133` -> Regression matrix + API assertions in `tests/Feature/Api/Wave26RegressionMatrixTest.php`.
 
+## Wave 27 Manager Property Form Parity Matrix
+
+1. Enriched manager property create/edit contract (`DEV-134`, `DEV-136`, `DEV-137`)
+  - `POST /api/properties` accepts the enriched manager property form payload:
+    - `description`, `address`, `postal_code`, `property_type`, `operation_mode`
+    - pricing fields (`sale_price`, `rental_price`, `garage_price_category_id`, `garage_price`)
+    - characteristics (`bedrooms`, `bathrooms`, `rooms`, `elevator`)
+  - `PATCH /api/properties/{id}` accepts the same additive fields and returns deterministic enriched payload.
+  - Success responses keep `meta.contract=manager-property-form-v1` with deterministic `flow`/`reason`.
+2. Deterministic validation and conflict behavior (`DEV-134`, `DEV-137`)
+  - Invalid enriched create payload returns `422 VALIDATION_ERROR` with stable field keys:
+    - `sale_price`
+    - `rental_price`
+    - `garage_price`
+    - `bedrooms`
+    - `bathrooms`
+  - Re-submitting an unchanged enriched edit payload returns `409 PROPERTY_STATE_CONFLICT` with `reason=no_changes`.
+3. Role/session guardrails (`DEV-134`, `DEV-136`, `DEV-137`)
+  - Provider role access to enriched manager property form mutations returns `403 ROLE_SCOPE_FORBIDDEN`.
+  - Invalid token on enriched manager property form mutations returns deterministic `401 TOKEN_INVALID`.
+4. Cross-wave baseline safety (`DEV-137`)
+  - Wave 20 `/api/auth/me` unauthorized contract remains stable.
+  - Wave 21 assignment-context role guard remains stable.
+  - Wave 24 dashboard summary contract remains stable.
+  - Wave 26 queue completion contract remains stable while Wave 27 form parity is introduced.
+
+## Wave 27 Ticket Mapping
+
+1. `DEV-138` -> Wave 27 orchestration epic and rollout tracking.
+2. `DEV-135` -> Manager property form parity architecture contract and UX state map.
+3. `DEV-134` -> Backend enriched create/edit property form contract implementation.
+4. `DEV-136` -> Mobile manager property form parity UI/API integration.
+5. `DEV-137` -> Regression matrix + API assertions in `tests/Feature/Api/Wave27RegressionMatrixTest.php`.
+
+## Wave 28 Manager Auth/Session UX Hardening Matrix
+
+1. Manager login-first UX hardening (`DEV-140`, `DEV-142`, `DEV-143`)
+  - Manager login screen starts blank by default unless explicit bootstrap env values are provided.
+  - Invalid credentials map to deterministic login UX feedback without exposing raw backend errors.
+  - Diagnostics footer is only shown when `EXPO_PUBLIC_SHOW_ENV_DIAGNOSTICS` enables it.
+2. Auth success metadata parity (`DEV-140`, `DEV-143`)
+  - `POST /api/auth/login` success payload exposes `subject`, `email`, `display_name`, `role`, `scope`.
+  - `POST /api/auth/refresh` success payload exposes the same deterministic subject/identity fields.
+  - `POST /api/auth/logout` success payload preserves `auth-session-v1` metadata with `flow=logout` and `reason=logout_success`.
+  - `GET /api/auth/me` success payload exposes `display_name` for manager runtime bootstrapping.
+3. Unauthorized and session-expired recovery (`DEV-142`, `DEV-143`)
+  - Manager unauthorized route only offers deterministic return-to-login recovery.
+  - Manager session-expired route clears local session and routes back to login.
+  - Provider-scope session against manager runtime still returns `403 ROLE_SCOPE_FORBIDDEN`.
+4. Cross-wave baseline safety (`DEV-143`)
+  - Wave 20 `/api/auth/me` invalid-token contract remains stable.
+  - Wave 24 dashboard summary contract remains stable.
+  - Wave 27 property form parity contract remains stable while auth/session UX hardening is introduced.
+
+## Wave 28 Ticket Mapping
+
+1. `DEV-139` -> Wave 28 orchestration epic and rollout tracking.
+2. `DEV-141` -> Manager auth/session UX hardening architecture contract.
+3. `DEV-140` -> Backend auth success metadata hardening.
+4. `DEV-142` -> Mobile manager login/session recovery UX hardening.
+5. `DEV-143` -> Regression matrix + API assertions in `tests/Feature/Api/Wave28RegressionMatrixTest.php`.
+
+## Wave 29 Manager Provider Handoff Evidence Matrix
+
+1. Assignment evidence success path (`DEV-145`, `DEV-146`, `DEV-148`, `DEV-147`)
+  - `POST /api/properties/{id}/assign-provider` returns additive success evidence under `manager-provider-handoff-v1`.
+  - Success payload includes:
+    - `data.assignment`
+    - `data.latest_timeline_event`
+  - `data.assignment.provider` exposes deterministic provider snapshot fields used by manager mobile without a follow-up detail fetch.
+2. Guardrail and recovery behavior (`DEV-145`, `DEV-148`, `DEV-147`)
+  - Inactive provider still returns `409 ASSIGNMENT_CONFLICT` with `reason=provider_inactive`.
+  - Provider role access still returns `403 ROLE_SCOPE_FORBIDDEN`.
+  - Invalid/expired token still returns deterministic `401` auth-session envelope on assignment route.
+3. Cross-wave baseline safety (`DEV-147`)
+  - Wave 21 assignment-context still resolves assigned state after assignment mutation.
+  - Wave 24 dashboard summary contract remains stable.
+  - Wave 28 manager auth/session invalid-token baseline remains stable while assignment evidence is introduced.
+
+## Wave 29 Ticket Mapping
+
+1. `DEV-144` -> Wave 29 orchestration epic and rollout tracking.
+2. `DEV-146` -> Manager provider handoff evidence contract and UX state map.
+3. `DEV-145` -> Backend additive assignment evidence payload implementation.
+4. `DEV-148` -> Mobile manager handoff success evidence UX integration.
+5. `DEV-147` -> Regression matrix + API assertions in `tests/Feature/Api/Wave29RegressionMatrixTest.php`.
+
+## Wave 30 Manager Provider Directory Matrix
+
+1. Directory and detail success contract (`DEV-152`, `DEV-151`, `DEV-153`)
+  - `GET /api/providers` returns manager-facing provider directory payload with:
+    - `meta.contract=manager-provider-directory-v1`
+    - additive pagination metadata (`page`, `per_page`, `total`, `total_pages`, `has_next_page`)
+    - additive filter echo (`role`, `status`, `category`, `city`, `search`)
+  - `data[]` exposes deterministic list fields:
+    - `id`, `name`, `category`, `city`, `status`, `rating`
+    - `availability_summary`
+    - `services_preview`
+  - `GET /api/providers/{id}` returns manager-facing provider profile payload with:
+    - `meta.contract=manager-provider-directory-v1`
+    - `data.bio`, `data.phone`, `data.email`, `data.services`, `data.coverage`
+    - `data.metrics.completed_jobs`, `data.metrics.response_time_hours`, `data.metrics.customer_score`
+2. Role/session guardrails (`DEV-152`, `DEV-153`)
+  - Invalid token on provider directory/profile routes returns deterministic `401 TOKEN_INVALID` auth-session envelope.
+  - Invalid role on provider directory/profile routes returns deterministic `403 ROLE_SCOPE_FORBIDDEN` auth-session envelope.
+  - Unknown provider detail keeps deterministic `404` payload with `message=Provider not found` and `provider_id`.
+3. Cross-wave baseline safety (`DEV-153`)
+  - Wave 20 `/api/auth/me` invalid-token contract remains stable.
+  - Wave 21 assignment-context role guard remains stable.
+  - Wave 23 property detail timeline contract remains stable.
+  - Wave 24 dashboard summary contract remains stable while manager provider directory/profile flows are introduced.
+
+## Wave 30 Ticket Mapping
+
+1. `DEV-150` -> Wave 30 orchestration epic and rollout tracking.
+2. `DEV-149` -> Manager provider directory/profile architecture contract and UX state map.
+3. `DEV-152` -> Backend manager provider directory/profile contract implementation.
+4. `DEV-151` -> Mobile manager provider directory/profile UI integration.
+5. `DEV-153` -> Regression matrix + readiness-gated API assertions in `tests/Feature/Api/Wave30RegressionMatrixTest.php` and `tests/Feature/Api/ProviderApiTest.php`.
+
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -457,6 +577,10 @@ Validate end-to-end functional behavior of native app API contracts before relea
 21. Run Wave 24 dashboard summary/priorities regression suite and record ordering + summary guardrail evidence.
 22. Run Wave 25 priority queue regression suite and record SLA fields/order + queue guardrail evidence.
 23. Run Wave 26 queue completion regression suite and record success/conflict/validation + forbidden/unauthorized evidence.
+24. Run Wave 27 manager property form parity regression suite and record enriched create/edit/validation/conflict guardrail evidence.
+25. Run Wave 28 manager auth/session UX regression suite and record success metadata parity plus login/session recovery evidence.
+26. Run Wave 29 manager handoff evidence regression suite and record additive assignment evidence plus recovery guardrail stability.
+27. Run Wave 30 manager provider directory/profile regression suite and record readiness-gated list/detail contract evidence plus guardrail stability.
 
 ## Entry Criteria
 

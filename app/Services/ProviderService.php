@@ -9,6 +9,7 @@ use Throwable;
 class ProviderService
 {
     public const AVAILABILITY_CONTRACT = "provider-availability-v1";
+    public const DIRECTORY_CONTRACT = "manager-provider-directory-v1";
 
     private const DEFAULT_PROVIDER_TABLE = "providers";
     private const FALLBACK_PROVIDER_TABLE = "service_providers";
@@ -45,18 +46,70 @@ class ProviderService
                     ) {
                         return false;
                     }
+                    if (
+                        !empty($filters["category"]) &&
+                        strcasecmp((string) ($item["category"] ?? ""), (string) $filters["category"]) !== 0
+                    ) {
+                        return false;
+                    }
+                    if (
+                        !empty($filters["city"]) &&
+                        strcasecmp((string) ($item["city"] ?? ""), (string) $filters["city"]) !== 0
+                    ) {
+                        return false;
+                    }
+                    if (!empty($filters["search"])) {
+                        $search = strtolower((string) $filters["search"]);
+                        $haystack = strtolower(
+                            implode(
+                                " ",
+                                array_filter(
+                                    [
+                                        (string) ($item["name"] ?? ""),
+                                        (string) ($item["category"] ?? ""),
+                                        (string) ($item["city"] ?? ""),
+                                        (string) ($item["status"] ?? ""),
+                                        implode(" ", (array) ($item["services"] ?? [])),
+                                    ]
+                                )
+                            )
+                        );
+                        if (!str_contains($haystack, $search)) {
+                            return false;
+                        }
+                    }
                     return true;
                 }
             )
         );
 
+        $page = max(1, (int) ($filters["page"] ?? 1));
+        $perPage = max(1, min(100, (int) ($filters["per_page"] ?? 25)));
+        $total = count($filtered);
+        $totalPages = $total > 0 ? (int) ceil($total / $perPage) : 0;
+        $offset = ($page - 1) * $perPage;
+        $pagedRows = array_slice($filtered, $offset, $perPage);
+        $presentedRows = array_map(
+            fn (array $row): array => $this->presentProviderListItem($row),
+            $pagedRows
+        );
+
         return [
-            "data" => $filtered,
+            "data" => array_values($presentedRows),
             "meta" => [
-                "count" => count($filtered),
+                "contract" => self::DIRECTORY_CONTRACT,
+                "count" => count($presentedRows),
+                "page" => $page,
+                "per_page" => $perPage,
+                "total" => $total,
+                "total_pages" => $totalPages,
+                "has_next_page" => $page < $totalPages,
                 "filters" => [
                     "role" => $filters["role"] ?? null,
                     "status" => $filters["status"] ?? null,
+                    "category" => $filters["category"] ?? null,
+                    "city" => $filters["city"] ?? null,
+                    "search" => $filters["search"] ?? null,
                 ],
                 "source" => $dataset["source"],
             ],
@@ -65,14 +118,24 @@ class ProviderService
 
     public function findProviderById(int $id): ?array
     {
-        $dataset = $this->loadRows();
-        foreach ($dataset["rows"] as $row) {
-            if ((int) $row["id"] === $id) {
-                return $row;
-            }
+        $record = $this->findProviderRecordById($id);
+        return $record["row"] ?? null;
+    }
+
+    public function getProviderDetail(int $id): ?array
+    {
+        $record = $this->findProviderRecordById($id);
+        if ($record === null) {
+            return null;
         }
 
-        return null;
+        return [
+            "data" => $this->presentProviderDetail($record["row"]),
+            "meta" => [
+                "contract" => self::DIRECTORY_CONTRACT,
+                "source" => $record["source"],
+            ],
+        ];
     }
 
     public function getAvailability(int $providerId): ?array
@@ -212,6 +275,21 @@ class ProviderService
                 $this->defaultAvailabilitySlots()
             ),
         ];
+    }
+
+    private function findProviderRecordById(int $id): ?array
+    {
+        $dataset = $this->loadRows();
+        foreach ($dataset["rows"] as $row) {
+            if ((int) ($row["id"] ?? 0) === $id) {
+                return [
+                    "row" => $row,
+                    "source" => $dataset["source"],
+                ];
+            }
+        }
+
+        return null;
     }
 
     private function loadAvailabilityFromDedicatedTable(int $providerId): ?array
@@ -618,6 +696,14 @@ class ProviderService
             "category" => $this->asString($this->pickFirst($row, ["category", "service_category"])),
             "city" => $this->asString($this->pickFirst($row, ["city", "location_city"])),
             "rating" => $rating,
+            "bio" => $this->asString($this->pickFirst($row, ["bio", "description", "about"])),
+            "phone" => $this->asString($this->pickFirst($row, ["phone", "phone_number", "mobile"])),
+            "email" => $this->asString($this->pickFirst($row, ["email", "contact_email"])),
+            "services" => $this->normalizeStringList($this->pickFirst($row, ["services", "service_list"])),
+            "coverage" => $this->normalizeStringList($this->pickFirst($row, ["coverage", "coverage_cities"])),
+            "completed_jobs" => $this->asInt($this->pickFirst($row, ["completed_jobs", "jobs_completed", "job_count"])),
+            "response_time_hours" => $this->asFloat($this->pickFirst($row, ["response_time_hours", "avg_response_hours"])),
+            "customer_score" => $this->asFloat($this->pickFirst($row, ["customer_score", "score", "rating"])),
         ];
     }
 
@@ -689,6 +775,122 @@ class ProviderService
         return $text;
     }
 
+    private function normalizeStringList(mixed $value): array
+    {
+        if (is_array($value)) {
+            $items = $value;
+        } elseif (is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                $items = $decoded;
+            } else {
+                $items = preg_split('/[,|]/', $value) ?: [];
+            }
+        } else {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($items as $item) {
+            $text = $this->asString($item);
+            if ($text !== null) {
+                $normalized[] = $text;
+            }
+        }
+
+        return array_values(array_unique($normalized));
+    }
+
+    private function presentProviderListItem(array $row): array
+    {
+        $services = $this->resolveServices($row);
+
+        return [
+            "id" => (int) ($row["id"] ?? 0),
+            "name" => (string) ($row["name"] ?? ""),
+            "category" => $this->resolveCategory($row),
+            "city" => $this->resolveCity($row),
+            "status" => (string) ($row["status"] ?? "active"),
+            "rating" => $row["rating"] ?? null,
+            "availability_summary" => $this->buildAvailabilitySummary($row),
+            "services_preview" => array_slice($services, 0, 3),
+        ];
+    }
+
+    private function presentProviderDetail(array $row): array
+    {
+        return [
+            "id" => (int) ($row["id"] ?? 0),
+            "name" => (string) ($row["name"] ?? ""),
+            "category" => $this->resolveCategory($row),
+            "city" => $this->resolveCity($row),
+            "status" => (string) ($row["status"] ?? "active"),
+            "rating" => $row["rating"] ?? null,
+            "bio" => $row["bio"] ?? null,
+            "phone" => $row["phone"] ?? null,
+            "email" => $row["email"] ?? null,
+            "services" => $this->resolveServices($row),
+            "coverage" => $this->resolveCoverage($row),
+            "availability_summary" => $this->buildAvailabilitySummary($row),
+            "metrics" => $this->buildProviderMetrics($row),
+        ];
+    }
+
+    private function resolveCategory(array $row): string
+    {
+        $category = $this->asString($row["category"] ?? null);
+        return $category ?? "General Services";
+    }
+
+    private function resolveCity(array $row): string
+    {
+        $city = $this->asString($row["city"] ?? null);
+        return $city ?? "Unknown";
+    }
+
+    private function resolveServices(array $row): array
+    {
+        $services = $this->normalizeStringList($row["services"] ?? []);
+        if ($services !== []) {
+            return $services;
+        }
+
+        $category = $this->resolveCategory($row);
+        return [$category];
+    }
+
+    private function resolveCoverage(array $row): array
+    {
+        $coverage = $this->normalizeStringList($row["coverage"] ?? []);
+        if ($coverage !== []) {
+            return $coverage;
+        }
+
+        return [$this->resolveCity($row)];
+    }
+
+    private function buildAvailabilitySummary(array $row): array
+    {
+        $status = (string) ($row["status"] ?? "active");
+        $nextOpenSlot = $status === "active" ? "mon 09:00" : null;
+
+        return [
+            "label" => $status === "active" ? "Available this week" : "Limited availability",
+            "next_open_slot" => $nextOpenSlot,
+        ];
+    }
+
+    private function buildProviderMetrics(array $row): array
+    {
+        $rating = is_numeric($row["rating"] ?? null) ? (float) $row["rating"] : null;
+
+        return [
+            "completed_jobs" => $this->asInt($row["completed_jobs"] ?? null) ?? 0,
+            "response_time_hours" => $this->asFloat($row["response_time_hours"] ?? null) ?? 24.0,
+            "customer_score" => $this->asFloat($row["customer_score"] ?? null) ?? $rating,
+        ];
+    }
+
     /**
      * Seed dataset used when DB table is unavailable.
      */
@@ -703,6 +905,14 @@ class ProviderService
                 "category" => "Cleaning",
                 "city" => "Madrid",
                 "rating" => 4.8,
+                "bio" => "Home cleaning and turnover support for rental portfolios.",
+                "phone" => "+34 910 000 001",
+                "email" => "team@cleanhomepro.test",
+                "services" => ["Cleaning", "Turnover", "Deep clean"],
+                "coverage" => ["Madrid", "Alcobendas", "Getafe"],
+                "completed_jobs" => 214,
+                "response_time_hours" => 3.5,
+                "customer_score" => 4.8,
             ],
             [
                 "id" => 2,
@@ -712,6 +922,14 @@ class ProviderService
                 "category" => "Repairs",
                 "city" => "Barcelona",
                 "rating" => 4.5,
+                "bio" => "Multi-trade repair crews for urgent incidents and scheduled maintenance.",
+                "phone" => "+34 930 000 002",
+                "email" => "ops@fixitnow.test",
+                "services" => ["Repairs", "Electrical", "Plumbing"],
+                "coverage" => ["Barcelona", "Badalona"],
+                "completed_jobs" => 168,
+                "response_time_hours" => 5.0,
+                "customer_score" => 4.5,
             ],
             [
                 "id" => 3,
@@ -721,6 +939,14 @@ class ProviderService
                 "category" => "Gardening",
                 "city" => "Valencia",
                 "rating" => 4.7,
+                "bio" => "Garden maintenance and exterior care for managed communities.",
+                "phone" => "+34 960 000 003",
+                "email" => "hello@greengarden.test",
+                "services" => ["Gardening", "Irrigation", "Exterior cleaning"],
+                "coverage" => ["Valencia", "Paterna", "Torrent"],
+                "completed_jobs" => 143,
+                "response_time_hours" => 6.0,
+                "customer_score" => 4.7,
             ],
         ];
     }
