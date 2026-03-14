@@ -960,6 +960,10 @@ Define the first production-shaped mobile information architecture for manager a
   - Preserve current detail data, expose conflict copy, and allow refresh/retry.
 - `assignment_status_validation_error`
   - Keep mutation UI mounted and show field-level or action-level validation copy.
+- `assignment_status_not_found`
+  - Trigger on `404 QUEUE_ITEM_NOT_FOUND` during complete, reassign, or cancel.
+  - Transition immediately into the existing `assignment_detail_not_found` recovery surface.
+  - Preserve deterministic CTA back to assignment center instead of leaving the mutation flow in a generic error state.
 - `assignment_status_forbidden`
   - Route to `Unauthorized`.
 - `assignment_status_session_expired`
@@ -984,6 +988,7 @@ Define the first production-shaped mobile information architecture for manager a
 - Reassign flow must reuse provider directory data without navigating away from assignment detail.
 - Successful mutation must reconcile both assignment detail and assignment center list state.
 - Failed mutation must not discard current assignment detail context or selected reassignment intent unless session/auth state requires it.
+- `404 QUEUE_ITEM_NOT_FOUND` has precedence over mutation retry states and must route to the shared missing-item state.
 
 ### Wave 32 Delivery Sequencing
 
