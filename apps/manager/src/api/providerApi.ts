@@ -59,6 +59,13 @@ type ProviderDetailPayload = {
       response_time_hours: number;
       customer_score: number | null;
     };
+    assignment_fit?: {
+      recommended: boolean;
+      score_label: string;
+      match_reasons: string[];
+      warnings: string[];
+      next_action: string | null;
+    };
   };
   meta: {
     contract: string;
@@ -134,6 +141,13 @@ export type ProviderProfile = {
     customerScore: number | null;
     customerScoreLabel: string;
   };
+  assignmentFit: {
+    recommended: boolean;
+    scoreLabel: string;
+    matchReasons: string[];
+    warnings: string[];
+    nextAction: string | null;
+  } | null;
   meta: {
     contract: string;
     source: "database" | "in_memory";
@@ -208,8 +222,18 @@ export async function fetchManagerProviderDirectory(
   };
 }
 
-export async function fetchManagerProviderProfile(providerId: string): Promise<ProviderProfile> {
-  const payload = await requestJson<ProviderDetailPayload>(`/providers/${providerId}`);
+export async function fetchManagerProviderProfile(
+  providerId: string,
+  options?: {
+    queueItemId?: string;
+  }
+): Promise<ProviderProfile> {
+  const params = new URLSearchParams();
+  if (options?.queueItemId?.trim()) {
+    params.set("queue_item_id", options.queueItemId.trim());
+  }
+  const queryString = params.toString().length > 0 ? `?${params.toString()}` : "";
+  const payload = await requestJson<ProviderDetailPayload>(`/providers/${providerId}${queryString}`);
   const data = payload.data;
 
   return {
@@ -235,6 +259,15 @@ export async function fetchManagerProviderProfile(providerId: string): Promise<P
       customerScore: data.metrics.customer_score,
       customerScoreLabel: formatRating(data.metrics.customer_score),
     },
+    assignmentFit: data.assignment_fit
+      ? {
+          recommended: data.assignment_fit.recommended,
+          scoreLabel: data.assignment_fit.score_label,
+          matchReasons: data.assignment_fit.match_reasons,
+          warnings: data.assignment_fit.warnings,
+          nextAction: data.assignment_fit.next_action,
+        }
+      : null,
     meta: {
       contract: payload.meta.contract,
       source: payload.meta.source,

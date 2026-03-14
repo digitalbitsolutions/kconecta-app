@@ -42,11 +42,17 @@ export type ManagerStackParamList = {
   ProviderProfile: {
     providerId: string;
     providerName?: string;
+    selectionContext?: {
+      queueItemId: string;
+      propertyTitle: string;
+      currentProviderId?: string;
+    };
   };
   ManagerToProviderHandoff: {
     propertyId: string;
     propertyTitle?: string;
     preselectedProviderId?: string;
+    queueItemId?: string;
   };
   RoleMismatch: {
     expectedRole: "manager" | "provider" | "admin";

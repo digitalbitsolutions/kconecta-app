@@ -31,7 +31,7 @@ type HandoffNavigation = NativeStackNavigationProp<
 const ManagerToProviderHandoffScreen = () => {
   const route = useRoute<HandoffRoute>();
   const navigation = useNavigation<HandoffNavigation>();
-  const { propertyId, propertyTitle, preselectedProviderId } = route.params;
+  const { propertyId, propertyTitle, preselectedProviderId, queueItemId } = route.params;
   const [candidates, setCandidates] = useState<ProviderCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [assigningId, setAssigningId] = useState<string | null>(null);
@@ -192,6 +192,14 @@ const ManagerToProviderHandoffScreen = () => {
                         navigation.navigate("ProviderProfile", {
                           providerId: candidate.id,
                           providerName: candidate.name,
+                          selectionContext: queueItemId
+                            ? {
+                                queueItemId,
+                                propertyTitle:
+                                  propertyTitle?.trim().length ? propertyTitle : `Property #${propertyId}`,
+                                currentProviderId: preselectedProviderId,
+                              }
+                            : undefined,
                         })
                       }
                     >
