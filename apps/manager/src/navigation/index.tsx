@@ -30,7 +30,15 @@ export type ManagerStackParamList = {
   ManagerAssignmentDetail: {
     queueItemId: string;
   };
-  ProviderDirectory: undefined;
+  ProviderDirectory:
+    | {
+        selectionContext?: {
+          queueItemId: string;
+          propertyTitle: string;
+          currentProviderId?: string;
+        };
+      }
+    | undefined;
   ProviderProfile: {
     providerId: string;
     providerName?: string;

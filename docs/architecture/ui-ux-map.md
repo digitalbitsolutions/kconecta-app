@@ -945,3 +945,54 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend assignment center API hardening (`BE-027`).
 3. Manager assignment center UI flow (`MOB-028`).
 4. Regression matrix for assignment center list/detail/action parity (`QA-030`).
+
+## Wave 32 Manager Assignment Status State Map
+
+### Assignment Detail Mutation States
+
+- `assignment_status_idle`
+  - Detail screen renders currently allowed action buttons only.
+- `assignment_status_pending`
+  - Disable duplicate actions and keep current detail context mounted during mutation.
+- `assignment_status_success`
+  - Reconcile detail payload and refresh assignment center context after authoritative response.
+- `assignment_status_conflict`
+  - Preserve current detail data, expose conflict copy, and allow refresh/retry.
+- `assignment_status_validation_error`
+  - Keep mutation UI mounted and show field-level or action-level validation copy.
+- `assignment_status_not_found`
+  - Trigger on `404 QUEUE_ITEM_NOT_FOUND` during complete, reassign, or cancel.
+  - Transition immediately into the existing `assignment_detail_not_found` recovery surface.
+  - Preserve deterministic CTA back to assignment center instead of leaving the mutation flow in a generic error state.
+- `assignment_status_forbidden`
+  - Route to `Unauthorized`.
+- `assignment_status_session_expired`
+  - Route to `SessionExpired`.
+
+### Reassign Provider Selection States
+
+- `assignment_reassign_picker_closed`
+  - No provider-selection overlay visible.
+- `assignment_reassign_picker_loading`
+  - Provider directory query in flight for reassignment options.
+- `assignment_reassign_picker_ready`
+  - Manager can search/select a provider from the canonical directory list.
+- `assignment_reassign_picker_confirm`
+  - Explicit confirmation step before reassignment mutation fires.
+- `assignment_reassign_picker_error_retryable`
+  - Preserve detail context and allow reloading provider options without leaving the screen.
+
+### Wave 32 Interaction Rules
+
+- Manager assignment detail remains the authoritative mutation surface for complete, reassign, and cancel.
+- Reassign flow must reuse provider directory data without navigating away from assignment detail.
+- Successful mutation must reconcile both assignment detail and assignment center list state.
+- Failed mutation must not discard current assignment detail context or selected reassignment intent unless session/auth state requires it.
+- `404 QUEUE_ITEM_NOT_FOUND` has precedence over mutation retry states and must route to the shared missing-item state.
+
+### Wave 32 Delivery Sequencing
+
+1. Assignment status mutation contract and state map (`ARCH-026`).
+2. Backend assignment status endpoint implementation (`BE-028`).
+3. Manager assignment detail action UI (`MOB-029`).
+4. Regression matrix for assignment status workflow (`QA-031`).

@@ -1,5 +1,5 @@
 ﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { RouteProp, useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
   ActivityIndicator,
@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { ApiError } from "../api/client";
+import { setManagerAssignmentSelectionResult } from "../api/propertyApi";
 import {
   fetchManagerProviderDirectory,
   type ProviderDirectoryFilters,
@@ -25,6 +26,7 @@ type ProviderDirectoryNavigation = NativeStackNavigationProp<
   ManagerStackParamList,
   "ProviderDirectory"
 >;
+type ProviderDirectoryRoute = RouteProp<ManagerStackParamList, "ProviderDirectory">;
 
 const STATUS_FILTERS: Array<{ label: string; value: ProviderStatusFilter }> = [
   { label: "All", value: "all" },
@@ -36,6 +38,8 @@ const PAGE_SIZE = 12;
 
 const ManagerProviderDirectoryScreen = () => {
   const navigation = useNavigation<ProviderDirectoryNavigation>();
+  const route = useRoute<ProviderDirectoryRoute>();
+  const selectionContext = route.params?.selectionContext;
   const [search, setSearch] = useState("");
   const [city, setCity] = useState("");
   const [category, setCategory] = useState("");
@@ -155,11 +159,14 @@ const ManagerProviderDirectoryScreen = () => {
   const renderProvider = ({ item }: { item: ProviderDirectoryItem }) => (
     <Pressable
       style={styles.providerCard}
-      onPress={() =>
-        navigation.navigate("ProviderProfile", {
-          providerId: item.id,
-          providerName: item.name,
-        })
+      onPress={
+        selectionContext
+          ? undefined
+          : () =>
+              navigation.navigate("ProviderProfile", {
+                providerId: item.id,
+                providerName: item.name,
+              })
       }
     >
       <View style={styles.providerCardHeader}>
@@ -183,7 +190,44 @@ const ManagerProviderDirectoryScreen = () => {
       <Text style={styles.providerServices}>
         Services: {item.servicesPreview.length > 0 ? item.servicesPreview.join(", ") : "n/a"}
       </Text>
-      <Text style={styles.viewProfileText}>Open provider profile</Text>
+      {selectionContext ? (
+        <>
+          <Pressable
+            style={[
+              styles.primarySelectionAction,
+              selectionContext.currentProviderId === item.id && styles.selectionActionMuted,
+            ]}
+            disabled={selectionContext.currentProviderId === item.id}
+            onPress={() => {
+              setManagerAssignmentSelectionResult({
+                queueItemId: selectionContext.queueItemId,
+                providerId: item.id,
+                providerName: item.name,
+              });
+              navigation.goBack();
+            }}
+          >
+            <Text style={styles.primarySelectionActionText}>
+              {selectionContext.currentProviderId === item.id
+                ? "Already assigned"
+                : `Select ${item.name}`}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={styles.secondaryProfileAction}
+            onPress={() =>
+              navigation.navigate("ProviderProfile", {
+                providerId: item.id,
+                providerName: item.name,
+              })
+            }
+          >
+            <Text style={styles.viewProfileText}>Review provider profile</Text>
+          </Pressable>
+        </>
+      ) : (
+        <Text style={styles.viewProfileText}>Open provider profile</Text>
+      )}
     </Pressable>
   );
 
@@ -193,6 +237,16 @@ const ManagerProviderDirectoryScreen = () => {
       <Text style={styles.subtitle}>
         Review providers, availability signal and profile detail before assigning work.
       </Text>
+
+      {selectionContext ? (
+        <View style={styles.selectionBanner}>
+          <Text style={styles.selectionBannerTitle}>Reassign provider</Text>
+          <Text style={styles.selectionBannerBody}>
+            Select a provider for {selectionContext.propertyTitle}. The chosen provider will be
+            applied when you return to assignment detail.
+          </Text>
+        </View>
+      ) : null}
 
       <TextInput
         value={search}
@@ -321,6 +375,25 @@ const styles = StyleSheet.create({
   subtitle: {
     color: colors.textSecondary,
     fontSize: fontSizes.sm,
+    marginTop: spacing.xs,
+  },
+  selectionBanner: {
+    backgroundColor: colors.surface,
+    borderColor: colors.brand,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.md,
+    padding: spacing.md,
+  },
+  selectionBannerTitle: {
+    color: colors.brand,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
+  },
+  selectionBannerBody: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+    lineHeight: 20,
     marginTop: spacing.xs,
   },
   input: {
@@ -485,11 +558,28 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     marginTop: spacing.sm,
   },
+  primarySelectionAction: {
+    alignItems: "center",
+    backgroundColor: colors.brand,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  primarySelectionActionText: {
+    color: colors.surface,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
+  },
+  secondaryProfileAction: {
+    marginTop: spacing.sm,
+  },
+  selectionActionMuted: {
+    opacity: 0.6,
+  },
   viewProfileText: {
     color: colors.brand,
     fontSize: fontSizes.sm,
     fontWeight: "700",
-    marginTop: spacing.md,
   },
 });
 
