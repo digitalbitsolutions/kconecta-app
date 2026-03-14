@@ -270,6 +270,15 @@ type AssignmentQueueDetailPayload = {
       rating: number | null;
     } | null;
     assignment: PropertyAssignmentContextPayload["data"]["assignment"] | null;
+    decision_summary?: {
+      current_state: "unassigned" | "assigned" | "provider_missing" | "completed" | "cancelled";
+      latest_decision_label: string;
+      latest_decision_at: string | null;
+      latest_actor: string | null;
+      evidence_count: number;
+      has_evidence: boolean;
+      next_recommended_action: string | null;
+    } | null;
     available_actions?: Array<"complete" | "reassign" | "cancel">;
     timeline: ApiPropertyTimelineEvent[];
   };
@@ -618,6 +627,15 @@ export type ManagerAssignmentDetail = {
   property: PropertyDetailViewModel | null;
   provider: AssignmentProviderSnapshot | null;
   assignment: PropertyAssignmentContext | null;
+  decisionSummary: {
+    currentState: "unassigned" | "assigned" | "provider_missing" | "completed" | "cancelled";
+    latestDecisionLabel: string;
+    latestDecisionAt: string | null;
+    latestActor: string | null;
+    evidenceCount: number;
+    hasEvidence: boolean;
+    nextRecommendedAction: string | null;
+  } | null;
   availableActions: ManagerAssignmentStatusAction[];
   timeline: PropertyTimelineEvent[];
   meta: {
@@ -1282,6 +1300,17 @@ export async function fetchManagerAssignmentDetail(
           payload.data.property?.id ?? payload.data.item.property_id,
           payload.data.assignment
         )
+      : null,
+    decisionSummary: payload.data.decision_summary
+      ? {
+          currentState: payload.data.decision_summary.current_state,
+          latestDecisionLabel: payload.data.decision_summary.latest_decision_label,
+          latestDecisionAt: payload.data.decision_summary.latest_decision_at,
+          latestActor: payload.data.decision_summary.latest_actor,
+          evidenceCount: payload.data.decision_summary.evidence_count,
+          hasEvidence: payload.data.decision_summary.has_evidence,
+          nextRecommendedAction: payload.data.decision_summary.next_recommended_action,
+        }
       : null,
     availableActions: normalizeAssignmentAvailableActions(
       payload.data.available_actions ?? payload.data.assignment?.available_actions

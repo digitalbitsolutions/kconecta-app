@@ -79,6 +79,65 @@ const EVIDENCE_CATEGORY_OPTIONS: Array<{
   { value: "other", label: "Other" },
 ];
 
+function formatDecisionState(value: string | null | undefined): string {
+  switch (value) {
+    case "assigned":
+      return "Assigned";
+    case "completed":
+      return "Completed";
+    case "cancelled":
+      return "Cancelled";
+    case "provider_missing":
+      return "Provider missing";
+    default:
+      return "Unassigned";
+  }
+}
+
+function formatRecommendedAction(value: string | null | undefined): string {
+  switch (value) {
+    case "complete":
+      return "Complete assignment";
+    case "reassign":
+      return "Reassign provider";
+    case "cancel":
+      return "Cancel assignment";
+    default:
+      return "No action suggested";
+  }
+}
+
+function formatTimelineEventKind(value: unknown): string | null {
+  if (typeof value !== "string" || value.trim() === "") {
+    return null;
+  }
+
+  switch (value) {
+    case "assignment_created":
+      return "Assignment created";
+    case "provider_reassigned":
+      return "Provider reassigned";
+    case "assignment_completed":
+      return "Assignment completed";
+    case "assignment_cancelled":
+      return "Assignment cancelled";
+    case "evidence_uploaded":
+      return "Evidence uploaded";
+    default:
+      return value;
+  }
+}
+
+function readMetadataString(metadata: Record<string, unknown>, key: string): string | null {
+  const value = metadata[key];
+  return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+
+function readMetadataNumber(metadata: Record<string, unknown>, key: string): number | null {
+  const value = metadata[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 const ManagerAssignmentDetailScreen = () => {
   const navigation = useNavigation<AssignmentDetailNavigation>();
   const route = useRoute<AssignmentDetailRoute>();
@@ -408,6 +467,42 @@ const ManagerAssignmentDetailScreen = () => {
               </Text>
             </View>
 
+            {detail.decisionSummary ? (
+              <View style={styles.card}>
+                <View style={styles.sectionHeader}>
+                  <View>
+                    <Text style={styles.sectionTitle}>Decision summary</Text>
+                    <Text style={styles.helperText}>
+                      Wave 35 additive contract for assignment decision context.
+                    </Text>
+                  </View>
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {formatDecisionState(detail.decisionSummary.currentState)}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.meta}>
+                  Latest decision: {detail.decisionSummary.latestDecisionLabel}
+                </Text>
+                <Text style={styles.meta}>
+                  Decision at: {formatIsoDate(detail.decisionSummary.latestDecisionAt)}
+                </Text>
+                <Text style={styles.meta}>
+                  Actor: {detail.decisionSummary.latestActor ?? "-"}
+                </Text>
+                <Text style={styles.meta}>
+                  Evidence: {detail.decisionSummary.evidenceCount} item
+                  {detail.decisionSummary.evidenceCount === 1 ? "" : "s"}{" "}
+                  {detail.decisionSummary.hasEvidence ? "attached" : "available"}
+                </Text>
+                <Text style={styles.meta}>
+                  Recommended next action:{" "}
+                  {formatRecommendedAction(detail.decisionSummary.nextRecommendedAction)}
+                </Text>
+              </View>
+            ) : null}
+
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Provider snapshot</Text>
               <Text style={styles.meta}>
@@ -471,14 +566,39 @@ const ManagerAssignmentDetailScreen = () => {
               {detail.timeline.length === 0 ? (
                 <Text style={styles.meta}>No timeline evidence available.</Text>
               ) : (
-                detail.timeline.map((event) => (
-                  <View key={event.id} style={styles.timelineItem}>
-                    <Text style={styles.timelineTitle}>{event.summary}</Text>
-                    <Text style={styles.timelineMeta}>
-                      {event.actor} | {formatIsoDate(event.occurredAt)}
-                    </Text>
-                  </View>
-                ))
+                detail.timeline.map((event) => {
+                  const eventKind = formatTimelineEventKind(event.metadata.event_kind);
+                  const statusBadge = readMetadataString(event.metadata, "status_badge");
+                  const eventNote = readMetadataString(event.metadata, "note");
+                  const providerId = readMetadataNumber(event.metadata, "provider_id");
+                  const evidenceCount = readMetadataNumber(event.metadata, "evidence_count");
+
+                  return (
+                    <View key={event.id} style={styles.timelineItem}>
+                      <View style={styles.timelineHeader}>
+                        <Text style={styles.timelineTitle}>{event.summary}</Text>
+                        {statusBadge ? (
+                          <View style={styles.timelineBadge}>
+                            <Text style={styles.timelineBadgeText}>{statusBadge}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text style={styles.timelineMeta}>
+                        {event.actor} | {formatIsoDate(event.occurredAt)}
+                      </Text>
+                      {eventKind ? (
+                        <Text style={styles.timelineMeta}>Event kind: {eventKind}</Text>
+                      ) : null}
+                      {providerId !== null ? (
+                        <Text style={styles.timelineMeta}>Provider id: {providerId}</Text>
+                      ) : null}
+                      {evidenceCount !== null ? (
+                        <Text style={styles.timelineMeta}>Evidence count: {evidenceCount}</Text>
+                      ) : null}
+                      {eventNote ? <Text style={styles.timelineMeta}>Note: {eventNote}</Text> : null}
+                    </View>
+                  );
+                })
               )}
             </View>
 
@@ -792,6 +912,38 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginTop: spacing.sm,
     padding: spacing.md,
+  },
+  timelineHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.sm,
+    justifyContent: "space-between",
+  },
+  badge: {
+    alignItems: "center",
+    backgroundColor: colors.brandSoft,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  badgeText: {
+    color: colors.brand,
+    fontSize: fontSizes.xs,
+    fontWeight: "700",
+  },
+  timelineBadge: {
+    alignItems: "center",
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  timelineBadgeText: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.xs,
+    fontWeight: "700",
   },
   evidenceListWrap: {
     marginTop: spacing.md,
