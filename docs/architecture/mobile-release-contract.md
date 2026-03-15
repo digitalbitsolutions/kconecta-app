@@ -1713,3 +1713,59 @@ Define the minimum environment and auth contract required for native app release
   - provider profile scorecard remains the authoritative deep-read surface
   - handoff candidate fit preview is a lighter comparison contract for manager assignment workflows
 
+## Wave 39 Manager Dashboard Pending Actions Contract
+
+### Manager Dashboard Pending Actions Endpoint
+
+- Endpoint:
+  - `GET /api/properties/priorities/pending-actions`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Baseline behavior:
+  - existing dashboard summary and priorities endpoints remain stable
+  - pending actions are additive and may be ignored by current clients without regression
+
+### Pending Action Payload
+
+- Response may add:
+  - `data[]`
+    - `id` (string)
+    - `action_type` (`handoff_pending_confirmation|handoff_pending_acceptance|contract_pending_approval|contract_expiring_soon`)
+    - `entity_type` (`property_queue_item|provider_contract`)
+    - `entity_id` (string|int)
+    - `title` (string)
+    - `subtitle` (nullable string)
+    - `status_badge` (string)
+    - `priority_badge` (`high|medium|low`)
+    - `due_at` (nullable ISO8601 string)
+    - `deep_link`
+      - `route` (`manager_assignment_detail|manager_provider_handoff|manager_contract_detail`)
+      - `params` (object)
+  - `meta.counts`
+    - `total`
+    - `high_priority`
+
+### Navigation and Recovery Semantics
+
+- `deep_link.route` is backend-authored navigation intent:
+  - mobile may map route ids to existing screens
+  - mobile must not infer handoff versus contract destinations from free-text labels alone
+- Empty responses remain valid:
+  - `data=[]`
+  - `meta.counts.total=0`
+- Error semantics:
+  - `401 TOKEN_EXPIRED`
+    - one refresh attempt, then retry pending-actions once
+  - `401 TOKEN_INVALID|TOKEN_REVOKED`
+    - clear session and route to `SessionExpired`
+  - `403 ROLE_SCOPE_FORBIDDEN`
+    - authenticated but unauthorized users route to `Unauthorized`
+
+### Compatibility Notes
+
+- Wave 39 is additive over Waves 24, 35, 36, and 38:
+  - no endpoint removals
+  - no mutation contract changes
+  - current dashboard summary/priorities widgets remain authoritative for aggregate counts
+- pending actions are a focused follow-up surface for manager operational triage
