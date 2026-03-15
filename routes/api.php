@@ -19,6 +19,7 @@ Route::patch("/providers/{id}/availability", [ProviderController::class, "update
 Route::get("/properties", [PropertyController::class, "index"]);
 Route::get("/properties/summary", [PropertyController::class, "summary"]);
 Route::get("/properties/priorities/queue", [PropertyController::class, "priorityQueue"]);
+Route::get("/properties/priorities/pending-actions", [PropertyController::class, "pendingActions"]);
 Route::get("/properties/priorities/queue/{queueItemId}", [PropertyController::class, "priorityQueueShow"]);
 Route::post("/properties/priorities/queue/{queueItemId}/complete", [PropertyController::class, "priorityQueueComplete"]);
 Route::patch("/properties/priorities/queue/{queueItemId}/assignment", [PropertyController::class, "priorityQueueAssignmentUpdate"]);

@@ -1296,3 +1296,42 @@ Define the first production-shaped mobile information architecture for manager a
 3. Manager handoff candidate fit UI and confirmation flow (`MOB-035`).
 4. Regression matrix for manager handoff candidate fit parity (`QA-025`).
 
+## Wave 39 Manager Dashboard Pending Actions State Map
+
+### Manager Dashboard Pending Actions States
+
+- `dashboard_pending_actions_loading`
+  - pending-actions query in flight while current dashboard summary remains mounted
+- `dashboard_pending_actions_ready`
+  - render pending action rows with:
+    - action title
+    - status badge
+    - priority badge
+    - optional due date
+    - tap CTA into routed detail flow
+- `dashboard_pending_actions_empty`
+  - deterministic zero-state when no pending follow-up items exist
+- `dashboard_pending_actions_error_retryable`
+  - keep current dashboard summary and priorities visible while pending-actions allows retry
+- `dashboard_pending_actions_forbidden`
+  - route to `Unauthorized`
+- `dashboard_pending_actions_session_expired`
+  - route to `SessionExpired`
+
+### Pending Action Interaction Rules
+
+- Pending actions are triage shortcuts, not replacement detail screens.
+- Tapping an action must preserve enough route params to open:
+  - assignment detail or handoff flow for queue-backed actions
+  - contract detail flow for contract-backed actions
+- Empty pending-actions state must not suppress:
+  - dashboard summary widgets
+  - current priorities section
+- Missing additive pending-actions nodes must degrade cleanly to the Wave 24 dashboard experience.
+
+### Wave 39 Delivery Sequencing
+
+1. Manager dashboard pending-actions contract and state map (`ARCH-033`).
+2. Backend additive pending-actions aggregation contract (`BE-035`).
+3. Manager dashboard pending-actions UI wiring (`MOB-036`).
+4. Regression matrix for manager dashboard pending-actions parity (`QA-026`).
