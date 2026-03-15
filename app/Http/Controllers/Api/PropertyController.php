@@ -181,6 +181,45 @@ class PropertyController extends Controller
         return response()->json($payload, 200);
     }
 
+    public function pendingActions(Request $request): JsonResponse
+    {
+        if (!$this->apiAccessService->isAuthorized($request)) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_TOKEN_INVALID,
+                    "Unauthorized",
+                    "properties_pending_actions",
+                    "token_invalid",
+                    false
+                ),
+                401
+            );
+        }
+
+        if (!$this->hasAllowedRole($request, ["manager", "admin"])) {
+            return response()->json(
+                $this->authSessionService->buildErrorPayload(
+                    AuthSessionService::ERROR_ROLE_SCOPE_FORBIDDEN,
+                    "Forbidden",
+                    "properties_pending_actions",
+                    "role_scope_forbidden",
+                    false
+                ),
+                403
+            );
+        }
+
+        $validated = $request->validate([
+            "limit" => ["nullable", "integer", "min:1", "max:25"],
+        ]);
+
+        $payload = $this->propertyService->pendingActions([
+            "limit" => $validated["limit"] ?? null,
+        ]);
+
+        return response()->json($payload, 200);
+    }
+
     public function priorityQueueShow(Request $request, string $queueItemId): JsonResponse
     {
         if (!$this->apiAccessService->isAuthorized($request)) {

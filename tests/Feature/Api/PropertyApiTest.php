@@ -258,6 +258,89 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("meta.retryable", false);
     }
 
+    public function test_mobile_client_can_fetch_dashboard_pending_actions_contract(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/pending-actions");
+
+        $response
+            ->assertOk()
+            ->assertJsonStructure([
+                "data" => [
+                    "*" => [
+                        "id",
+                        "action_type",
+                        "entity_type",
+                        "entity_id",
+                        "title",
+                        "subtitle",
+                        "status_badge",
+                        "priority_badge",
+                        "due_at",
+                        "updated_at",
+                        "deep_link" => ["route", "params"],
+                    ],
+                ],
+                "meta" => [
+                    "contract",
+                    "generated_at",
+                    "source",
+                    "filters" => ["limit"],
+                    "count",
+                    "counts" => ["total", "high_priority"],
+                ],
+            ])
+            ->assertJsonPath("meta.contract", "manager-dashboard-pending-actions-v1");
+
+        $this->assertValidDataSource($response->json("meta.source"));
+        $this->assertSame($response->json("meta.count"), count($response->json("data", [])));
+        $first = $response->json("data.0");
+        $this->assertNotNull($first);
+        $this->assertContains(
+            $first["action_type"],
+            [
+                "handoff_pending_confirmation",
+                "handoff_pending_acceptance",
+                "contract_pending_approval",
+                "contract_expiring_soon",
+            ]
+        );
+    }
+
+    public function test_pending_actions_endpoint_is_forbidden_for_provider_role(): void
+    {
+        $response = $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-ROLE" => "provider",
+            ])
+            ->getJson("/api/properties/priorities/pending-actions");
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath("error.code", "ROLE_SCOPE_FORBIDDEN")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_pending_actions")
+            ->assertJsonPath("meta.reason", "role_scope_forbidden")
+            ->assertJsonPath("meta.retryable", false);
+    }
+
+    public function test_invalid_bearer_token_returns_unauthorized_for_pending_actions_endpoint(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer invalid-token"])
+            ->getJson("/api/properties/priorities/pending-actions");
+
+        $response
+            ->assertUnauthorized()
+            ->assertJsonPath("error.code", "TOKEN_INVALID")
+            ->assertJsonPath("meta.contract", "auth-session-v1")
+            ->assertJsonPath("meta.flow", "properties_pending_actions")
+            ->assertJsonPath("meta.reason", "token_invalid")
+            ->assertJsonPath("meta.retryable", false);
+    }
+
     public function test_mobile_property_detail_timeline_contains_assignment_and_status_events_in_descending_order(): void
     {
         $response = $this

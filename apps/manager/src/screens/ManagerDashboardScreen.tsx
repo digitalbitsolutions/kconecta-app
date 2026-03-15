@@ -15,8 +15,10 @@ import { ApiError } from "../api/client";
 import {
   completeManagerPriorityQueueItem,
   fetchManagerDashboardSummary,
+  fetchManagerPendingActions,
   fetchManagerPriorityQueue,
   setManagerPortfolioLaunchContext,
+  type ManagerPendingAction,
   type ManagerPriorityQueueItem,
   type PortfolioKpis,
 } from "../api/propertyApi";
@@ -39,6 +41,12 @@ type QueueActionState = {
   message?: string;
 };
 
+type PendingActionsState = {
+  items: ManagerPendingAction[];
+  generatedAt: string;
+  source: "database" | "in_memory";
+};
+
 const emptyKpis: PortfolioKpis = {
   activeProperties: 0,
   reservedProperties: 0,
@@ -48,6 +56,12 @@ const emptyKpis: PortfolioKpis = {
 
 const emptySummary: DashboardSummaryState = {
   kpis: emptyKpis,
+  generatedAt: "",
+  source: "in_memory",
+};
+
+const emptyPendingActions: PendingActionsState = {
+  items: [],
   generatedAt: "",
   source: "in_memory",
 };
@@ -115,9 +129,31 @@ function queueActionLabel(item: ManagerPriorityQueueItem, state: QueueActionStat
   return "Complete queue action";
 }
 
+function pendingActionLabel(item: ManagerPendingAction): string {
+  if (
+    item.actionType === "handoff_pending_confirmation" ||
+    item.actionType === "handoff_pending_acceptance"
+  ) {
+    return "Open handoff";
+  }
+
+  return "Open assignment detail";
+}
+
+function pendingActionPriorityStyle(priority: ManagerPendingAction["priorityBadge"]): object {
+  if (priority === "high") {
+    return styles.priorityBadgeHigh;
+  }
+  if (priority === "medium") {
+    return styles.priorityBadgeMedium;
+  }
+  return styles.priorityBadgeLow;
+}
+
 const ManagerDashboardScreen = () => {
   const navigation = useNavigation<DashboardNavigation>();
   const [summary, setSummary] = useState<DashboardSummaryState>(emptySummary);
+  const [pendingActions, setPendingActions] = useState<PendingActionsState>(emptyPendingActions);
   const [priorityQueue, setPriorityQueue] = useState<ManagerPriorityQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -139,14 +175,20 @@ const ManagerDashboardScreen = () => {
       setError(null);
 
       try {
-        const [summaryPayload, queuePayload] = await Promise.all([
+        const [summaryPayload, pendingActionsPayload, queuePayload] = await Promise.all([
           fetchManagerDashboardSummary(),
+          fetchManagerPendingActions(6),
           fetchManagerPriorityQueue({ limit: 15 }),
         ]);
         setSummary({
           kpis: summaryPayload.kpis,
           generatedAt: summaryPayload.meta.generatedAt,
           source: summaryPayload.meta.source,
+        });
+        setPendingActions({
+          items: pendingActionsPayload.items,
+          generatedAt: pendingActionsPayload.meta.generatedAt,
+          source: pendingActionsPayload.meta.source,
         });
         setPriorityQueue(queuePayload.items);
         setQueueActionState({});
@@ -167,6 +209,7 @@ const ManagerDashboardScreen = () => {
         setError(message);
         if (!hasLoadedData) {
           setSummary(emptySummary);
+          setPendingActions(emptyPendingActions);
           setPriorityQueue([]);
         }
       } finally {
@@ -194,6 +237,36 @@ const ManagerDashboardScreen = () => {
   const openAssignmentCenter = useCallback(() => {
     navigation.navigate("ManagerAssignmentCenter");
   }, [navigation]);
+
+  const openPendingAction = useCallback(
+    (item: ManagerPendingAction) => {
+      if (
+        item.deepLink.route === "manager_provider_handoff" &&
+        item.deepLink.params.propertyId &&
+        item.deepLink.params.queueItemId
+      ) {
+        navigation.navigate("ManagerToProviderHandoff", {
+          propertyId: item.deepLink.params.propertyId,
+          propertyTitle: item.subtitle.split(" · ")[0] ?? item.title,
+          queueItemId: item.deepLink.params.queueItemId,
+        });
+        return;
+      }
+
+      if (item.deepLink.route === "manager_assignment_detail" && item.deepLink.params.queueItemId) {
+        navigation.navigate("ManagerAssignmentDetail", {
+          queueItemId: item.deepLink.params.queueItemId,
+        });
+        return;
+      }
+
+      setManagerPortfolioLaunchContext({
+        search: item.subtitle.split(" · ")[0] ?? item.title,
+      });
+      navigation.navigate("PropertyList");
+    },
+    [navigation]
+  );
 
   const onLogout = () => {
     clearSession();
@@ -371,6 +444,37 @@ const ManagerDashboardScreen = () => {
             <Text style={styles.diagnosticsItem}>Generated at: {formatIsoDate(summary.generatedAt || null)}</Text>
           </View>
         ) : null}
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Pending actions</Text>
+          <Text style={styles.sectionMeta}>
+            Source: {pendingActions.source} | Updated: {formatIsoDate(pendingActions.generatedAt || null)}
+          </Text>
+
+          {pendingActions.items.length === 0 ? (
+            <Text style={styles.emptyPriorityText}>
+              No pending dashboard actions. Pull to refresh to confirm the latest handoff state.
+            </Text>
+          ) : null}
+
+          {pendingActions.items.map((item) => (
+            <View key={item.id} style={styles.priorityItem}>
+              <View style={styles.priorityHeader}>
+                <Text style={styles.priorityTitle}>{item.title}</Text>
+                <View style={[styles.priorityBadgeBase, pendingActionPriorityStyle(item.priorityBadge)]}>
+                  <Text style={styles.priorityBadgeText}>{item.priorityBadge}</Text>
+                </View>
+              </View>
+              <Text style={styles.priorityDescription}>{item.subtitle}</Text>
+              <Text style={styles.priorityMeta}>
+                Status: {item.statusBadge} | Due: {formatIsoDate(item.dueAt)} | Updated: {formatIsoDate(item.updatedAt)}
+              </Text>
+              <Pressable style={styles.priorityActionButton} onPress={() => openPendingAction(item)}>
+                <Text style={styles.priorityActionText}>{pendingActionLabel(item)}</Text>
+              </Pressable>
+            </View>
+          ))}
+        </View>
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Priority queue</Text>
@@ -606,6 +710,11 @@ const styles = StyleSheet.create({
     color: colors.brand,
     fontSize: fontSizes.sm,
     fontWeight: "700",
+  },
+  sectionMeta: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.xs,
+    marginBottom: spacing.md,
   },
   emptyPriorityText: {
     color: colors.textSecondary,
