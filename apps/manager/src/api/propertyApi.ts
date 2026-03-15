@@ -281,6 +281,45 @@ type PriorityQueuePayload = {
   };
 };
 
+type PendingActionsPayload = {
+  data: Array<{
+    id: string;
+    action_type:
+      | "handoff_pending_confirmation"
+      | "handoff_pending_acceptance"
+      | "contract_pending_approval"
+      | "contract_expiring_soon";
+    entity_type: string;
+    entity_id: string;
+    title: string;
+    subtitle: string;
+    status_badge: string;
+    priority_badge: "low" | "medium" | "high";
+    due_at: string | null;
+    updated_at: string;
+    deep_link: {
+      route: "manager_provider_handoff" | "manager_assignment_detail";
+      params: {
+        queue_item_id?: string;
+        property_id?: number;
+      };
+    };
+  }>;
+  meta: {
+    contract: string;
+    generated_at: string;
+    source: "database" | "in_memory";
+    filters: {
+      limit: number | null;
+    };
+    count: number;
+    counts: {
+      total: number;
+      high_priority: number;
+    };
+  };
+};
+
 type AssignmentQueueDetailPayload = {
   data: {
     item: PriorityQueuePayload["data"]["items"][number] & {
@@ -675,6 +714,47 @@ export type ManagerPriorityQueueResult = {
       status: string | null;
       search: string | null;
       limit: number | null;
+    };
+  };
+};
+
+export type ManagerPendingAction = {
+  id: string;
+  actionType:
+    | "handoff_pending_confirmation"
+    | "handoff_pending_acceptance"
+    | "contract_pending_approval"
+    | "contract_expiring_soon";
+  entityType: string;
+  entityId: string;
+  title: string;
+  subtitle: string;
+  statusBadge: string;
+  priorityBadge: ManagerPrioritySeverity;
+  dueAt: string | null;
+  updatedAt: string;
+  deepLink: {
+    route: "manager_provider_handoff" | "manager_assignment_detail";
+    params: {
+      queueItemId: string | null;
+      propertyId: string | null;
+    };
+  };
+};
+
+export type ManagerPendingActionsResult = {
+  items: ManagerPendingAction[];
+  meta: {
+    contract: string;
+    generatedAt: string;
+    source: "database" | "in_memory";
+    filters: {
+      limit: number | null;
+    };
+    count: number;
+    counts: {
+      total: number;
+      highPriority: number;
     };
   };
 };
@@ -1083,6 +1163,36 @@ function mapPriorityQueueItems(
   return items.map(mapPriorityQueueItem);
 }
 
+function mapPendingActions(
+  items: PendingActionsPayload["data"]
+): ManagerPendingAction[] {
+  return items.map((item) => ({
+    id: item.id,
+    actionType: item.action_type,
+    entityType: item.entity_type,
+    entityId: item.entity_id,
+    title: item.title,
+    subtitle: item.subtitle,
+    statusBadge: item.status_badge,
+    priorityBadge: item.priority_badge,
+    dueAt: item.due_at,
+    updatedAt: item.updated_at,
+    deepLink: {
+      route: item.deep_link.route,
+      params: {
+        queueItemId:
+          typeof item.deep_link.params.queue_item_id === "string"
+            ? item.deep_link.params.queue_item_id
+            : null,
+        propertyId:
+          typeof item.deep_link.params.property_id === "number"
+            ? String(item.deep_link.params.property_id)
+            : null,
+      },
+    },
+  }));
+}
+
 function mapPriorityQueueItem(
   item: PriorityQueuePayload["data"]["items"][number]
 ): ManagerPriorityQueueItem {
@@ -1439,6 +1549,39 @@ export async function fetchManagerPriorityQueue(
         status: payload.meta.filters.status,
         search: payload.meta.filters.search,
         limit: payload.meta.filters.limit,
+      },
+    },
+  };
+}
+
+export async function fetchManagerPendingActions(
+  limit = 6
+): Promise<ManagerPendingActionsResult> {
+  const params = new URLSearchParams();
+  if (typeof limit === "number") {
+    params.set("limit", String(limit));
+  }
+
+  const suffix = params.toString();
+  const endpoint =
+    suffix.length > 0
+      ? `/properties/priorities/pending-actions?${suffix}`
+      : "/properties/priorities/pending-actions";
+  const payload = await requestJson<PendingActionsPayload>(endpoint);
+
+  return {
+    items: mapPendingActions(payload.data),
+    meta: {
+      contract: payload.meta.contract,
+      generatedAt: payload.meta.generated_at,
+      source: payload.meta.source,
+      filters: {
+        limit: payload.meta.filters.limit,
+      },
+      count: payload.meta.count,
+      counts: {
+        total: payload.meta.counts.total,
+        highPriority: payload.meta.counts.high_priority,
       },
     },
   };
