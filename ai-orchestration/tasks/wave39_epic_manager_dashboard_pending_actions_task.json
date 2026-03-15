@@ -1,0 +1,28 @@
+{
+  "id": "EPIC-W39",
+  "title": "Wave 39 - Manager dashboard pending actions parity",
+  "description": "Coordinate architect, backend, mobile, and QA work to expose manager-safe pending handoff and contract actions in the dashboard without breaking current summary, priorities, or handoff flows.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/ai-orchestration-roadmap.md",
+    "docs/roadmap/wave39-manager-dashboard-pending-actions-plan.md",
+    "ai-orchestration/tasks/wave39_epic_manager_dashboard_pending_actions_task.json",
+    "ai-orchestration/tasks/architect_wave39_manager_dashboard_pending_actions_contract_task.json",
+    "ai-orchestration/tasks/backend_wave39_manager_dashboard_pending_actions_contract_task.json",
+    "ai-orchestration/tasks/mobile_wave39_manager_dashboard_pending_actions_ui_task.json",
+    "ai-orchestration/tasks/qa_wave39_manager_dashboard_pending_actions_regression_task.json"
+  ],
+  "acceptance_criteria": [
+    "Wave 39 plan and task files are committed and linked to Jira epic/tickets",
+    "Architect, backend, mobile, and QA tasks are created with manager dashboard pending-actions scope",
+    "Wave 39 appears in Jira backlog/board with architect ready to execute"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave39",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-dashboard-pending-actions"
+  }
+}
