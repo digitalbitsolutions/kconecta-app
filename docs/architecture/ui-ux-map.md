@@ -1047,3 +1047,252 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend assignment evidence upload/list implementation (`BE-029`).
 3. Manager assignment detail evidence UI (`MOB-030`).
 4. Regression matrix for assignment evidence workflow (`QA-032`).
+
+## Wave 34 Manager Provider Profile Scorecard State Map
+
+### Provider Profile Scorecard States
+
+- `provider_profile_scorecard_loading`
+  - provider profile loads with `queue_item_id` assignment context
+  - keep base profile shell visible while scorecard metadata resolves
+- `provider_profile_scorecard_ready`
+  - render `assignment_fit` block with:
+    - recommendation badge
+    - score label
+    - match reasons
+    - warnings
+    - next-action hint
+- `provider_profile_scorecard_recommended`
+  - recommended provider state with positive guidance and visible primary CTA to select provider
+- `provider_profile_scorecard_warning`
+  - provider is selectable but warnings must remain visible before confirmation
+- `provider_profile_scorecard_unavailable`
+  - provider profile remains readable, but select CTA is disabled because assignment fit does not allow immediate selection
+- `provider_profile_scorecard_missing_context`
+  - queue item context missing/not found; fall back to baseline provider profile with deterministic warning banner
+- `provider_profile_scorecard_forbidden`
+  - route to `Unauthorized`
+- `provider_profile_scorecard_session_expired`
+  - route to `SessionExpired`
+
+### Interaction Rules
+
+- Enter profile from assignment center or reassignment flow with `queue_item_id` in navigation params.
+- When `queue_item_id` is absent:
+  - preserve Wave 30 provider profile behavior with no scorecard block required.
+- Select-from-profile CTA is available only when backend returns a valid assignment-aware profile state.
+- Warnings are advisory, not silent blockers:
+  - manager must see them before selecting provider.
+- Missing queue context never clears the underlying provider profile data already resolved.
+
+### Wave 34 Delivery Sequencing
+
+1. Provider profile scorecard contract and state map (`ARCH-028`).
+2. Backend assignment-aware provider profile contract (`BE-030`).
+3. Manager provider profile scorecard UI and select-from-profile flow (`MOB-031`).
+4. Regression matrix for provider profile scorecard workflow (`QA-021`).
+
+## Wave 35 Manager Assignment Decision Timeline State Map
+
+### Decision Summary States
+
+- `assignment_decision_summary_loading`
+  - assignment detail is mounted but additive summary metadata is still resolving
+- `assignment_decision_summary_ready`
+  - summary card renders current state, latest decision label, actor, and timestamp
+- `assignment_decision_summary_with_evidence`
+  - summary card surfaces evidence count and confirms evidence-backed decision context
+- `assignment_decision_summary_no_evidence`
+  - summary renders current decision state but explicitly shows no evidence available
+- `assignment_decision_summary_missing`
+  - fallback to baseline assignment detail with no summary card if additive payload is absent
+
+### Timeline States
+
+- `assignment_timeline_ready`
+  - timeline rows render richer event-kind and status badge semantics
+- `assignment_timeline_evidence_event`
+  - evidence-backed events surface evidence count inline without forcing a separate evidence fetch
+- `assignment_timeline_reassignment_event`
+  - manager sees reassignment-specific context in the event row
+- `assignment_timeline_completion_event`
+  - completed state is visually distinct from generic assignment events
+- `assignment_timeline_cancelled_event`
+  - cancelled state is visually distinct and non-ambiguous
+
+### Interaction Rules
+
+- Decision summary is read-only and must not change current action button behavior.
+- Timeline enrichment must preserve current vertical flow and scrolling behavior inside assignment detail.
+- If additive fields are absent, assignment detail must fall back cleanly to the existing Wave 33/Wave 34 presentation.
+- Unauthorized, session-expired, and not-found states continue to use shared manager recovery screens.
+
+### Wave 35 Delivery Sequencing
+
+1. Assignment decision summary and timeline contract/state map (`ARCH-029`).
+2. Backend additive decision summary and timeline metadata (`BE-031`).
+3. Manager assignment detail summary/timeline UI (`MOB-032`).
+4. Regression matrix for assignment decision timeline workflow (`QA-022`).
+
+## Wave 36 Manager Assignment Center Decision Rollup State Map
+
+### Assignment Center Card States
+
+- `assignment_center_rollup_loading`
+  - queue list is available, but additive decision rollup metadata is still resolving
+  - keep existing assignment center skeleton/loading behavior stable
+- `assignment_center_rollup_ready`
+  - queue card renders latest decision label, status badge, and recommended next action
+- `assignment_center_rollup_with_evidence`
+  - queue card surfaces evidence count and evidence-present affordance without opening detail
+- `assignment_center_rollup_no_evidence`
+  - queue card renders latest decision state explicitly showing no evidence attached
+- `assignment_center_rollup_provider_missing`
+  - queue card highlights provider-missing state with visible remediation CTA back into provider selection
+- `assignment_center_rollup_terminal_completed`
+  - queue card shows completed badge and suppresses mutation-oriented recommendation copy
+- `assignment_center_rollup_terminal_cancelled`
+  - queue card shows cancelled badge and suppresses mutation-oriented recommendation copy
+- `assignment_center_rollup_missing`
+  - fallback to baseline Wave 31 assignment center card when additive payload is absent
+
+### Interaction Rules
+
+- Decision rollup is a list-level hint surface:
+  - it must not replace assignment detail as the authoritative review screen
+- Assignment center filters remain stable when rollup metadata refreshes after a mutation performed elsewhere.
+- Queue cards must not derive badge copy or recommendation text from local optimistic state alone.
+- Evidence count shown in the list is informational:
+  - opening detail remains required for evidence review and upload actions
+- Missing additive payload must degrade cleanly to the baseline assignment center presentation.
+
+### Navigation and Recovery Rules
+
+- Manager can enter assignment detail from any queue card regardless of rollup presence.
+- `Unauthorized`, `SessionExpired`, and generic retry states continue to use shared manager recovery screens.
+- If a queue item disappears between list read and detail navigation:
+  - keep assignment center list mounted
+  - route to shared missing-assignment recovery state without clearing current filters
+
+### Wave 36 Delivery Sequencing
+
+1. Assignment center decision rollup contract/state map (`ARCH-030`).
+2. Backend additive queue-list decision rollup serialization (`BE-032`).
+3. Manager assignment center decision rollup UI (`MOB-033`).
+4. Regression matrix for assignment center decision rollup workflow (`QA-023`).
+
+## Wave 37 Manager Provider Directory Scorecard State Map
+
+### Manager Provider Directory States
+
+- `provider_directory_loading`
+  - initial provider list query in flight
+- `provider_directory_ready`
+  - render provider rows with:
+    - identity summary
+    - location/category badges
+    - rating
+    - additive scorecard preview
+- `provider_directory_filtering`
+  - preserve visible rows while search/city/category filters refresh
+- `provider_directory_empty`
+  - deterministic zero-state when no providers match the current filters
+- `provider_directory_error_retryable`
+  - keep filter/search state mounted and allow retry
+- `provider_directory_forbidden`
+  - route to `Unauthorized`
+- `provider_directory_session_expired`
+  - route to `SessionExpired`
+
+### Manager Provider Profile Scorecard States
+
+- `provider_profile_loading`
+  - fetch provider detail by id
+- `provider_profile_ready`
+  - render profile sections:
+    - identity
+    - services
+    - coverage
+    - availability summary
+    - additive scorecard
+- `provider_profile_contextual_ready`
+  - provider profile opened from handoff or assignment flow with enough context to resume back-navigation cleanly
+- `provider_profile_not_found`
+  - deterministic missing-provider state with back CTA to directory or handoff
+- `provider_profile_error_retryable`
+  - keep navigation context and allow retry
+- `provider_profile_forbidden`
+  - route to `Unauthorized`
+- `provider_profile_session_expired`
+  - route to `SessionExpired`
+
+### Wave 37 Interaction Rules
+
+- Manager can enter provider directory from dashboard without property context.
+- Manager can open provider profile from:
+  - provider directory
+  - manager-to-provider handoff candidate row
+- Returning from provider profile must preserve:
+  - current directory filters when entered from directory
+  - current property assignment context when entered from handoff
+- Wave 37 stays read-only:
+  - assignment selection remains in handoff
+  - directory/profile screens do not mutate provider data
+
+### Wave 37 Delivery Sequencing
+
+1. Manager provider directory/profile scorecard contract and state map (`ARCH-031`).
+2. Backend provider directory/profile scorecard contract hardening (`BE-033`).
+3. Manager provider directory/profile UI wiring (`MOB-034`).
+4. Regression matrix for manager provider directory/profile scorecard parity (`QA-024`).
+
+## Wave 38 Manager Provider Handoff Candidate Fit State Map
+
+### Manager Handoff Candidate Fit States
+
+- `handoff_candidate_fit_loading`
+  - provider candidates query in flight while property assignment context is known
+- `handoff_candidate_fit_ready`
+  - render candidate cards with additive fit preview, recommendation badge, and baseline candidate metadata
+- `handoff_candidate_fit_recommended`
+  - at least one candidate is marked `recommended`; recommendation badge and primary select CTA are visible without hiding other candidates
+- `handoff_candidate_fit_warning`
+  - candidate remains selectable, but warnings must stay visible before confirmation
+- `handoff_candidate_fit_blocked`
+  - candidate is shown for transparency, but selection CTA is disabled with explicit blocked reason
+- `handoff_candidate_fit_empty`
+  - deterministic zero-state when no candidates match the current handoff scope
+- `handoff_candidate_fit_error_retryable`
+  - preserve property assignment context and allow retry
+
+### Queue-Aware Selection Confirmation States
+
+- `handoff_selection_confirmation_required`
+  - opening candidate selection reveals backend-issued confirmation copy before mutation
+- `handoff_selection_submitting`
+  - selection mutation pending; lock duplicate submit while preserving visible candidate fit context
+- `handoff_selection_success`
+  - manager sees deterministic confirmation and returns to assignment detail with preserved queue context
+- `handoff_selection_already_selected`
+  - selected candidate is visibly marked and duplicate confirmation affordances are suppressed
+- `handoff_selection_already_assigned`
+  - current assignment winner is highlighted as terminal/current state
+
+### Wave 38 Interaction Rules
+
+- Recommendation badges are advisory, not silent auto-selection.
+- Candidate fit preview must remain visible when manager opens confirmation UI.
+- Back-navigation from provider profile into handoff must preserve:
+  - property assignment context
+  - current candidate filters/order
+  - currently highlighted candidate, if still present
+- Missing additive fit nodes must degrade cleanly to the Wave 29 handoff candidate UI.
+- Unauthorized, session-expired, and not-found states continue to use shared manager recovery screens.
+
+### Wave 38 Delivery Sequencing
+
+1. Manager handoff candidate fit contract and state map (`ARCH-032`).
+2. Backend additive provider-candidates fit + selection-state serialization (`BE-034`).
+3. Manager handoff candidate fit UI and confirmation flow (`MOB-035`).
+4. Regression matrix for manager handoff candidate fit parity (`QA-025`).
+

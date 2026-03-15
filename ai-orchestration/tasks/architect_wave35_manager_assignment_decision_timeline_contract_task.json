@@ -1,0 +1,24 @@
+{
+  "id": "ARCH-029",
+  "title": "Define Wave 35 manager assignment decision timeline contract",
+  "description": "Extend architecture docs with additive assignment decision summary fields, normalized timeline event semantics, and the manager UI state map for completed, reassigned, cancelled, and evidence-backed assignment decisions.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Architecture docs define additive decision_summary and enriched timeline metadata for assignment detail payloads",
+    "UI/UX map documents active, completed, cancelled, reassigned, unauthorized, and session-expired detail states",
+    "Module map clarifies backend and mobile ownership for decision summary, evidence indicators, and timeline rendering"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave35",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-decision-timeline"
+  }
+}

@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { ApiError } from "../api/client";
+import { setManagerAssignmentSelectionResult } from "../api/propertyApi";
 import { fetchManagerProviderProfile, type ProviderProfile } from "../api/providerApi";
 import type { ManagerStackParamList } from "../navigation";
 import { borderRadius, colors, fontSizes, spacing } from "../theme/tokens";
@@ -24,7 +25,7 @@ type ProviderProfileNavigation = NativeStackNavigationProp<
 const ProviderProfileScreen = () => {
   const navigation = useNavigation<ProviderProfileNavigation>();
   const route = useRoute<ProviderProfileRoute>();
-  const { providerId, providerName } = route.params;
+  const { providerId, providerName, selectionContext } = route.params;
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +35,9 @@ const ProviderProfileScreen = () => {
     setError(null);
 
     try {
-      const payload = await fetchManagerProviderProfile(providerId);
+      const payload = await fetchManagerProviderProfile(providerId, {
+        queueItemId: selectionContext?.queueItemId,
+      });
       setProfile(payload);
     } catch (requestError) {
       if (requestError instanceof ApiError) {
@@ -55,7 +58,29 @@ const ProviderProfileScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [navigation, providerId]);
+  }, [navigation, providerId, selectionContext?.queueItemId]);
+
+  const handleSelectProvider = useCallback(() => {
+    if (!selectionContext || !profile) {
+      return;
+    }
+
+    setManagerAssignmentSelectionResult({
+      queueItemId: selectionContext.queueItemId,
+      providerId: profile.id,
+      providerName: profile.name,
+    });
+    navigation.pop(2);
+  }, [navigation, profile, selectionContext]);
+
+  const isCurrentProvider = selectionContext?.currentProviderId === profile?.id;
+  const scorecardToneStyle = profile?.assignmentFit
+    ? profile.assignmentFit.recommended
+      ? styles.scorecardRecommended
+      : profile.assignmentFit.nextAction === null
+        ? styles.scorecardUnavailable
+        : styles.scorecardWarning
+    : null;
 
   useEffect(() => {
     void loadProfile();
@@ -88,6 +113,14 @@ const ProviderProfileScreen = () => {
 
         {!loading && !error && profile ? (
           <>
+            {selectionContext ? (
+              <View style={styles.selectionContextCard}>
+                <Text style={styles.selectionContextTitle}>Assignment context</Text>
+                <Text style={styles.sectionLine}>{selectionContext.propertyTitle}</Text>
+                <Text style={styles.sectionLine}>Queue item: {selectionContext.queueItemId}</Text>
+              </View>
+            ) : null}
+
             <View style={styles.sectionCard}>
               <View style={styles.headerRow}>
                 <View style={styles.headerCopy}>
@@ -103,6 +136,46 @@ const ProviderProfileScreen = () => {
               <Text style={styles.sectionBody}>{profile.bio ?? "No provider bio available."}</Text>
             </View>
 
+            {profile.assignmentFit ? (
+              <View style={[styles.sectionCard, styles.scorecardCard, scorecardToneStyle]}>
+                <Text style={styles.sectionTitle}>Assignment fit</Text>
+                <Text style={styles.scorecardLabel}>{profile.assignmentFit.scoreLabel}</Text>
+                {profile.assignmentFit.matchReasons.length > 0 ? (
+                  <View style={styles.scorecardList}>
+                    {profile.assignmentFit.matchReasons.map((reason) => (
+                      <Text key={reason} style={styles.scorecardReason}>
+                        + {reason}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
+                {profile.assignmentFit.warnings.length > 0 ? (
+                  <View style={styles.scorecardList}>
+                    {profile.assignmentFit.warnings.map((warning) => (
+                      <Text key={warning} style={styles.scorecardWarningText}>
+                        ! {warning}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
+                {selectionContext ? (
+                  isCurrentProvider ? (
+                    <View style={styles.selectionNotice}>
+                      <Text style={styles.selectionNoticeText}>This provider is already assigned.</Text>
+                    </View>
+                  ) : profile.assignmentFit.nextAction === "select_provider" ? (
+                    <Pressable style={styles.selectAction} onPress={handleSelectProvider}>
+                      <Text style={styles.selectActionText}>Select provider from profile</Text>
+                    </Pressable>
+                  ) : (
+                    <Text style={styles.helperText}>
+                      Review the warnings above before assigning this provider.
+                    </Text>
+                  )
+                ) : null}
+              </View>
+            ) : null}
+
             <View style={styles.sectionCard}>
               <Text style={styles.sectionTitle}>Contact</Text>
               <Text style={styles.sectionLine}>Phone: {profile.phone ?? "n/a"}</Text>
@@ -114,6 +187,29 @@ const ProviderProfileScreen = () => {
               <Text style={styles.sectionLine}>{profile.availabilitySummary.label}</Text>
               <Text style={styles.sectionLine}>
                 Next open slot: {profile.availabilitySummary.nextOpenSlot ?? "n/a"}
+              </Text>
+            </View>
+
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>Provider scorecard</Text>
+              <Text style={styles.sectionLine}>Status badge: {profile.scorecard.statusBadge}</Text>
+              <Text style={styles.sectionLine}>
+                Availability label: {profile.scorecard.availabilityLabel}
+              </Text>
+              <Text style={styles.sectionLine}>
+                Completed jobs: {String(profile.scorecard.completedJobs)}
+              </Text>
+              <Text style={styles.sectionLine}>
+                Response time: {profile.scorecard.responseTimeHours}h
+              </Text>
+              <Text style={styles.sectionLine}>
+                Customer score: {profile.scorecard.customerScoreLabel}
+              </Text>
+              <Text style={styles.sectionLine}>
+                Coverage count: {String(profile.scorecard.coverageCount)}
+              </Text>
+              <Text style={styles.sectionLine}>
+                Services count: {String(profile.scorecard.servicesCount)}
               </Text>
             </View>
 
@@ -148,6 +244,9 @@ const ProviderProfileScreen = () => {
               <Text style={styles.sectionTitle}>Contract diagnostics</Text>
               <Text style={styles.sectionLine}>Contract: {profile.meta.contract}</Text>
               <Text style={styles.sectionLine}>Source: {profile.meta.source}</Text>
+              <Text style={styles.sectionLine}>
+                Assignment-aware: {profile.assignmentFit ? "yes" : "no"}
+              </Text>
             </View>
           </>
         ) : null}
@@ -214,6 +313,20 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     fontWeight: "700",
   },
+  selectionContextCard: {
+    backgroundColor: colors.brandSoft,
+    borderColor: colors.brand,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.md,
+    padding: spacing.md,
+  },
+  selectionContextTitle: {
+    color: colors.brand,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
+    marginBottom: spacing.xs,
+  },
   sectionCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -221,6 +334,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginTop: spacing.md,
     padding: spacing.md,
+  },
+  scorecardCard: {
+    borderWidth: 1,
+  },
+  scorecardRecommended: {
+    borderColor: colors.accent,
+  },
+  scorecardWarning: {
+    borderColor: colors.warning,
+  },
+  scorecardUnavailable: {
+    borderColor: colors.danger,
   },
   headerRow: {
     alignItems: "flex-start",
@@ -262,6 +387,55 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSizes.sm,
     lineHeight: 22,
+  },
+  helperText: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.xs,
+    lineHeight: 20,
+    marginTop: spacing.sm,
+  },
+  scorecardLabel: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.md,
+    fontWeight: "700",
+  },
+  scorecardList: {
+    marginTop: spacing.sm,
+  },
+  scorecardReason: {
+    color: colors.accent,
+    fontSize: fontSizes.sm,
+    lineHeight: 22,
+  },
+  scorecardWarningText: {
+    color: colors.warning,
+    fontSize: fontSizes.sm,
+    lineHeight: 22,
+  },
+  selectionNotice: {
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.md,
+    padding: spacing.md,
+  },
+  selectionNoticeText: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.sm,
+    fontWeight: "600",
+  },
+  selectAction: {
+    alignItems: "center",
+    backgroundColor: colors.accent,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  selectActionText: {
+    color: colors.surface,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
   },
   sectionLine: {
     color: colors.textSecondary,

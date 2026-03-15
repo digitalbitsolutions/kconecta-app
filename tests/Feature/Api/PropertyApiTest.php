@@ -792,6 +792,101 @@ class PropertyApiTest extends TestCase
         $this->assertNotEmpty((array) $response->json("data.candidates", []));
     }
 
+    public function test_provider_candidates_include_wave38_fit_preview_and_selection_state_contract(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/101/provider-candidates");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("meta.contract", "manager-provider-handoff-v1")
+            ->assertJsonPath("meta.flow", "properties_provider_candidates")
+            ->assertJsonPath("meta.reason", "candidates_loaded");
+
+        $candidates = collect($response->json("data.candidates", []));
+        $this->assertNotEmpty($candidates);
+
+        $recommended = $candidates->firstWhere("id", 1);
+        $this->assertIsArray($recommended);
+        $this->assertSame("service_provider", $recommended["role"] ?? null);
+        $this->assertSame("Recommended", $recommended["fit_preview"]["score_label"] ?? null);
+        $this->assertSame("Recommended", $recommended["fit_preview"]["recommendation_badge"] ?? null);
+        $this->assertSame("select_provider", $recommended["fit_preview"]["next_action_hint"] ?? null);
+        $this->assertSame("ready", $recommended["selection_state"]["queue_status"] ?? null);
+        $this->assertTrue((bool) ($recommended["selection_state"]["can_select"] ?? false));
+        $this->assertNull($recommended["selection_state"]["blocked_reason"] ?? null);
+        $this->assertNull($recommended["selection_state"]["confirmation_copy"] ?? null);
+
+        $review = $candidates->firstWhere("id", 3);
+        $this->assertIsArray($review);
+        $this->assertSame("Review before assigning", $review["fit_preview"]["score_label"] ?? null);
+        $this->assertSame("Review", $review["fit_preview"]["recommendation_badge"] ?? null);
+        $this->assertSame("review_provider", $review["fit_preview"]["next_action_hint"] ?? null);
+        $this->assertSame("confirmation_required", $review["selection_state"]["queue_status"] ?? null);
+        $this->assertTrue((bool) ($review["selection_state"]["can_select"] ?? false));
+        $this->assertNull($review["selection_state"]["blocked_reason"] ?? null);
+        $this->assertSame(
+            "Confirm provider selection?",
+            $review["selection_state"]["confirmation_copy"]["title"] ?? null
+        );
+        $this->assertSame(
+            "Select provider",
+            $review["selection_state"]["confirmation_copy"]["confirm_label"] ?? null
+        );
+        $this->assertContains(
+            "Provider base city differs from property city Madrid.",
+            $review["fit_preview"]["warnings"] ?? []
+        );
+    }
+
+    public function test_provider_candidates_mark_current_provider_as_already_assigned_after_assignment(): void
+    {
+        $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-MANAGER-ID" => "mgr-wave38",
+            ])
+            ->postJson("/api/properties/101/assign-provider", [
+                "provider_id" => 1,
+                "note" => "Wave 38 assignment fit validation",
+            ])
+            ->assertOk();
+
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/101/provider-candidates");
+
+        $response->assertOk();
+
+        $candidates = collect($response->json("data.candidates", []));
+        $assigned = $candidates->firstWhere("id", 1);
+        $this->assertIsArray($assigned);
+        $this->assertSame("Already assigned", $assigned["fit_preview"]["score_label"] ?? null);
+        $this->assertSame("Assigned", $assigned["fit_preview"]["recommendation_badge"] ?? null);
+        $this->assertSame("assigned_provider_locked", $assigned["fit_preview"]["next_action_hint"] ?? null);
+        $this->assertSame("already_assigned", $assigned["selection_state"]["queue_status"] ?? null);
+        $this->assertFalse((bool) ($assigned["selection_state"]["can_select"] ?? true));
+        $this->assertSame(
+            "Provider is already assigned to this property.",
+            $assigned["selection_state"]["blocked_reason"] ?? null
+        );
+        $this->assertNull($assigned["selection_state"]["confirmation_copy"] ?? null);
+
+        $replacement = $candidates->firstWhere("id", 3);
+        $this->assertIsArray($replacement);
+        $this->assertSame("confirmation_required", $replacement["selection_state"]["queue_status"] ?? null);
+        $this->assertSame(
+            "Replace current provider?",
+            $replacement["selection_state"]["confirmation_copy"]["title"] ?? null
+        );
+        $this->assertSame(
+            "Replace provider",
+            $replacement["selection_state"]["confirmation_copy"]["confirm_label"] ?? null
+        );
+        $this->assertSame("review_reassignment", $replacement["fit_preview"]["next_action_hint"] ?? null);
+    }
+
     public function test_provider_candidates_endpoint_is_forbidden_for_provider_role(): void
     {
         $response = $this
@@ -1365,6 +1460,12 @@ class PropertyApiTest extends TestCase
         $this->assertCount(1, $items);
         $this->assertSame("provider_assignment", $items[0]["category"] ?? null);
         $this->assertSame("high", $items[0]["severity"] ?? null);
+        $this->assertSame("unassigned", $items[0]["decision_rollup"]["current_state"] ?? null);
+        $this->assertSame("Awaiting assignment", $items[0]["decision_rollup"]["latest_decision_label"] ?? null);
+        $this->assertSame(0, $items[0]["decision_rollup"]["evidence_count"] ?? null);
+        $this->assertSame(false, $items[0]["decision_rollup"]["has_evidence"] ?? null);
+        $this->assertSame("Awaiting assignment", $items[0]["decision_rollup"]["status_badge"] ?? null);
+        $this->assertSame("reassign", $items[0]["decision_rollup"]["next_recommended_action"] ?? null);
     }
 
     public function test_manager_priority_queue_supports_status_and_search_filters(): void
@@ -1410,7 +1511,12 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("data.item.id", $queueItemId)
             ->assertJsonPath("data.property.id", 101)
             ->assertJsonPath("data.property.title", "Modern Loft Center")
-            ->assertJsonPath("data.assignment.state", "unassigned");
+            ->assertJsonPath("data.assignment.state", "unassigned")
+            ->assertJsonPath("data.decision_summary.current_state", "unassigned")
+            ->assertJsonPath("data.decision_summary.latest_decision_label", "Awaiting assignment")
+            ->assertJsonPath("data.decision_summary.evidence_count", 0)
+            ->assertJsonPath("data.decision_summary.has_evidence", false)
+            ->assertJsonPath("data.decision_summary.next_recommended_action", "reassign");
 
         $timeline = $detail->json("data.timeline", []);
         $this->assertNotEmpty($timeline);
@@ -1673,7 +1779,14 @@ class PropertyApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath("data.assignment.state", "assigned")
             ->assertJsonPath("data.assignment.provider_id", 1)
-            ->assertJsonPath("data.assignment.provider_name", "CleanHome Pro");
+            ->assertJsonPath("data.assignment.provider_name", "CleanHome Pro")
+            ->assertJsonPath("data.decision_summary.current_state", "assigned")
+            ->assertJsonPath("data.decision_summary.latest_decision_label", "Provider reassigned")
+            ->assertJsonPath("data.decision_summary.next_recommended_action", "complete");
+
+        $this->assertSame("provider_reassigned", $detail->json("data.timeline.0.metadata.event_kind"));
+        $this->assertSame("Assigned", $detail->json("data.timeline.0.metadata.status_badge"));
+        $this->assertSame(1, $detail->json("data.timeline.0.metadata.provider_id"));
     }
 
     public function test_manager_can_complete_assigned_priority_queue_item_from_assignment_status_endpoint(): void
@@ -1903,6 +2016,35 @@ class PropertyApiTest extends TestCase
             ->assertJsonPath("data.items.0.uploaded_by", "mgr-wave33")
             ->assertJsonPath("meta.contract", "manager-assignment-evidence-v1")
             ->assertJsonPath("meta.reason", "assignment_evidence_loaded");
+
+        $detail = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue/priority-provider-assignment-101");
+
+        $detail
+            ->assertOk()
+            ->assertJsonPath("data.decision_summary.has_evidence", true)
+            ->assertJsonPath("data.decision_summary.evidence_count", 1)
+            ->assertJsonPath("data.decision_summary.latest_decision_label", "Evidence uploaded");
+
+        $this->assertSame("evidence_uploaded", $detail->json("data.timeline.0.metadata.event_kind"));
+        $this->assertSame(1, $detail->json("data.timeline.0.metadata.evidence_count"));
+
+        $queue = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/priorities/queue?category=provider_assignment&search=Loft&limit=5");
+
+        $queue->assertOk();
+        $item = collect($queue->json("data.items", []))
+            ->first(static fn (array $candidate): bool => ($candidate["id"] ?? null) === "priority-provider-assignment-101");
+
+        $this->assertIsArray($item);
+        $this->assertSame("assigned", $item["decision_rollup"]["current_state"] ?? null);
+        $this->assertSame("Evidence uploaded", $item["decision_rollup"]["latest_decision_label"] ?? null);
+        $this->assertSame(1, $item["decision_rollup"]["evidence_count"] ?? null);
+        $this->assertSame(true, $item["decision_rollup"]["has_evidence"] ?? null);
+        $this->assertSame("Evidence", $item["decision_rollup"]["status_badge"] ?? null);
+        $this->assertSame("complete", $item["decision_rollup"]["next_recommended_action"] ?? null);
     }
 
     public function test_assignment_evidence_upload_returns_unauthorized_for_invalid_token(): void

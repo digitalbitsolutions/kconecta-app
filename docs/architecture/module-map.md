@@ -666,3 +666,153 @@
 - Manager mobile must not upload directly to storage with client-managed credentials.
 - Manager mobile must not infer evidence list state from timeline events or prior handoff confirmation payloads.
 - Wave 29 assignment confirmation evidence remains a mutation-success snapshot; Wave 33 media evidence is a durable list/read-write concern attached to the same assignment workspace.
+
+## Wave 34 Manager Provider Profile Scorecard Boundary
+
+### Assignment-Aware Provider Profile Layer
+
+- Provider module owns:
+  - queue-aware provider profile enrichment for manager/admin reads
+  - additive `assignment_fit` serialization on `GET /api/providers/{id}?queue_item_id=...`
+  - compatibility with baseline Wave 30 provider detail reads when queue context is absent
+- Property/assignment module owns:
+  - queue item lookup and assignment-context validation for `queue_item_id`
+  - deterministic missing-context semantics (`404 QUEUE_ITEM_NOT_FOUND`)
+  - recommendation inputs derived from assignment state and queue context
+- Manager mobile module owns:
+  - passing `queue_item_id` from assignment selection flow into provider profile navigation
+  - rendering recommended/warning/unavailable states from `assignment_fit`
+  - exposing select-from-profile CTA only when assignment-aware profile context is valid
+- Auth session module owns:
+  - refresh/session-expired behavior
+  - forbidden-role and invalid-token envelopes
+
+### Boundary Decision
+
+- Wave 34 keeps provider profile as the authoritative read surface for manager evaluation.
+- Scorecard reasoning is backend-owned; mobile consumes the additive `assignment_fit` contract instead of inferring fit from raw services, city, and availability fields.
+- Queue-aware profile enrichment is optional and contextual:
+  - baseline provider directory/profile browsing remains valid without `queue_item_id`.
+
+## Wave 35 Manager Assignment Decision Timeline Boundary
+
+### Assignment Decision Visibility Layer
+
+- Property / assignment module owns:
+  - additive `decision_summary` serialization for assignment detail
+  - normalized timeline event metadata for manager decision visibility
+  - evidence-count rollup exposed to manager detail reads
+- Manager mobile module owns:
+  - decision summary card rendering in assignment detail
+  - richer timeline row presentation
+  - fallback to baseline detail UI when additive fields are absent
+- Evidence module owns:
+  - evidence list and upload lifecycle
+  - source data that may be summarized into `decision_summary.has_evidence` and timeline evidence counts
+- Auth session module owns:
+  - `401` recovery
+  - unauthorized and session-expired routing
+
+### Boundary Decision
+
+- Wave 35 does not introduce a new write surface.
+- Decision summary remains backend-owned derived state, not mobile-computed state.
+- Timeline enrichment is additive and read-only:
+  - manager mobile must not infer final decision badges from local action labels alone
+  - manager mobile must consume backend-issued semantics for reassignment, completion, cancellation, and evidence-backed events
+
+## Wave 36 Manager Assignment Center Decision Rollup Boundary
+
+### Assignment Center Rollup Layer
+
+- Property / assignment module owns:
+  - additive `decision_rollup` serialization for provider-assignment queue list items
+  - rollup computation derived from assignment status, latest decision event, and evidence summary
+  - deterministic list-level badge and recommendation semantics
+- Evidence module owns:
+  - evidence presence/count inputs that may be summarized into `decision_rollup.has_evidence` and `decision_rollup.evidence_count`
+- Manager mobile module owns:
+  - rendering assignment center card badges, evidence counters, and recommendation hints
+  - preserving filter/sort state while list-level rollup metadata refreshes
+  - routing from list cards into authoritative assignment detail flows
+- Auth session module owns:
+  - `401` recovery
+  - unauthorized and session-expired routing
+
+### Boundary Decision
+
+- Wave 36 keeps rollup derivation backend-owned:
+  - mobile must not reconstruct assignment-center badges by merging detail timeline state, optimistic action state, and evidence list state locally
+- Assignment center gains additive summary semantics, not a new write surface.
+- Assignment detail remains authoritative for:
+  - full timeline history
+  - evidence review
+  - mutation actions
+- Queue list rollup is intentionally smaller than Wave 35 detail summary:
+  - enough to drive list-card parity
+  - not enough to replace detail inspection
+
+## Wave 37 Manager Provider Directory Scorecard Boundary
+
+### Provider Directory/Profile Scorecard Layer
+
+- Provider module owns:
+  - manager-safe directory filtering by `search`, `city`, `category`, and `status`
+  - additive `scorecard_preview` serialization on `GET /api/providers`
+  - additive `scorecard` serialization on `GET /api/providers/{id}`
+  - compatibility with baseline provider list/detail contracts
+- Manager mobile module owns:
+  - directory filter/search state
+  - directory-to-profile navigation
+  - preserving origin context when profile is opened from handoff
+  - rendering list-level preview versus authoritative detail-level scorecard
+- Property / assignment module owns:
+  - provider-selection and assignment mutation flows
+  - property-context resume behavior when profile is opened from handoff
+- Auth session module owns:
+  - `401` recovery
+  - unauthorized and session-expired routing
+
+### Boundary Decision
+
+- Wave 37 keeps provider score derivation backend-owned.
+- Manager mobile must not compute provider scorecards by stitching together candidate rows, property assignment context, and raw profile fields.
+- Provider directory rows are comparison previews only:
+  - provider profile remains the authoritative read surface
+  - assignment selection remains outside the directory/profile contract
+
+## Wave 38 Manager Provider Handoff Candidate Fit Boundary
+
+### Manager Handoff Candidate Fit Layer
+
+- Property / assignment module owns:
+  - provider-candidate query for a property handoff context
+  - additive `fit_preview` derivation
+  - additive `selection_state` derivation
+  - queue-aware recommendation, blocked, and confirmation semantics
+- Provider module owns:
+  - provider profile and score inputs reused by fit derivation
+  - canonical provider identity, services, coverage, and availability reads
+- Manager mobile module owns:
+  - candidate card presentation
+  - recommendation badge rendering
+  - warnings/reasons disclosure
+  - confirmation modal visibility and submit-pending UX
+  - preserving handoff navigation context across directory/profile detours
+- Auth session module owns:
+  - `401` recovery
+  - unauthorized/session-expired routing
+
+### Boundary Decision
+
+- Wave 38 keeps candidate fit reasoning backend-owned.
+- Manager mobile must not compute fit previews, recommendation badges, or confirmation requirements by stitching together:
+  - provider directory scorecards
+  - provider profile data
+  - local handoff selection history
+- Provider profile remains the authoritative deep-read surface.
+- Handoff candidate fit is a workflow-specific comparison contract:
+  - smaller than provider profile detail
+  - richer than the baseline Wave 29 candidate row
+  - authoritative for manager selection and confirmation state in handoff
+

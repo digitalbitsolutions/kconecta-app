@@ -187,6 +187,25 @@ const ManagerProviderDirectoryScreen = () => {
           Next slot: {item.availabilitySummary.nextOpenSlot}
         </Text>
       ) : null}
+      <View style={styles.scorecardPreviewRow}>
+        <Text style={styles.scorecardPreviewItem}>
+          Jobs: {String(item.scorecardPreview.completedJobs)}
+        </Text>
+        <Text style={styles.scorecardPreviewItem}>
+          Score: {item.scorecardPreview.customerScoreLabel}
+        </Text>
+        <Text style={styles.scorecardPreviewItem}>
+          Response: {item.scorecardPreview.responseTimeHours}h
+        </Text>
+      </View>
+      <View style={styles.scorecardPreviewRow}>
+        <Text style={styles.scorecardPreviewItem}>
+          Coverage: {String(item.scorecardPreview.coverageCount)}
+        </Text>
+        <Text style={styles.scorecardPreviewItem}>
+          Services: {String(item.scorecardPreview.servicesCount)}
+        </Text>
+      </View>
       <Text style={styles.providerServices}>
         Services: {item.servicesPreview.length > 0 ? item.servicesPreview.join(", ") : "n/a"}
       </Text>
@@ -219,6 +238,7 @@ const ManagerProviderDirectoryScreen = () => {
               navigation.navigate("ProviderProfile", {
                 providerId: item.id,
                 providerName: item.name,
+                selectionContext,
               })
             }
           >
@@ -557,6 +577,16 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: fontSizes.sm,
     marginTop: spacing.sm,
+  },
+  scorecardPreviewRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  scorecardPreviewItem: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.xs,
   },
   primarySelectionAction: {
     alignItems: "center",

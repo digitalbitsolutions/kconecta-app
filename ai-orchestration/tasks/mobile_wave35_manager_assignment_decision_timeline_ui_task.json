@@ -1,0 +1,23 @@
+{
+  "id": "MOB-032",
+  "title": "Implement Wave 35 manager assignment decision timeline UI",
+  "description": "Update the manager assignment detail screen so it renders the additive decision summary and richer timeline semantics from Wave 35 while preserving existing action buttons and evidence upload flows.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/screens/ManagerAssignmentDetailScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Assignment detail renders a decision summary card when additive decision_summary metadata is available",
+    "Timeline rows show richer decision context without breaking the current screen layout",
+    "Existing reassignment, completion, cancellation, and evidence upload flows remain functional"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave35",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-decision-timeline"
+  }
+}

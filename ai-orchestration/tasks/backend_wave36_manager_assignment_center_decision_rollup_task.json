@@ -1,0 +1,23 @@
+{
+  "id": "BE-032",
+  "title": "Implement Wave 36 manager assignment center decision rollup contract",
+  "description": "Extend the manager priority queue API so provider-assignment items expose additive decision rollup metadata derived from assignment state, timeline, and evidence counts while preserving the current queue list contract.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Services/PropertyService.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "GET /api/properties/priorities/queue returns additive decision_rollup metadata for provider-assignment items",
+    "Decision rollup exposes deterministic state badge, evidence count, latest decision label, and recommended next action",
+    "Queue consumers that ignore the additive node continue to work without contract breakage"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave36",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-center-decision-rollup"
+  }
+}

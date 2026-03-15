@@ -47,6 +47,36 @@ function formatIsoDate(iso: string | null): string {
   return date.toLocaleString("es-ES");
 }
 
+function formatRecommendedAction(action: string | null): string {
+  switch (action) {
+    case "complete":
+      return "Complete assignment";
+    case "reassign":
+      return "Reassign provider";
+    case "cancel":
+      return "Cancel assignment";
+    default:
+      return "Review assignment detail";
+  }
+}
+
+function resolveRollupBadgeStyle(
+  state: NonNullable<ManagerPriorityQueueItem["decisionRollup"]>["currentState"]
+) {
+  switch (state) {
+    case "completed":
+      return styles.rollupBadgeCompleted;
+    case "cancelled":
+      return styles.rollupBadgeCancelled;
+    case "provider_missing":
+      return styles.rollupBadgeWarning;
+    case "assigned":
+      return styles.rollupBadgeAssigned;
+    default:
+      return styles.rollupBadgeDefault;
+  }
+}
+
 const ManagerAssignmentCenterScreen = () => {
   const navigation = useNavigation<AssignmentCenterNavigation>();
   const [search, setSearch] = useState("");
@@ -200,6 +230,33 @@ const ManagerAssignmentCenterScreen = () => {
               <Text style={styles.itemMeta}>Due: {formatIsoDate(item.slaDueAt)}</Text>
               <Text style={styles.itemMeta}>Updated: {formatIsoDate(item.updatedAt)}</Text>
 
+              {item.decisionRollup ? (
+                <View style={styles.rollupCard}>
+                  <View style={styles.rollupHeader}>
+                    <Text style={styles.rollupTitle}>{item.decisionRollup.latestDecisionLabel}</Text>
+                    <View
+                      style={[
+                        styles.rollupBadge,
+                        resolveRollupBadgeStyle(item.decisionRollup.currentState),
+                      ]}
+                    >
+                      <Text style={styles.rollupBadgeText}>{item.decisionRollup.statusBadge}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.rollupMeta}>
+                    Last decision: {formatIsoDate(item.decisionRollup.latestDecisionAt)}
+                  </Text>
+                  <Text style={styles.rollupMeta}>
+                    Evidence: {item.decisionRollup.evidenceCount}{" "}
+                    {item.decisionRollup.hasEvidence ? "| Evidence attached" : "| No evidence yet"}
+                  </Text>
+                  <Text style={styles.rollupMeta}>
+                    Suggested next step:{" "}
+                    {formatRecommendedAction(item.decisionRollup.nextRecommendedAction)}
+                  </Text>
+                </View>
+              ) : null}
+
               <Pressable
                 style={styles.primaryAction}
                 onPress={() => navigation.navigate("ManagerAssignmentDetail", { queueItemId: item.id })}
@@ -347,6 +404,31 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     marginTop: spacing.sm,
   },
+  rollupCard: {
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.md,
+    padding: spacing.md,
+  },
+  rollupHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  rollupTitle: {
+    color: colors.textPrimary,
+    flex: 1,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
+    marginRight: spacing.sm,
+  },
+  rollupMeta: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+    marginTop: spacing.xs,
+  },
   severityBadge: {
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.sm,
@@ -366,6 +448,31 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
     fontWeight: "700",
     textTransform: "uppercase",
+  },
+  rollupBadge: {
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  rollupBadgeDefault: {
+    backgroundColor: colors.brandSoft,
+  },
+  rollupBadgeAssigned: {
+    backgroundColor: colors.brandSoft,
+  },
+  rollupBadgeCompleted: {
+    backgroundColor: "#DCFCE7",
+  },
+  rollupBadgeWarning: {
+    backgroundColor: "#FEF3C7",
+  },
+  rollupBadgeCancelled: {
+    backgroundColor: "#FEE2E2",
+  },
+  rollupBadgeText: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.xs,
+    fontWeight: "700",
   },
   primaryAction: {
     alignItems: "center",

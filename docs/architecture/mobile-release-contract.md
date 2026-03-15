@@ -1376,6 +1376,254 @@ Define the minimum environment and auth contract required for native app release
   - Wave 31 queue list/detail contracts remain stable
   - Wave 32 assignment status actions remain stable
 - Wave 33 introduces media/document evidence as a separate evidence collection contract, not a replacement for prior assignment state evidence.
+
+## Wave 34 Manager Provider Profile Scorecard Contract
+
+### Queue-Aware Provider Profile Contract
+
+- Endpoint:
+  - `GET /api/providers/{id}?queue_item_id={queueItemId}`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Baseline profile behavior:
+  - Missing `queue_item_id` must keep Wave 30 provider profile contract stable.
+  - Existing provider detail fields remain unchanged for non-assignment browsing flows.
+
+### Additive Assignment Fit Payload
+
+- When `queue_item_id` is provided and resolves successfully, response adds:
+  - `data.assignment_fit`
+    - `recommended` (`true|false`)
+    - `score_label` (string)
+    - `match_reasons[]` (string list)
+    - `warnings[]` (string list)
+    - `next_action` (nullable string)
+- `assignment_fit` is additive:
+  - It must not replace `services`, `coverage`, `availability_summary`, or `metrics`.
+  - It is optional only when no queue context was requested.
+
+### Guardrails and Error Semantics
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt path, then retry profile read once.
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`.
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - keep authenticated state explicit and route to `Unauthorized`.
+- `404 PROVIDER_NOT_FOUND`
+  - deterministic missing-provider state for manager profile.
+- `404 QUEUE_ITEM_NOT_FOUND`
+  - deterministic missing assignment-context state when `queue_item_id` does not resolve.
+
+### Compatibility Notes
+
+- Wave 34 is additive over Wave 30 and Wave 31:
+  - no endpoint removals
+  - no breaking provider detail field removals
+  - assignment-aware scorecard metadata is only added when queue context is requested
+
+## Wave 35 Manager Assignment Decision Timeline Contract
+
+### Assignment Detail Additive Contract
+
+- Endpoint:
+  - `GET /api/properties/priorities/queue/{queueItemId}`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Baseline behavior:
+  - existing assignment detail fields remain stable
+  - existing `timeline[]` remains available to current consumers
+
+### Additive Decision Summary Payload
+
+- When Wave 35 contract is active, response adds:
+  - `data.decision_summary`
+    - `current_state` (`assigned|completed|cancelled|provider_missing`)
+    - `latest_decision_label` (string)
+    - `latest_decision_at` (ISO datetime or `null`)
+    - `latest_actor` (string or `null`)
+    - `evidence_count` (integer)
+    - `has_evidence` (`true|false`)
+    - `next_recommended_action` (nullable string)
+- `decision_summary` is additive:
+  - it must not replace `assignment`, `provider`, or `timeline`
+  - it must be safe for clients that ignore the new node entirely
+
+### Additive Timeline Metadata
+
+- Each `data.timeline[]` event may now add:
+  - `metadata.event_kind`
+    - `assignment_created`
+    - `provider_reassigned`
+    - `assignment_completed`
+    - `assignment_cancelled`
+    - `evidence_uploaded`
+  - `metadata.status_badge` (string)
+  - `metadata.evidence_count` (integer, optional)
+  - `metadata.provider_id` (integer, optional)
+- Timeline ordering rules stay unchanged:
+  - descending by `occurred_at`
+  - deterministic for identical fixture data
+
+### Guardrails and Error Semantics
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt, then retry assignment detail once
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - authenticated but unauthorized users route to `Unauthorized`
+- `404 QUEUE_ITEM_NOT_FOUND`
+  - render deterministic missing-assignment state
+
+### Compatibility Notes
+
+- Wave 35 is additive over Waves 31, 32, 33, and 34:
+  - no existing assignment detail fields are removed
+  - action mutation flow stays unchanged
+  - evidence upload/list contracts stay unchanged
+  - new summary and timeline semantics are read-only enrichment for manager detail surfaces
+
+## Wave 36 Manager Assignment Center Decision Rollup Contract
+
+### Assignment Center Additive List Contract
+
+- Endpoint:
+  - `GET /api/properties/priorities/queue`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Baseline behavior:
+  - existing assignment center filters, sorting, and pagination remain stable
+  - existing queue item list nodes remain valid for current consumers
+
+### Additive Decision Rollup Payload
+
+- When Wave 36 contract is active, each provider-assignment queue item may add:
+  - `data.items[].decision_rollup`
+    - `current_state` (`unassigned|assigned|provider_missing|completed|cancelled`)
+    - `latest_decision_label` (string)
+    - `latest_decision_at` (ISO datetime or `null`)
+    - `evidence_count` (integer)
+    - `has_evidence` (`true|false`)
+    - `status_badge` (string)
+    - `next_recommended_action` (nullable string)
+- `decision_rollup` is additive:
+  - it must not replace queue item title, status, provider summary, or priority metadata
+  - it must be safe for clients that ignore the node entirely
+  - it is optional only when a queue item does not belong to the provider-assignment workflow
+
+### List Rendering Semantics
+
+- `decision_rollup.current_state` is the authoritative state source for assignment-center badge rendering.
+- `decision_rollup.status_badge` is display-ready and must stay deterministic for identical fixture data.
+- `decision_rollup.next_recommended_action` is advisory:
+  - it does not grant new permissions
+  - it does not replace authoritative actions available from assignment detail
+- `decision_rollup.evidence_count` and `decision_rollup.has_evidence` are read-only rollups:
+  - mobile must not infer them from local upload state alone
+
+### Guardrails and Error Semantics
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt, then retry assignment center list once
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - authenticated but unauthorized users route to `Unauthorized`
+- `404 QUEUE_ITEM_NOT_FOUND`
+  - handled only by detail flows; list contract remains stable and must not fail the whole collection read because a single item disappears
+
+### Compatibility Notes
+
+- Wave 36 is additive over Waves 31 through 35:
+  - no list node removals
+  - no filter or pagination contract changes
+  - assignment detail remains the authoritative surface for full timeline history and evidence drill-down
+
+## Wave 37 Manager Provider Directory Scorecard Contract
+
+### Manager Provider Directory Query Contract
+
+- Endpoint:
+  - `GET /api/providers`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Query parameters:
+  - `search` (free-text, optional)
+  - `city` (optional)
+  - `category` (optional)
+  - `status` (optional)
+  - `page` (optional integer)
+  - `per_page` (optional integer)
+- Baseline list behavior:
+  - Wave 30 provider directory fields remain stable.
+  - Existing consumers that only read `id`, `name`, `status`, `category`, `city`, and `rating` continue to work.
+
+### Additive Directory Scorecard Preview
+
+- Provider directory rows may add:
+  - `data[].scorecard_preview`
+    - `completed_jobs` (integer)
+    - `customer_score` (number or formatted string)
+    - `response_time_hours` (integer or `null`)
+    - `availability_label` (string)
+    - `coverage_count` (integer)
+    - `services_count` (integer)
+- `scorecard_preview` is additive:
+  - it must not replace `availability_summary` or `services_preview[]`
+  - it is safe for list rendering and lightweight provider comparison
+
+### Manager Provider Profile Scorecard Detail
+
+- Endpoint:
+  - `GET /api/providers/{id}`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Baseline profile behavior:
+  - Wave 30 provider profile contract remains stable.
+  - Wave 34 `assignment_fit` remains optional and contextual when `queue_item_id` is supplied.
+- Additive detail node:
+  - `data.scorecard`
+    - `completed_jobs`
+    - `customer_score`
+    - `response_time_hours`
+    - `availability_label`
+    - `coverage_count`
+    - `services_count`
+    - `status_badge`
+
+### Navigation Consumption Rules
+
+- Manager dashboard may expose a provider-directory CTA without requiring property context.
+- Manager handoff flow may deep-link to provider profile while preserving the current property assignment context.
+- Provider profile remains read-only:
+  - no provider mutation CTA is introduced in Wave 37
+  - assignment action entrypoints remain in manager handoff / assignment flows
+- Directory filters and profile preview context must survive back-navigation from provider profile.
+
+### Guardrails and Compatibility
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt path, then retry list/detail once.
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`.
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - keep authenticated state explicit and route to `Unauthorized`.
+- `404 PROVIDER_NOT_FOUND`
+  - deterministic missing-provider state for manager profile.
+
+### Compatibility Notes
+
+- Wave 37 is additive over Waves 30 and 34:
+  - no endpoint removals
+  - no breaking field removals
+  - `assignment_fit` remains contextual and optional
+  - `scorecard_preview` and `scorecard` are optional additive nodes for manager-native browsing surfaces
 ## Environment Routing Guidance
 
 - Local (Docker Desktop):
@@ -1404,3 +1652,64 @@ Define the minimum environment and auth contract required for native app release
   3. Keep static token acceptance enabled during rollout.
   4. Flip clients to login/refresh plus handoff validation flow.
   5. Retire static token from mobile once all clients are migrated.
+
+## Wave 38 Manager Provider Handoff Candidate Fit Contract
+
+### Manager Provider Candidates Additive Fit Contract
+
+- Endpoint:
+  - `GET /api/properties/{id}/provider-candidates`
+- Allowed roles:
+  - `manager`
+  - `admin`
+- Baseline behavior:
+  - Wave 29 handoff candidate list fields remain stable.
+  - Existing consumers that only read candidate identity, category, city, rating, and availability continue to work.
+
+### Additive Candidate Fit Preview
+
+- Each candidate row may add:
+  - `data[].fit_preview`
+    - `score_label` (string)
+    - `recommendation_badge` (`recommended|consider|warning|not_recommended`)
+    - `match_reasons[]` (string array)
+    - `warnings[]` (string array)
+    - `next_action_hint` (nullable string)
+- `fit_preview` is additive:
+  - it must not replace baseline candidate identity, availability, or pricing fields
+  - it must be safe for clients that ignore the new node entirely
+
+### Queue-Aware Selection State
+
+- Each candidate row may add:
+  - `data[].selection_state`
+    - `queue_status` (`ready|confirmation_required|already_selected|already_assigned|blocked`)
+    - `can_select` (`true|false`)
+    - `blocked_reason` (nullable string)
+    - `confirmation_copy`
+      - `title` (nullable string)
+      - `body` (nullable string)
+      - `confirm_label` (nullable string)
+- Selection-state semantics are authoritative from backend:
+  - mobile must not infer confirmation requirements from raw profile data alone
+  - `already_selected` and `already_assigned` suppress duplicate mutation affordances
+
+### Guardrails and Error Semantics
+
+- `401 TOKEN_EXPIRED`
+  - one refresh attempt, then retry provider-candidates once
+- `401 TOKEN_INVALID|TOKEN_REVOKED`
+  - clear session and route to `SessionExpired`
+- `403 ROLE_SCOPE_FORBIDDEN`
+  - authenticated but unauthorized users route to `Unauthorized`
+- `404 PROPERTY_NOT_FOUND`
+  - deterministic missing-property recovery state for manager handoff
+
+### Compatibility Notes
+
+- Wave 38 is additive over Waves 29, 34, and 37:
+  - no endpoint removals
+  - no baseline candidate field removals
+  - provider profile scorecard remains the authoritative deep-read surface
+  - handoff candidate fit preview is a lighter comparison contract for manager assignment workflows
+

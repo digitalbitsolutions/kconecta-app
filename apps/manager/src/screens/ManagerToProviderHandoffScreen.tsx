@@ -31,13 +31,14 @@ type HandoffNavigation = NativeStackNavigationProp<
 const ManagerToProviderHandoffScreen = () => {
   const route = useRoute<HandoffRoute>();
   const navigation = useNavigation<HandoffNavigation>();
-  const { propertyId, propertyTitle, preselectedProviderId } = route.params;
+  const { propertyId, propertyTitle, preselectedProviderId, queueItemId } = route.params;
   const [candidates, setCandidates] = useState<ProviderCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [confirmingCandidateId, setConfirmingCandidateId] = useState<string | null>(null);
   const [latestTimelineEvent, setLatestTimelineEvent] = useState<PropertyTimelineEvent | null>(null);
   const [assignmentResult, setAssignmentResult] = useState<ProviderAssignmentResult | null>(null);
 
@@ -46,6 +47,7 @@ const ManagerToProviderHandoffScreen = () => {
     setError(null);
     setSuccess(null);
     setAssignmentResult(null);
+    setConfirmingCandidateId(null);
     setLatestTimelineEvent(null);
 
     try {
@@ -82,6 +84,7 @@ const ManagerToProviderHandoffScreen = () => {
       setError(null);
       setSuccess(null);
       setAssignmentResult(null);
+      setConfirmingCandidateId(null);
       setLatestTimelineEvent(null);
 
       try {
@@ -121,6 +124,24 @@ const ManagerToProviderHandoffScreen = () => {
       : timestamp.toLocaleString("es-ES");
     return `${actor} | ${formattedTimestamp}`;
   }, []);
+
+  const requestAssignCandidate = useCallback((candidate: ProviderCandidate) => {
+    if (!candidate.selectionState) {
+      void assignCandidate(candidate.id);
+      return;
+    }
+
+    if (!candidate.selectionState.canSelect) {
+      return;
+    }
+
+    if (candidate.selectionState.queueStatus === "confirmation_required") {
+      setConfirmingCandidateId(candidate.id);
+      return;
+    }
+
+    void assignCandidate(candidate.id);
+  }, [assignCandidate]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -177,35 +198,139 @@ const ManagerToProviderHandoffScreen = () => {
               {candidates.map((candidate) => {
                 const isPreferred = preselectedProviderId === candidate.id;
                 const isAssigning = assigningId === candidate.id;
+                const isConfirming = confirmingCandidateId === candidate.id;
+                const canSelect = candidate.selectionState?.canSelect ?? true;
+                const queueStatus = candidate.selectionState?.queueStatus ?? null;
+                const confirmationCopy = candidate.selectionState?.confirmationCopy ?? null;
                 return (
                   <View key={candidate.id} style={styles.candidateCard}>
-                    <Text style={styles.candidateTitle}>
-                      {candidate.name} {isPreferred ? "(suggested)" : ""}
-                    </Text>
+                    <View style={styles.candidateHeader}>
+                      <Text style={styles.candidateTitle}>
+                        {candidate.name} {isPreferred ? "(suggested)" : ""}
+                      </Text>
+                      {candidate.fitPreview?.recommendationBadge ? (
+                        <View
+                          style={[
+                            styles.badge,
+                            candidate.fitPreview.recommendationBadge === "recommended"
+                              ? styles.badgeRecommended
+                              : candidate.fitPreview.recommendationBadge === "consider"
+                                ? styles.badgeConsider
+                                : candidate.fitPreview.recommendationBadge === "warning"
+                                  ? styles.badgeWarning
+                                  : styles.badgeNotRecommended,
+                          ]}
+                        >
+                          <Text style={styles.badgeText}>
+                            {candidate.fitPreview.recommendationBadge.replace(/_/g, " ")}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
                     <Text style={styles.candidateBody}>
                       #{candidate.id} | {candidate.category} | {candidate.city} | rating{" "}
                       {candidate.rating}
                     </Text>
+                    {candidate.fitPreview?.scoreLabel ? (
+                      <Text style={styles.candidateScoreLabel}>{candidate.fitPreview.scoreLabel}</Text>
+                    ) : null}
+                    {candidate.fitPreview?.matchReasons.length ? (
+                      <View style={styles.signalList}>
+                        {candidate.fitPreview.matchReasons.map((reason) => (
+                          <Text key={reason} style={styles.matchReasonText}>
+                            + {reason}
+                          </Text>
+                        ))}
+                      </View>
+                    ) : null}
+                    {candidate.fitPreview?.warnings.length ? (
+                      <View style={styles.signalList}>
+                        {candidate.fitPreview.warnings.map((warning) => (
+                          <Text key={warning} style={styles.warningText}>
+                            ! {warning}
+                          </Text>
+                        ))}
+                      </View>
+                    ) : null}
+                    {queueStatus ? (
+                      <Text style={styles.queueStatusText}>
+                        Status: {queueStatus.replace(/_/g, " ")}
+                      </Text>
+                    ) : null}
+                    {candidate.selectionState?.blockedReason ? (
+                      <Text style={styles.blockedReasonText}>
+                        {candidate.selectionState.blockedReason}
+                      </Text>
+                    ) : null}
                     <Pressable
                       style={styles.secondaryAction}
                       onPress={() =>
                         navigation.navigate("ProviderProfile", {
                           providerId: candidate.id,
                           providerName: candidate.name,
+                          selectionContext: queueItemId
+                            ? {
+                                queueItemId,
+                                propertyTitle:
+                                  propertyTitle?.trim().length ? propertyTitle : `Property #${propertyId}`,
+                                currentProviderId: preselectedProviderId,
+                              }
+                            : undefined,
                         })
                       }
                     >
                       <Text style={styles.secondaryActionText}>Review profile</Text>
                     </Pressable>
-                    <Pressable
-                      style={[styles.primaryAction, isAssigning && styles.actionDisabled]}
-                      disabled={assigningId !== null}
-                      onPress={() => assignCandidate(candidate.id)}
-                    >
-                      <Text style={styles.primaryActionText}>
-                        {isAssigning ? "Assigning..." : `Assign Provider #${candidate.id}`}
-                      </Text>
-                    </Pressable>
+                    {isConfirming && confirmationCopy ? (
+                      <View style={styles.confirmationCard}>
+                        {confirmationCopy.title ? (
+                          <Text style={styles.confirmationTitle}>{confirmationCopy.title}</Text>
+                        ) : null}
+                        {confirmationCopy.body ? (
+                          <Text style={styles.confirmationBody}>{confirmationCopy.body}</Text>
+                        ) : null}
+                        <Pressable
+                          style={[styles.primaryAction, isAssigning && styles.actionDisabled]}
+                          disabled={assigningId !== null}
+                          onPress={() => void assignCandidate(candidate.id)}
+                        >
+                          <Text style={styles.primaryActionText}>
+                            {isAssigning
+                              ? "Assigning..."
+                              : confirmationCopy.confirmLabel ?? "Confirm selection"}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          style={styles.secondaryAction}
+                          disabled={assigningId !== null}
+                          onPress={() => setConfirmingCandidateId(null)}
+                        >
+                          <Text style={styles.secondaryActionText}>Cancel</Text>
+                        </Pressable>
+                      </View>
+                    ) : (
+                      <Pressable
+                        style={[
+                          styles.primaryAction,
+                          (!canSelect || isAssigning) && styles.actionDisabled,
+                          !canSelect && styles.actionBlocked,
+                        ]}
+                        disabled={assigningId !== null || !canSelect}
+                        onPress={() => requestAssignCandidate(candidate)}
+                      >
+                        <Text style={styles.primaryActionText}>
+                          {isAssigning
+                            ? "Assigning..."
+                            : queueStatus === "confirmation_required"
+                              ? "Review before selecting"
+                              : queueStatus === "already_assigned"
+                                ? "Already assigned"
+                                : queueStatus === "blocked"
+                                  ? "Selection unavailable"
+                                  : `Assign Provider #${candidate.id}`}
+                        </Text>
+                      </Pressable>
+                    )}
                   </View>
                 );
               })}
@@ -369,15 +494,75 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     padding: spacing.md,
   },
+  candidateHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
   candidateTitle: {
     color: colors.textPrimary,
     fontSize: fontSizes.md,
     fontWeight: "700",
+    flex: 1,
   },
   candidateBody: {
     color: colors.textSecondary,
     fontSize: fontSizes.xs,
     marginTop: spacing.xs,
+  },
+  candidateScoreLabel: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
+    marginTop: spacing.sm,
+  },
+  signalList: {
+    marginTop: spacing.sm,
+  },
+  matchReasonText: {
+    color: colors.accent,
+    fontSize: fontSizes.xs,
+    marginTop: spacing.xs,
+  },
+  warningText: {
+    color: colors.warning,
+    fontSize: fontSizes.xs,
+    marginTop: spacing.xs,
+  },
+  queueStatusText: {
+    color: colors.textMuted,
+    fontSize: fontSizes.xs,
+    marginTop: spacing.sm,
+    textTransform: "capitalize",
+  },
+  blockedReasonText: {
+    color: colors.danger,
+    fontSize: fontSizes.xs,
+    marginTop: spacing.xs,
+  },
+  badge: {
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  badgeText: {
+    color: colors.surface,
+    fontSize: fontSizes.xs,
+    fontWeight: "700",
+    textTransform: "capitalize",
+  },
+  badgeRecommended: {
+    backgroundColor: colors.accent,
+  },
+  badgeConsider: {
+    backgroundColor: colors.warning,
+  },
+  badgeWarning: {
+    backgroundColor: colors.warning,
+  },
+  badgeNotRecommended: {
+    backgroundColor: colors.danger,
   },
   primaryAction: {
     alignItems: "center",
@@ -393,6 +578,9 @@ const styles = StyleSheet.create({
   },
   actionDisabled: {
     opacity: 0.6,
+  },
+  actionBlocked: {
+    backgroundColor: colors.textMuted,
   },
   successText: {
     color: colors.accent,
@@ -434,6 +622,25 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSizes.sm,
     fontWeight: "600",
+  },
+  confirmationCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginTop: spacing.sm,
+    padding: spacing.md,
+  },
+  confirmationTitle: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.sm,
+    fontWeight: "700",
+  },
+  confirmationBody: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+    lineHeight: 20,
+    marginTop: spacing.xs,
   },
 });
 

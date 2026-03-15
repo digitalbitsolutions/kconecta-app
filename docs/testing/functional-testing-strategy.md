@@ -869,8 +869,7 @@ Validate end-to-end functional behavior of native app API contracts before relea
   - Invalid token returns deterministic `401 TOKEN_INVALID` auth-session envelope.
 3. Cross-wave compatibility (`DEV-195`)
   - Wave 24 dashboard summary contract remains stable while pending actions are added as a separate additive endpoint.
-  - Wave 31 assignment center and Wave 38 provider handoff fit flows remain the downstream navigation surfaces referenced by pending action deep links.
-
+- Wave 31 assignment center and Wave 38 provider handoff fit flows remain the downstream navigation surfaces referenced by pending action deep links.
 ## Entry Criteria
 
 - Target branch synced with latest `main`.

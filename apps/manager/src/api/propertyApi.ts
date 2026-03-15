@@ -1,4 +1,9 @@
-import { getAccessToken } from "../auth/session";
+import {
+  getAccessToken,
+  getRefreshToken,
+  handleUnauthorizedSession,
+  refreshSessionTokens,
+} from "../auth/session";
 import { managerEnv } from "../config/env";
 import { ApiError, getApiBaseUrl, requestJson } from "./client";
 
@@ -113,6 +118,23 @@ type ProviderCandidatesPayload = {
       category: string | null;
       city: string | null;
       rating: number | null;
+      fit_preview?: {
+        score_label?: string | null;
+        recommendation_badge?: string | null;
+        match_reasons?: string[] | null;
+        warnings?: string[] | null;
+        next_action_hint?: string | null;
+      } | null;
+      selection_state?: {
+        queue_status?: string | null;
+        can_select?: boolean | null;
+        blocked_reason?: string | null;
+        confirmation_copy?: {
+          title?: string | null;
+          body?: string | null;
+          confirm_label?: string | null;
+        } | null;
+      } | null;
     }>;
   };
   meta: {
@@ -233,6 +255,15 @@ type PriorityQueuePayload = {
       completed_at?: string | null;
       resolution_code?: string | null;
       note?: string | null;
+      decision_rollup?: {
+        current_state: "unassigned" | "assigned" | "provider_missing" | "completed" | "cancelled";
+        latest_decision_label: string;
+        latest_decision_at: string | null;
+        evidence_count: number;
+        has_evidence: boolean;
+        status_badge: string;
+        next_recommended_action: string | null;
+      } | null;
     }>;
   };
   meta: {
@@ -265,6 +296,15 @@ type AssignmentQueueDetailPayload = {
       rating: number | null;
     } | null;
     assignment: PropertyAssignmentContextPayload["data"]["assignment"] | null;
+    decision_summary?: {
+      current_state: "unassigned" | "assigned" | "provider_missing" | "completed" | "cancelled";
+      latest_decision_label: string;
+      latest_decision_at: string | null;
+      latest_actor: string | null;
+      evidence_count: number;
+      has_evidence: boolean;
+      next_recommended_action: string | null;
+    } | null;
     available_actions?: Array<"complete" | "reassign" | "cancel">;
     timeline: ApiPropertyTimelineEvent[];
   };
@@ -301,6 +341,62 @@ type AssignmentStatusMutationPayload = {
     reason: string;
     retryable?: boolean;
   };
+};
+
+type AssignmentEvidencePayload = {
+  data: {
+    queue_item_id: string;
+    items: Array<{
+      id: string;
+      file_name: string;
+      media_type: string;
+      category: string;
+      size_bytes: number;
+      uploaded_by: string;
+      uploaded_at: string;
+      preview_url?: string | null;
+      download_url: string;
+      note?: string | null;
+    }>;
+    count: number;
+    latest_item?: {
+      id: string;
+      file_name: string;
+      media_type: string;
+      category: string;
+      size_bytes: number;
+      uploaded_by: string;
+      uploaded_at: string;
+      preview_url?: string | null;
+      download_url: string;
+      note?: string | null;
+    } | null;
+  };
+  meta: {
+    contract: string;
+    flow: string;
+    reason: string;
+    source?: string;
+  };
+};
+
+type AssignmentEvidenceErrorPayload = {
+  error?: {
+    code?: string;
+    message?: string;
+    fields?: Record<string, string[]>;
+  };
+  meta?: {
+    contract?: string;
+    flow?: string;
+    reason?: string;
+    retryable?: boolean;
+  };
+  queue_item_id?: string | null;
+  limits?: {
+    max_size_bytes?: number;
+  };
+  media_type?: string | null;
 };
 
 export type PropertyViewModel = {
@@ -353,6 +449,42 @@ export type ProviderCandidate = {
   city: string;
   status: string;
   rating: string;
+  fitPreview: ProviderCandidateFitPreview | null;
+  selectionState: ProviderCandidateSelectionState | null;
+};
+
+export type ProviderCandidateRecommendationBadge =
+  | "recommended"
+  | "consider"
+  | "warning"
+  | "not_recommended";
+
+export type ProviderCandidateQueueStatus =
+  | "ready"
+  | "confirmation_required"
+  | "already_selected"
+  | "already_assigned"
+  | "blocked";
+
+export type ProviderCandidateFitPreview = {
+  scoreLabel: string | null;
+  recommendationBadge: ProviderCandidateRecommendationBadge | null;
+  matchReasons: string[];
+  warnings: string[];
+  nextActionHint: string | null;
+};
+
+export type ProviderCandidateSelectionConfirmationCopy = {
+  title: string | null;
+  body: string | null;
+  confirmLabel: string | null;
+};
+
+export type ProviderCandidateSelectionState = {
+  queueStatus: ProviderCandidateQueueStatus | null;
+  canSelect: boolean;
+  blockedReason: string | null;
+  confirmationCopy: ProviderCandidateSelectionConfirmationCopy | null;
 };
 
 export type ProviderAssignmentResult = {
@@ -383,6 +515,27 @@ export type PropertyAssignmentContext = {
   note: string | null;
   availableActions: ManagerAssignmentStatusAction[];
   provider: AssignmentProviderSnapshot | null;
+};
+
+export type ManagerAssignmentEvidenceCategory =
+  | "before_photo"
+  | "after_photo"
+  | "invoice"
+  | "report"
+  | "permit"
+  | "other";
+
+export type ManagerAssignmentEvidenceItem = {
+  id: string;
+  fileName: string;
+  mediaType: string;
+  category: ManagerAssignmentEvidenceCategory;
+  sizeBytes: number;
+  uploadedBy: string;
+  uploadedAt: string;
+  previewUrl: string | null;
+  downloadUrl: string;
+  note: string | null;
 };
 
 export type ManagerAssignmentSelectionContext = {
@@ -498,6 +651,15 @@ export type ManagerPriorityQueueItem = {
   completedAt: string | null;
   resolutionCode: ManagerPriorityQueueResolutionCode | null;
   note: string | null;
+  decisionRollup: {
+    currentState: "unassigned" | "assigned" | "provider_missing" | "completed" | "cancelled";
+    latestDecisionLabel: string;
+    latestDecisionAt: string | null;
+    evidenceCount: number;
+    hasEvidence: boolean;
+    statusBadge: string;
+    nextRecommendedAction: string | null;
+  } | null;
 };
 
 export type ManagerPriorityQueueResult = {
@@ -536,6 +698,15 @@ export type ManagerAssignmentDetail = {
   property: PropertyDetailViewModel | null;
   provider: AssignmentProviderSnapshot | null;
   assignment: PropertyAssignmentContext | null;
+  decisionSummary: {
+    currentState: "unassigned" | "assigned" | "provider_missing" | "completed" | "cancelled";
+    latestDecisionLabel: string;
+    latestDecisionAt: string | null;
+    latestActor: string | null;
+    evidenceCount: number;
+    hasEvidence: boolean;
+    nextRecommendedAction: string | null;
+  } | null;
   availableActions: ManagerAssignmentStatusAction[];
   timeline: PropertyTimelineEvent[];
   meta: {
@@ -545,6 +716,58 @@ export type ManagerAssignmentDetail = {
     source: "database" | "in_memory";
   };
 };
+
+export type ManagerAssignmentEvidenceResult = {
+  queueItemId: string;
+  items: ManagerAssignmentEvidenceItem[];
+  count: number;
+  latestItem: ManagerAssignmentEvidenceItem | null;
+  meta: {
+    contract: string;
+    flow: string;
+    reason: string;
+    source: string;
+  };
+};
+
+export type ManagerAssignmentEvidenceUploadInput = {
+  category: ManagerAssignmentEvidenceCategory;
+  note?: string;
+  file: {
+    uri: string;
+    name: string;
+    mimeType: string;
+  };
+};
+
+export class AssignmentEvidenceApiError extends ApiError {
+  code: string;
+  fields: Record<string, string[]>;
+  retryable: boolean;
+  reason: string | null;
+  maxSizeBytes: number | null;
+  mediaType: string | null;
+
+  constructor(
+    message: string,
+    status: number,
+    code: string,
+    fields: Record<string, string[]>,
+    retryable: boolean,
+    reason: string | null,
+    maxSizeBytes: number | null,
+    mediaType: string | null
+  ) {
+    super(message, status);
+    this.name = "AssignmentEvidenceApiError";
+    this.code = code;
+    this.fields = fields;
+    this.retryable = retryable;
+    this.reason = reason;
+    this.maxSizeBytes = maxSizeBytes;
+    this.mediaType = mediaType;
+  }
+}
 
 export type PriorityQueueCompletionInput = {
   resolutionCode?: ManagerPriorityQueueResolutionCode;
@@ -653,6 +876,8 @@ function toProviderCandidateViewModel(
   candidate: ProviderCandidatesPayload["data"]["candidates"][number]
 ): ProviderCandidate {
   const ratingValue = typeof candidate.rating === "number" ? candidate.rating.toFixed(1) : "n/a";
+  const fitPreview = mapProviderCandidateFitPreview(candidate);
+  const selectionState = mapProviderCandidateSelectionState(candidate);
   return {
     id: String(candidate.id),
     name: candidate.name,
@@ -660,7 +885,106 @@ function toProviderCandidateViewModel(
     city: candidate.city ?? "Unknown",
     status: candidate.status,
     rating: ratingValue,
+    fitPreview,
+    selectionState,
   };
+}
+
+function mapProviderCandidateFitPreview(
+  candidate: ProviderCandidatesPayload["data"]["candidates"][number]
+): ProviderCandidateFitPreview | null {
+  const fitPreview = candidate.fit_preview;
+  if (!fitPreview) {
+    return null;
+  }
+
+  const warnings = Array.isArray(fitPreview.warnings)
+    ? fitPreview.warnings.filter((warning): warning is string => typeof warning === "string")
+    : [];
+  const matchReasons = Array.isArray(fitPreview.match_reasons)
+    ? fitPreview.match_reasons.filter((reason): reason is string => typeof reason === "string")
+    : [];
+
+  return {
+    scoreLabel: fitPreview.score_label ?? null,
+    recommendationBadge: normalizeProviderCandidateRecommendationBadge(
+      fitPreview.recommendation_badge,
+      candidate.selection_state?.queue_status ?? null,
+      warnings.length
+    ),
+    matchReasons,
+    warnings,
+    nextActionHint: fitPreview.next_action_hint ?? null,
+  };
+}
+
+function normalizeProviderCandidateRecommendationBadge(
+  rawValue: string | null | undefined,
+  rawQueueStatus: string | null | undefined,
+  warningCount: number
+): ProviderCandidateRecommendationBadge | null {
+  const normalized = rawValue?.trim().toLowerCase().replace(/\s+/g, "_") ?? null;
+  if (
+    normalized === "recommended" ||
+    normalized === "consider" ||
+    normalized === "warning" ||
+    normalized === "not_recommended"
+  ) {
+    return normalized;
+  }
+
+  const queueStatus = normalizeProviderCandidateQueueStatus(rawQueueStatus);
+  if (queueStatus === "blocked" || queueStatus === "already_assigned") {
+    return "not_recommended";
+  }
+  if (warningCount > 0 || queueStatus === "confirmation_required") {
+    return "consider";
+  }
+  if (queueStatus === "ready") {
+    return "recommended";
+  }
+  return null;
+}
+
+function mapProviderCandidateSelectionState(
+  candidate: ProviderCandidatesPayload["data"]["candidates"][number]
+): ProviderCandidateSelectionState | null {
+  const selectionState = candidate.selection_state;
+  if (!selectionState) {
+    return null;
+  }
+
+  const queueStatus = normalizeProviderCandidateQueueStatus(selectionState.queue_status);
+  const confirmationCopy = selectionState.confirmation_copy
+    ? {
+        title: selectionState.confirmation_copy.title ?? null,
+        body: selectionState.confirmation_copy.body ?? null,
+        confirmLabel: selectionState.confirmation_copy.confirm_label ?? null,
+      }
+    : null;
+
+  return {
+    queueStatus,
+    canSelect: selectionState.can_select === true,
+    blockedReason: selectionState.blocked_reason ?? null,
+    confirmationCopy,
+  };
+}
+
+function normalizeProviderCandidateQueueStatus(
+  rawValue: string | null | undefined
+): ProviderCandidateQueueStatus | null {
+  const normalized = rawValue?.trim().toLowerCase();
+  if (
+    normalized === "ready" ||
+    normalized === "confirmation_required" ||
+    normalized === "already_selected" ||
+    normalized === "already_assigned" ||
+    normalized === "blocked"
+  ) {
+    return normalized;
+  }
+  return null;
 }
 
 function buildQueryString(query: PropertyListQuery = {}): string {
@@ -778,6 +1102,17 @@ function mapPriorityQueueItem(
     completedAt: item.completed_at ?? null,
     resolutionCode: (item.resolution_code as ManagerPriorityQueueResolutionCode | null) ?? null,
     note: item.note ?? null,
+    decisionRollup: item.decision_rollup
+      ? {
+          currentState: item.decision_rollup.current_state,
+          latestDecisionLabel: item.decision_rollup.latest_decision_label,
+          latestDecisionAt: item.decision_rollup.latest_decision_at,
+          evidenceCount: item.decision_rollup.evidence_count,
+          hasEvidence: item.decision_rollup.has_evidence,
+          statusBadge: item.decision_rollup.status_badge,
+          nextRecommendedAction: item.decision_rollup.next_recommended_action,
+        }
+      : null,
   };
 }
 
@@ -854,6 +1189,41 @@ function mapAssignmentContext(
   };
 }
 
+function mapAssignmentEvidenceItem(
+  item: AssignmentEvidencePayload["data"]["items"][number]
+): ManagerAssignmentEvidenceItem {
+  const category = item.category as ManagerAssignmentEvidenceCategory;
+  return {
+    id: item.id,
+    fileName: item.file_name,
+    mediaType: item.media_type,
+    category,
+    sizeBytes: item.size_bytes,
+    uploadedBy: item.uploaded_by,
+    uploadedAt: item.uploaded_at,
+    previewUrl: item.preview_url ?? null,
+    downloadUrl: item.download_url,
+    note: item.note ?? null,
+  };
+}
+
+function mapAssignmentEvidencePayload(
+  payload: AssignmentEvidencePayload
+): ManagerAssignmentEvidenceResult {
+  return {
+    queueItemId: payload.data.queue_item_id,
+    items: payload.data.items.map(mapAssignmentEvidenceItem),
+    count: payload.data.count,
+    latestItem: payload.data.latest_item ? mapAssignmentEvidenceItem(payload.data.latest_item) : null,
+    meta: {
+      contract: payload.meta.contract,
+      flow: payload.meta.flow,
+      reason: payload.meta.reason,
+      source: payload.meta.source ?? "in_memory",
+    },
+  };
+}
+
 function toMessage(payload: PropertyFormErrorPayload, status: number): string {
   if (typeof payload.error?.message === "string" && payload.error.message.trim().length > 0) {
     return payload.error.message;
@@ -862,6 +1232,133 @@ function toMessage(payload: PropertyFormErrorPayload, status: number): string {
     return payload.message;
   }
   return `HTTP ${status}`;
+}
+
+function shouldAttemptMultipartRefresh(path: string, status: number): boolean {
+  if (status !== 401) {
+    return false;
+  }
+  if (path.startsWith("/auth/")) {
+    return false;
+  }
+  return getRefreshToken() !== null;
+}
+
+type MultipartRawResponse = {
+  response: Response;
+  payload: unknown;
+};
+
+async function executeMultipartRequest(
+  path: string,
+  formData: FormData
+): Promise<MultipartRawResponse> {
+  const token = getAccessToken();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), managerEnv.requestTimeoutMs);
+
+  try {
+    const response = await fetch(`${getApiBaseUrl()}${path}`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+      signal: controller.signal,
+    });
+
+    const raw = await response.text();
+    let payload: unknown = {};
+    if (raw) {
+      try {
+        payload = JSON.parse(raw);
+      } catch {
+        payload = {};
+      }
+    }
+
+    return {
+      response,
+      payload,
+    };
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new AssignmentEvidenceApiError(
+        `Request timed out after ${managerEnv.requestTimeoutMs}ms`,
+        408,
+        "REQUEST_TIMEOUT",
+        {},
+        true,
+        "timeout",
+        null,
+        null
+      );
+    }
+    const message = error instanceof Error ? error.message : "Network request failed";
+    throw new AssignmentEvidenceApiError(
+      message,
+      0,
+      "NETWORK_ERROR",
+      {},
+      true,
+      "network_error",
+      null,
+      null
+    );
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function toAssignmentEvidenceError(
+  payload: unknown,
+  status: number
+): AssignmentEvidenceApiError {
+  const errorPayload =
+    typeof payload === "object" && payload !== null
+      ? (payload as AssignmentEvidenceErrorPayload)
+      : {};
+  const message =
+    typeof errorPayload.error?.message === "string" && errorPayload.error.message.trim().length > 0
+      ? errorPayload.error.message
+      : `HTTP ${status}`;
+
+  return new AssignmentEvidenceApiError(
+    message,
+    status,
+    errorPayload.error?.code ?? "ASSIGNMENT_EVIDENCE_ERROR",
+    errorPayload.error?.fields ?? {},
+    Boolean(errorPayload.meta?.retryable ?? true),
+    errorPayload.meta?.reason ?? null,
+    errorPayload.limits?.max_size_bytes ?? null,
+    errorPayload.media_type ?? null
+  );
+}
+
+async function requestMultipartJson<T>(path: string, formData: FormData): Promise<T> {
+  const firstAttempt = await executeMultipartRequest(path, formData);
+  if (!firstAttempt.response.ok && shouldAttemptMultipartRefresh(path, firstAttempt.response.status)) {
+    const refreshed = await refreshSessionTokens();
+    if (refreshed) {
+      const retryAttempt = await executeMultipartRequest(path, formData);
+      if (!retryAttempt.response.ok && retryAttempt.response.status === 401) {
+        handleUnauthorizedSession();
+      }
+      if (!retryAttempt.response.ok) {
+        throw toAssignmentEvidenceError(retryAttempt.payload, retryAttempt.response.status);
+      }
+      return retryAttempt.payload as T;
+    }
+
+    handleUnauthorizedSession();
+  }
+
+  if (!firstAttempt.response.ok) {
+    throw toAssignmentEvidenceError(firstAttempt.payload, firstAttempt.response.status);
+  }
+
+  return firstAttempt.payload as T;
 }
 
 export async function fetchPropertyPortfolio(
@@ -987,6 +1484,17 @@ export async function fetchManagerAssignmentDetail(
           payload.data.assignment
         )
       : null,
+    decisionSummary: payload.data.decision_summary
+      ? {
+          currentState: payload.data.decision_summary.current_state,
+          latestDecisionLabel: payload.data.decision_summary.latest_decision_label,
+          latestDecisionAt: payload.data.decision_summary.latest_decision_at,
+          latestActor: payload.data.decision_summary.latest_actor,
+          evidenceCount: payload.data.decision_summary.evidence_count,
+          hasEvidence: payload.data.decision_summary.has_evidence,
+          nextRecommendedAction: payload.data.decision_summary.next_recommended_action,
+        }
+      : null,
     availableActions: normalizeAssignmentAvailableActions(
       payload.data.available_actions ?? payload.data.assignment?.available_actions
     ),
@@ -1000,6 +1508,42 @@ export async function fetchManagerAssignmentDetail(
       source: payload.meta.source,
     },
   };
+}
+
+export async function fetchManagerAssignmentEvidence(
+  queueItemId: string
+): Promise<ManagerAssignmentEvidenceResult> {
+  const payload = await requestJson<AssignmentEvidencePayload>(
+    `/properties/priorities/queue/${encodeURIComponent(queueItemId)}/evidence`
+  );
+
+  return mapAssignmentEvidencePayload(payload);
+}
+
+export async function uploadManagerAssignmentEvidence(
+  queueItemId: string,
+  input: ManagerAssignmentEvidenceUploadInput
+): Promise<ManagerAssignmentEvidenceResult> {
+  const formData = new FormData();
+  formData.append("category", input.category);
+  if (typeof input.note === "string" && input.note.trim().length > 0) {
+    formData.append("note", input.note.trim());
+  }
+  formData.append(
+    "file",
+    {
+      uri: input.file.uri,
+      name: input.file.name,
+      type: input.file.mimeType,
+    } as never
+  );
+
+  const payload = await requestMultipartJson<AssignmentEvidencePayload>(
+    `/properties/priorities/queue/${encodeURIComponent(queueItemId)}/evidence`,
+    formData
+  );
+
+  return mapAssignmentEvidencePayload(payload);
 }
 
 export async function completeManagerPriorityQueueItem(

@@ -40,6 +40,7 @@ class PropertyService
     private static array $runtimeQueueCompletions = [];
     private static array $runtimeAssignmentQueueItems = [];
     private static array $runtimeAssignmentEvidence = [];
+    private static array $runtimeAssignmentTimeline = [];
 
     /**
      * Returns property list payload with DB-first retrieval.
@@ -239,6 +240,7 @@ class PropertyService
 
     public function buildPriorityQueueItemDetailPayload(array $item, ?array $provider = null): array
     {
+        $queueItemId = (string) ($item["id"] ?? "");
         $propertyId = (int) ($item["property_id"] ?? 0);
         $property = $this->findPropertyById($propertyId);
         if ($property === null) {
@@ -248,6 +250,7 @@ class PropertyService
                     "property" => null,
                     "provider" => null,
                     "assignment" => null,
+                    "decision_summary" => null,
                     "timeline" => [],
                 ],
                 "meta" => [
@@ -265,6 +268,7 @@ class PropertyService
                 "assignment" => $assignmentStatus["assignment"] ?? null,
             ],
         ];
+        $timeline = $this->buildPriorityQueueDecisionTimeline($queueItemId, $property);
 
         return [
             "data" => [
@@ -280,7 +284,8 @@ class PropertyService
                 ] : null,
                 "assignment" => $assignmentContext["data"]["assignment"] ?? null,
                 "available_actions" => $assignmentStatus["available_actions"] ?? [],
-                "timeline" => $this->buildTimelineEvents($property),
+                "decision_summary" => $this->buildPriorityQueueDecisionSummary($queueItemId, $property, $provider, $timeline),
+                "timeline" => $timeline,
             ],
             "meta" => [
                 "contract" => "manager-assignment-center-v1",
@@ -464,6 +469,13 @@ class PropertyService
             $this->rememberRuntimeAssignmentQueueItem($normalizedQueueItemId);
             unset(self::$runtimeQueueCompletions[$normalizedQueueItemId]);
             $this->persistAssignmentRuntimeProperty($updated);
+            $this->recordAssignmentDecisionEvent(
+                $normalizedQueueItemId,
+                "provider_reassigned",
+                $updated,
+                $managerId,
+                $normalizedNote
+            );
 
             return [
                 "ok" => true,
@@ -493,6 +505,13 @@ class PropertyService
                 "completed_by" => $managerId !== null && trim($managerId) !== "" ? trim($managerId) : null,
             ];
             $this->persistAssignmentRuntimeProperty($updated);
+            $this->recordAssignmentDecisionEvent(
+                $normalizedQueueItemId,
+                "assignment_completed",
+                $updated,
+                $managerId,
+                $normalizedNote
+            );
 
             return [
                 "ok" => true,
@@ -520,6 +539,13 @@ class PropertyService
             "completed_by" => $managerId !== null && trim($managerId) !== "" ? trim($managerId) : null,
         ];
         $this->persistAssignmentRuntimeProperty($updated);
+        $this->recordAssignmentDecisionEvent(
+            $normalizedQueueItemId,
+            "assignment_cancelled",
+            $updated,
+            $managerId,
+            $normalizedNote
+        );
 
         return [
             "ok" => true,
@@ -620,6 +646,9 @@ class PropertyService
 
             $item["sla_state"] = $this->resolveQueueSlaState($item["sla_due_at"]);
             $item = $this->applyQueueCompletionState($item);
+            if (($item["category"] ?? null) === "provider_assignment") {
+                $item["decision_rollup"] = $this->buildPriorityQueueDecisionRollup($item["id"], $row);
+            }
             $items[] = $item;
         }
 
@@ -888,6 +917,19 @@ class PropertyService
         }
 
         return null;
+    }
+
+    /**
+     * Enrich handoff candidates with additive fit preview and selection state metadata.
+     */
+    public function buildProviderCandidatesPayload(array $property, array $candidates): array
+    {
+        return array_values(
+            array_map(
+                fn (array $candidate): array => $this->buildProviderCandidatePayload($property, $candidate),
+                $candidates
+            )
+        );
     }
 
     /**
@@ -1360,6 +1402,7 @@ class PropertyService
         ];
 
         self::$runtimeAssignmentEvidence[$queueItemId][$evidenceId] = $item;
+        $this->recordAssignmentEvidenceEvent($queueItemId, $item);
 
         $list = $this->listPriorityQueueEvidence($queueItemId);
         if (($list["ok"] ?? false) !== true) {
@@ -1822,9 +1865,11 @@ class PropertyService
                     ? "Provider assigned to property"
                     : "Property currently has no provider assignment",
                 "metadata" => [
+                    "event_kind" => $providerId > 0 ? "assignment_created" : null,
                     "provider_id" => $providerId > 0 ? $providerId : null,
                     "provider_name" => $providerName,
                     "assignment_state" => $assignmentState,
+                    "status_badge" => $providerId > 0 ? "Assigned" : "Unassigned",
                 ],
             ],
             [
@@ -1863,6 +1908,163 @@ class PropertyService
         );
 
         return array_values($events);
+    }
+
+    private function buildPriorityQueueDecisionTimeline(string $queueItemId, array $property): array
+    {
+        $events = array_merge(
+            $this->buildAssignmentEvidenceTimelineEvents($queueItemId),
+            array_values(self::$runtimeAssignmentTimeline[$queueItemId] ?? []),
+            $this->buildTimelineEvents($property)
+        );
+
+        usort(
+            $events,
+            static fn (array $left, array $right): int => strcmp(
+                (string) ($right["occurred_at"] ?? ""),
+                (string) ($left["occurred_at"] ?? "")
+            )
+        );
+
+        return array_values($events);
+    }
+
+    private function buildPriorityQueueDecisionSummary(
+        string $queueItemId,
+        array $property,
+        ?array $provider,
+        array $timeline
+    ): array {
+        $currentState = $this->resolveDecisionSummaryState($property, $provider);
+        $evidenceCount = count(self::$runtimeAssignmentEvidence[$queueItemId] ?? []);
+        $latestTimelineEvent = $timeline[0] ?? null;
+        $latestEventKind = $latestTimelineEvent["metadata"]["event_kind"] ?? null;
+
+        return [
+            "current_state" => $currentState,
+            "latest_decision_label" => $this->resolveDecisionSummaryLabel($latestEventKind, $currentState),
+            "latest_decision_at" => $latestTimelineEvent["occurred_at"] ?? null,
+            "latest_actor" => $latestTimelineEvent["actor"] ?? null,
+            "evidence_count" => $evidenceCount,
+            "has_evidence" => $evidenceCount > 0,
+            "next_recommended_action" => $this->resolveDecisionSummaryRecommendedAction($currentState),
+        ];
+    }
+
+    private function buildPriorityQueueDecisionRollup(string $queueItemId, array $property): array
+    {
+        $timeline = $this->buildPriorityQueueDecisionTimeline($queueItemId, $property);
+        $currentState = $this->resolveDecisionRollupState($property);
+        $latestTimelineEvent = $timeline[0] ?? null;
+        $latestEventKind = $latestTimelineEvent["metadata"]["event_kind"] ?? null;
+        $evidenceCount = count(self::$runtimeAssignmentEvidence[$queueItemId] ?? []);
+
+        return [
+            "current_state" => $currentState,
+            "latest_decision_label" => $this->resolveDecisionSummaryLabel($latestEventKind, $currentState),
+            "latest_decision_at" => $latestTimelineEvent["occurred_at"] ?? null,
+            "evidence_count" => $evidenceCount,
+            "has_evidence" => $evidenceCount > 0,
+            "status_badge" => $this->resolveDecisionRollupStatusBadge($latestTimelineEvent, $currentState),
+            "next_recommended_action" => $this->resolveDecisionSummaryRecommendedAction($currentState),
+        ];
+    }
+
+    private function buildAssignmentEvidenceTimelineEvents(string $queueItemId): array
+    {
+        $items = array_values(self::$runtimeAssignmentEvidence[$queueItemId] ?? []);
+        if ($items === []) {
+            return [];
+        }
+
+        $total = count($items);
+
+        return array_values(
+            array_map(
+                static function (array $item) use ($total): array {
+                    return [
+                        "id" => sprintf("%s-timeline", (string) ($item["id"] ?? "evidence")),
+                        "type" => "evidence",
+                        "occurred_at" => (string) ($item["uploaded_at"] ?? ""),
+                        "actor" => (string) ($item["uploaded_by"] ?? "manager"),
+                        "summary" => "Assignment evidence uploaded",
+                        "metadata" => [
+                            "event_kind" => "evidence_uploaded",
+                            "status_badge" => "Evidence",
+                            "evidence_count" => $total,
+                            "provider_id" => null,
+                            "category" => $item["category"] ?? null,
+                            "note" => $item["note"] ?? null,
+                        ],
+                    ];
+                },
+                $items
+            )
+        );
+    }
+
+    private function recordAssignmentDecisionEvent(
+        string $queueItemId,
+        string $eventKind,
+        array $property,
+        ?string $actor = null,
+        ?string $note = null
+    ): void {
+        $providerId = isset($property["provider_id"]) ? (int) $property["provider_id"] : 0;
+        $statusBadges = [
+            "provider_reassigned" => "Assigned",
+            "assignment_completed" => "Completed",
+            "assignment_cancelled" => "Cancelled",
+        ];
+        $summaries = [
+            "provider_reassigned" => "Provider reassigned from assignment detail",
+            "assignment_completed" => "Assignment completed from manager center",
+            "assignment_cancelled" => "Assignment cancelled from manager center",
+        ];
+        $eventId = sprintf(
+            "decision-%s-%d",
+            preg_replace("/[^a-z0-9\\-]/i", "-", $queueItemId) ?? "queue",
+            count(self::$runtimeAssignmentTimeline[$queueItemId] ?? []) + 1
+        );
+
+        self::$runtimeAssignmentTimeline[$queueItemId][$eventId] = [
+            "id" => $eventId,
+            "type" => "assignment_decision",
+            "occurred_at" => now()->toIso8601String(),
+            "actor" => $actor !== null && trim($actor) !== "" ? trim($actor) : "manager",
+            "summary" => $summaries[$eventKind] ?? "Assignment updated",
+            "metadata" => [
+                "event_kind" => $eventKind,
+                "status_badge" => $statusBadges[$eventKind] ?? "Updated",
+                "provider_id" => $providerId > 0 ? $providerId : null,
+                "note" => $note,
+            ],
+        ];
+    }
+
+    private function recordAssignmentEvidenceEvent(string $queueItemId, array $item): void
+    {
+        $eventId = sprintf(
+            "evidence-event-%s-%d",
+            preg_replace("/[^a-z0-9\\-]/i", "-", $queueItemId) ?? "queue",
+            count(self::$runtimeAssignmentTimeline[$queueItemId] ?? []) + 1
+        );
+
+        self::$runtimeAssignmentTimeline[$queueItemId][$eventId] = [
+            "id" => $eventId,
+            "type" => "evidence",
+            "occurred_at" => (string) ($item["uploaded_at"] ?? now()->toIso8601String()),
+            "actor" => (string) ($item["uploaded_by"] ?? "manager"),
+            "summary" => "Assignment evidence uploaded",
+            "metadata" => [
+                "event_kind" => "evidence_uploaded",
+                "status_badge" => "Evidence",
+                "evidence_count" => count(self::$runtimeAssignmentEvidence[$queueItemId] ?? []),
+                "provider_id" => null,
+                "category" => $item["category"] ?? null,
+                "note" => $item["note"] ?? null,
+            ],
+        ];
     }
 
     private function buildTimelineTimestamp(int $propertyId, int $slot): string
@@ -2118,6 +2320,81 @@ class PropertyService
         return "unassigned";
     }
 
+    private function resolveDecisionSummaryState(array $property, ?array $provider): string
+    {
+        $state = $this->resolveAssignmentState($property, $provider);
+        $providerId = (int) ($property["provider_id"] ?? 0);
+        if ($state === "assigned" && $providerId > 0 && $provider === null) {
+            return "provider_missing";
+        }
+
+        return $state;
+    }
+
+    private function resolveDecisionRollupState(array $property): string
+    {
+        if (!empty($property["assignment_cancelled_at"])) {
+            return "cancelled";
+        }
+
+        if (!empty($property["assignment_completed_at"])) {
+            return "completed";
+        }
+
+        if ((int) ($property["provider_id"] ?? 0) > 0) {
+            return "assigned";
+        }
+
+        return "unassigned";
+    }
+
+    private function resolveDecisionSummaryLabel(?string $eventKind, string $currentState): string
+    {
+        if ($eventKind !== null && $eventKind !== "") {
+            return match ($eventKind) {
+                "assignment_created" => "Provider assigned",
+                "provider_reassigned" => "Provider reassigned",
+                "assignment_completed" => "Assignment completed",
+                "assignment_cancelled" => "Assignment cancelled",
+                "evidence_uploaded" => "Evidence uploaded",
+                default => "Assignment updated",
+            };
+        }
+
+        return match ($currentState) {
+            "assigned" => "Provider assigned",
+            "completed" => "Assignment completed",
+            "cancelled" => "Assignment cancelled",
+            "provider_missing" => "Provider record missing",
+            default => "Awaiting assignment",
+        };
+    }
+
+    private function resolveDecisionRollupStatusBadge(?array $latestTimelineEvent, string $currentState): string
+    {
+        $statusBadge = $latestTimelineEvent["metadata"]["status_badge"] ?? null;
+        if (is_string($statusBadge) && trim($statusBadge) !== "") {
+            return trim($statusBadge);
+        }
+
+        return match ($currentState) {
+            "assigned" => "Assigned",
+            "completed" => "Completed",
+            "cancelled" => "Cancelled",
+            "provider_missing" => "Provider missing",
+            default => "Awaiting assignment",
+        };
+    }
+
+    private function resolveDecisionSummaryRecommendedAction(string $currentState): ?string
+    {
+        return match ($currentState) {
+            "assigned" => "complete",
+            "unassigned", "provider_missing" => "reassign",
+            default => null,
+        };
+    }
+
     private function resolveAssignmentAvailableActions(string $assignmentState): array
     {
         return match ($assignmentState) {
@@ -2168,6 +2445,189 @@ class PropertyService
         $payload["updated_at"] = $property["updated_at"] ?? null;
 
         return $payload;
+    }
+
+    private function buildProviderCandidatePayload(array $property, array $candidate): array
+    {
+        $fitPreview = $this->buildProviderCandidateFitPreview($property, $candidate);
+        $selectionState = $this->buildProviderCandidateSelectionState($property, $candidate, $fitPreview);
+
+        return array_merge(
+            $candidate,
+            [
+                "role" => $candidate["role"] ?? "service_provider",
+                "fit_preview" => $fitPreview,
+                "selection_state" => $selectionState,
+            ]
+        );
+    }
+
+    private function buildProviderCandidateFitPreview(array $property, array $candidate): array
+    {
+        $providerId = (int) ($candidate["id"] ?? 0);
+        $assignedProviderId = (int) ($property["provider_id"] ?? 0);
+        $status = strtolower((string) ($candidate["status"] ?? "active"));
+        $propertyStatus = strtolower((string) ($property["status"] ?? self::STATUS_AVAILABLE));
+        $providerCity = strtolower(trim((string) ($candidate["city"] ?? "")));
+        $propertyCity = strtolower(trim((string) ($property["city"] ?? "")));
+        $rating = is_numeric($candidate["rating"] ?? null) ? (float) $candidate["rating"] : null;
+
+        $matchReasons = [];
+        $warnings = [];
+
+        if ($status === "active") {
+            $matchReasons[] = "Provider is active for manager handoff workflows.";
+        } else {
+            $warnings[] = "Provider is currently inactive for assignment workflows.";
+        }
+
+        if ($propertyCity !== "" && $providerCity !== "" && $propertyCity === $providerCity) {
+            $matchReasons[] = "Coverage matches the property city " . ($property["city"] ?? "current area") . ".";
+        } elseif ($propertyCity !== "" && $providerCity !== "" && $propertyCity !== $providerCity) {
+            $warnings[] = "Provider base city differs from property city " . ($property["city"] ?? "requested area") . ".";
+        }
+
+        if ($rating !== null && $rating >= 4.7) {
+            $matchReasons[] = "High customer rating supports confident selection.";
+        } elseif ($rating !== null && $rating < 4.5) {
+            $warnings[] = "Customer rating requires manager review before assignment.";
+        }
+
+        if ($propertyStatus === self::STATUS_AVAILABLE) {
+            $matchReasons[] = "Property is ready for provider handoff.";
+        } elseif ($propertyStatus === self::STATUS_RESERVED) {
+            $warnings[] = "Property is reserved; confirm handoff timing with the portfolio state.";
+        } elseif ($propertyStatus === self::STATUS_MAINTENANCE) {
+            $warnings[] = "Property is in maintenance; provider handoff must stay blocked.";
+        }
+
+        if ($assignedProviderId > 0 && $assignedProviderId === $providerId) {
+            $matchReasons[] = "Provider is already assigned to this property.";
+        } elseif ($assignedProviderId > 0) {
+            $warnings[] = "Selecting this provider would replace the current assignment.";
+        }
+
+        $queueStatus = $this->resolveProviderCandidateQueueStatus($property, $candidate, $warnings);
+        $scoreLabel = match ($queueStatus) {
+            "ready" => "Recommended",
+            "already_assigned" => "Already assigned",
+            "blocked" => "Unavailable",
+            default => "Review before assigning",
+        };
+        $recommendationBadge = match ($queueStatus) {
+            "ready" => "Recommended",
+            "already_assigned" => "Assigned",
+            "blocked" => "Blocked",
+            default => "Review",
+        };
+        $nextActionHint = match ($queueStatus) {
+            "ready" => $assignedProviderId > 0 ? "replace_provider" : "select_provider",
+            "confirmation_required" => $assignedProviderId > 0 ? "review_reassignment" : "review_provider",
+            "already_assigned" => "assigned_provider_locked",
+            default => null,
+        };
+
+        return [
+            "score_label" => $scoreLabel,
+            "recommendation_badge" => $recommendationBadge,
+            "match_reasons" => array_values($matchReasons),
+            "warnings" => array_values($warnings),
+            "next_action_hint" => $nextActionHint,
+        ];
+    }
+
+    private function buildProviderCandidateSelectionState(
+        array $property,
+        array $candidate,
+        array $fitPreview
+    ): array {
+        $queueStatus = $this->resolveProviderCandidateQueueStatus(
+            $property,
+            $candidate,
+            $fitPreview["warnings"] ?? []
+        );
+
+        return [
+            "queue_status" => $queueStatus,
+            "can_select" => in_array($queueStatus, ["ready", "confirmation_required"], true),
+            "blocked_reason" => $this->resolveProviderCandidateBlockedReason($queueStatus, $property, $candidate),
+            "confirmation_copy" => $this->buildProviderCandidateConfirmationCopy(
+                $queueStatus,
+                $property,
+                $fitPreview["warnings"] ?? []
+            ),
+        ];
+    }
+
+    private function resolveProviderCandidateQueueStatus(
+        array $property,
+        array $candidate,
+        array $warnings
+    ): string {
+        $assignedProviderId = (int) ($property["provider_id"] ?? 0);
+        $candidateId = (int) ($candidate["id"] ?? 0);
+        $status = strtolower((string) ($candidate["status"] ?? "active"));
+        $propertyStatus = strtolower((string) ($property["status"] ?? self::STATUS_AVAILABLE));
+
+        if ($assignedProviderId > 0 && $assignedProviderId === $candidateId) {
+            return "already_assigned";
+        }
+
+        if ($status !== "active" || $propertyStatus === self::STATUS_MAINTENANCE) {
+            return "blocked";
+        }
+
+        if ($assignedProviderId > 0 || $warnings !== []) {
+            return "confirmation_required";
+        }
+
+        return "ready";
+    }
+
+    private function resolveProviderCandidateBlockedReason(
+        string $queueStatus,
+        array $property,
+        array $candidate
+    ): ?string {
+        if ($queueStatus === "already_assigned") {
+            return "Provider is already assigned to this property.";
+        }
+
+        if ($queueStatus !== "blocked") {
+            return null;
+        }
+
+        $propertyStatus = strtolower((string) ($property["status"] ?? self::STATUS_AVAILABLE));
+        if ($propertyStatus === self::STATUS_MAINTENANCE) {
+            return "Property is in maintenance and cannot start provider handoff.";
+        }
+
+        return "Provider is currently inactive for assignment workflows.";
+    }
+
+    private function buildProviderCandidateConfirmationCopy(
+        string $queueStatus,
+        array $property,
+        array $warnings
+    ): ?array {
+        if ($queueStatus !== "confirmation_required") {
+            return null;
+        }
+
+        $assignedProviderId = (int) ($property["provider_id"] ?? 0);
+        if ($assignedProviderId > 0) {
+            return [
+                "title" => "Replace current provider?",
+                "body" => "This property already has an assigned provider. Confirm reassignment before continuing.",
+                "confirm_label" => "Replace provider",
+            ];
+        }
+
+        return [
+            "title" => "Confirm provider selection?",
+            "body" => (string) ($warnings[0] ?? "Review provider fit before confirming the handoff."),
+            "confirm_label" => "Select provider",
+        ];
     }
 
     private function resolveDisplayPrice(array $property, bool $includeLegacyPrice = true): ?float

@@ -122,15 +122,20 @@ class ProviderService
         return $record["row"] ?? null;
     }
 
-    public function getProviderDetail(int $id): ?array
+    public function getProviderDetail(int $id, ?array $queueItem = null): ?array
     {
         $record = $this->findProviderRecordById($id);
         if ($record === null) {
             return null;
         }
 
+        $payload = $this->presentProviderDetail($record["row"]);
+        if ($queueItem !== null) {
+            $payload["assignment_fit"] = $this->buildAssignmentFit($record["row"], $queueItem);
+        }
+
         return [
-            "data" => $this->presentProviderDetail($record["row"]),
+            "data" => $payload,
             "meta" => [
                 "contract" => self::DIRECTORY_CONTRACT,
                 "source" => $record["source"],
@@ -814,6 +819,7 @@ class ProviderService
             "rating" => $row["rating"] ?? null,
             "availability_summary" => $this->buildAvailabilitySummary($row),
             "services_preview" => array_slice($services, 0, 3),
+            "scorecard_preview" => $this->buildProviderScorecardPreview($row),
         ];
     }
 
@@ -833,6 +839,7 @@ class ProviderService
             "coverage" => $this->resolveCoverage($row),
             "availability_summary" => $this->buildAvailabilitySummary($row),
             "metrics" => $this->buildProviderMetrics($row),
+            "scorecard" => $this->buildProviderScorecard($row),
         ];
     }
 
@@ -888,6 +895,94 @@ class ProviderService
             "completed_jobs" => $this->asInt($row["completed_jobs"] ?? null) ?? 0,
             "response_time_hours" => $this->asFloat($row["response_time_hours"] ?? null) ?? 24.0,
             "customer_score" => $this->asFloat($row["customer_score"] ?? null) ?? $rating,
+        ];
+    }
+
+    private function buildProviderScorecardPreview(array $row): array
+    {
+        $metrics = $this->buildProviderMetrics($row);
+        $availabilitySummary = $this->buildAvailabilitySummary($row);
+
+        return [
+            "completed_jobs" => $metrics["completed_jobs"],
+            "customer_score" => $metrics["customer_score"],
+            "response_time_hours" => $metrics["response_time_hours"],
+            "availability_label" => $availabilitySummary["label"] ?? "Unknown",
+            "coverage_count" => count($this->resolveCoverage($row)),
+            "services_count" => count($this->resolveServices($row)),
+        ];
+    }
+
+    private function buildProviderScorecard(array $row): array
+    {
+        $preview = $this->buildProviderScorecardPreview($row);
+
+        return [
+            ...$preview,
+            "status_badge" => $this->resolveProviderStatusBadge($row),
+        ];
+    }
+
+    private function resolveProviderStatusBadge(array $row): string
+    {
+        return match (strtolower((string) ($row["status"] ?? "active"))) {
+            "active" => "Active",
+            "inactive" => "Inactive",
+            "paused" => "Paused",
+            default => "Unknown",
+        };
+    }
+
+    private function buildAssignmentFit(array $provider, array $queueItem): array
+    {
+        $status = strtolower((string) ($provider["status"] ?? "active"));
+        $providerCity = strtolower((string) ($provider["city"] ?? ""));
+        $queueCity = strtolower((string) ($queueItem["city"] ?? ""));
+        $rating = is_numeric($provider["rating"] ?? null) ? (float) $provider["rating"] : null;
+        $availabilitySummary = $this->buildAvailabilitySummary($provider);
+        $nextOpenSlot = $availabilitySummary["next_open_slot"] ?? null;
+
+        $matchReasons = [];
+        $warnings = [];
+
+        if ($status === "active") {
+            $matchReasons[] = "Provider is active for assignment workflows.";
+        } else {
+            $warnings[] = "Provider is currently inactive.";
+        }
+
+        if ($queueCity !== "" && $providerCity !== "" && $queueCity === $providerCity) {
+            $matchReasons[] = "Coverage matches queue city " . ($queueItem["city"] ?? "current area") . ".";
+        } elseif ($queueCity !== "" && $providerCity !== "" && $queueCity !== $providerCity) {
+            $warnings[] = "Provider base city differs from queue city " . ($queueItem["city"] ?? "requested area") . ".";
+        }
+
+        if ($rating !== null && $rating >= 4.7) {
+            $matchReasons[] = "High customer rating supports selection confidence.";
+        } elseif ($rating !== null && $rating < 4.5) {
+            $warnings[] = "Customer rating requires review before assignment.";
+        }
+
+        if ($nextOpenSlot !== null) {
+            $matchReasons[] = "Availability summary indicates next open slot {$nextOpenSlot}.";
+        } else {
+            $warnings[] = "Availability summary does not expose a next open slot.";
+        }
+
+        $recommended = $status === "active" && $warnings === [];
+        $scoreLabel = $status !== "active"
+            ? "Unavailable"
+            : ($recommended ? "Recommended" : "Review before assigning");
+        $nextAction = $status !== "active"
+            ? null
+            : ($recommended ? "select_provider" : "review_provider");
+
+        return [
+            "recommended" => $recommended,
+            "score_label" => $scoreLabel,
+            "match_reasons" => array_values($matchReasons),
+            "warnings" => array_values($warnings),
+            "next_action" => $nextAction,
         ];
     }
 

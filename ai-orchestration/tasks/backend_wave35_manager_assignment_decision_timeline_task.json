@@ -1,0 +1,24 @@
+{
+  "id": "BE-031",
+  "title": "Implement Wave 35 manager assignment decision timeline contract",
+  "description": "Extend the manager assignment detail API so queue-aware assignment detail responses expose an additive decision summary and richer timeline metadata while preserving the existing contract shape for current mobile consumers.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "GET /api/properties/priorities/queue/{queueItemId} returns additive decision_summary metadata for manager role",
+    "Timeline events expose deterministic event metadata needed to distinguish reassignment, completion, cancellation, and evidence-backed changes",
+    "Requests that ignore the new additive fields continue to work without contract breakage"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave35",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-assignment-decision-timeline"
+  }
+}
