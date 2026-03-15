@@ -1245,3 +1245,54 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend provider directory/profile scorecard contract hardening (`BE-033`).
 3. Manager provider directory/profile UI wiring (`MOB-034`).
 4. Regression matrix for manager provider directory/profile scorecard parity (`QA-024`).
+
+## Wave 38 Manager Provider Handoff Candidate Fit State Map
+
+### Manager Handoff Candidate Fit States
+
+- `handoff_candidate_fit_loading`
+  - provider candidates query in flight while property assignment context is known
+- `handoff_candidate_fit_ready`
+  - render candidate cards with additive fit preview, recommendation badge, and baseline candidate metadata
+- `handoff_candidate_fit_recommended`
+  - at least one candidate is marked `recommended`; recommendation badge and primary select CTA are visible without hiding other candidates
+- `handoff_candidate_fit_warning`
+  - candidate remains selectable, but warnings must stay visible before confirmation
+- `handoff_candidate_fit_blocked`
+  - candidate is shown for transparency, but selection CTA is disabled with explicit blocked reason
+- `handoff_candidate_fit_empty`
+  - deterministic zero-state when no candidates match the current handoff scope
+- `handoff_candidate_fit_error_retryable`
+  - preserve property assignment context and allow retry
+
+### Queue-Aware Selection Confirmation States
+
+- `handoff_selection_confirmation_required`
+  - opening candidate selection reveals backend-issued confirmation copy before mutation
+- `handoff_selection_submitting`
+  - selection mutation pending; lock duplicate submit while preserving visible candidate fit context
+- `handoff_selection_success`
+  - manager sees deterministic confirmation and returns to assignment detail with preserved queue context
+- `handoff_selection_already_selected`
+  - selected candidate is visibly marked and duplicate confirmation affordances are suppressed
+- `handoff_selection_already_assigned`
+  - current assignment winner is highlighted as terminal/current state
+
+### Wave 38 Interaction Rules
+
+- Recommendation badges are advisory, not silent auto-selection.
+- Candidate fit preview must remain visible when manager opens confirmation UI.
+- Back-navigation from provider profile into handoff must preserve:
+  - property assignment context
+  - current candidate filters/order
+  - currently highlighted candidate, if still present
+- Missing additive fit nodes must degrade cleanly to the Wave 29 handoff candidate UI.
+- Unauthorized, session-expired, and not-found states continue to use shared manager recovery screens.
+
+### Wave 38 Delivery Sequencing
+
+1. Manager handoff candidate fit contract and state map (`ARCH-032`).
+2. Backend additive provider-candidates fit + selection-state serialization (`BE-034`).
+3. Manager handoff candidate fit UI and confirmation flow (`MOB-035`).
+4. Regression matrix for manager handoff candidate fit parity (`QA-025`).
+
