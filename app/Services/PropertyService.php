@@ -219,6 +219,60 @@ class PropertyService
         ];
     }
 
+    public function pendingActions(array $filters = []): array
+    {
+        $dataset = $this->loadRows();
+        $items = $this->buildPriorityQueueItems($dataset["rows"]);
+        $actions = [];
+
+        foreach ($items as $item) {
+            if ((bool) ($item["completed"] ?? false)) {
+                continue;
+            }
+
+            $action = $this->mapPriorityQueueItemToPendingAction($item);
+            if ($action === null) {
+                continue;
+            }
+
+            $actions[] = $action;
+        }
+
+        $limit = null;
+        if (isset($filters["limit"]) && $filters["limit"] !== null) {
+            $limit = max(1, min(25, (int) $filters["limit"]));
+            $actions = array_slice($actions, 0, $limit);
+        }
+
+        $highPriority = count(
+            array_filter(
+                $actions,
+                static fn (array $action): bool => ($action["priority_badge"] ?? null) === "high"
+            )
+        );
+
+        $generatedAt = $actions !== []
+            ? (string) ($actions[0]["updated_at"] ?? $this->buildPriorityTimestamp(60, 0))
+            : $this->buildPriorityTimestamp(60, 0);
+
+        return [
+            "data" => array_values($actions),
+            "meta" => [
+                "contract" => "manager-dashboard-pending-actions-v1",
+                "generated_at" => $generatedAt,
+                "source" => $dataset["source"],
+                "filters" => [
+                    "limit" => $limit,
+                ],
+                "count" => count($actions),
+                "counts" => [
+                    "total" => count($actions),
+                    "high_priority" => $highPriority,
+                ],
+            ],
+        ];
+    }
+
     public function findPriorityQueueItem(string $queueItemId): ?array
     {
         $normalizedQueueItemId = trim($queueItemId);
@@ -655,6 +709,71 @@ class PropertyService
         usort($items, [$this, "comparePriorityQueueItems"]);
 
         return array_values($items);
+    }
+
+    private function mapPriorityQueueItemToPendingAction(array $item): ?array
+    {
+        $category = (string) ($item["category"] ?? "");
+        $queueItemId = (string) ($item["id"] ?? "");
+        $propertyId = (int) ($item["property_id"] ?? 0);
+        $propertyTitle = (string) ($item["property_title"] ?? "Property {$propertyId}");
+        $city = (string) ($item["city"] ?? "");
+        $severity = strtolower((string) ($item["severity"] ?? "low"));
+        $updatedAt = (string) ($item["updated_at"] ?? $this->buildPriorityTimestamp(60, 0));
+
+        if ($queueItemId === "" || $propertyId <= 0) {
+            return null;
+        }
+
+        $actionType = null;
+        $route = null;
+        $title = null;
+        $statusBadge = null;
+
+        if ($category === "provider_assignment") {
+            $decisionRollup = is_array($item["decision_rollup"] ?? null) ? $item["decision_rollup"] : [];
+            $currentState = (string) ($decisionRollup["current_state"] ?? "unassigned");
+            $actionType = $currentState === "assigned"
+                ? "handoff_pending_confirmation"
+                : "handoff_pending_acceptance";
+            $route = "manager_provider_handoff";
+            $title = $currentState === "assigned"
+                ? "Confirm provider handoff outcome"
+                : "Review provider handoff candidates";
+            $statusBadge = $currentState !== "" ? $currentState : (string) ($item["sla_state"] ?? "on_track");
+        } elseif ($category === "portfolio_review") {
+            $actionType = "contract_pending_approval";
+            $route = "manager_assignment_detail";
+            $title = "Review reserved pipeline follow-up";
+            $statusBadge = (string) ($item["sla_state"] ?? "on_track");
+        } elseif ($category === "maintenance_follow_up") {
+            $actionType = "contract_expiring_soon";
+            $route = "manager_assignment_detail";
+            $title = "Review maintenance follow-up";
+            $statusBadge = (string) ($item["sla_state"] ?? "on_track");
+        } else {
+            return null;
+        }
+
+        return [
+            "id" => "pending-action-" . $queueItemId,
+            "action_type" => $actionType,
+            "entity_type" => "property_queue_item",
+            "entity_id" => $queueItemId,
+            "title" => $title,
+            "subtitle" => trim($propertyTitle . ($city !== "" ? " · {$city}" : "")),
+            "status_badge" => $statusBadge,
+            "priority_badge" => in_array($severity, ["high", "medium", "low"], true) ? $severity : "low",
+            "due_at" => $item["sla_due_at"] ?? null,
+            "updated_at" => $updatedAt,
+            "deep_link" => [
+                "route" => $route,
+                "params" => [
+                    "queue_item_id" => $queueItemId,
+                    "property_id" => $propertyId,
+                ],
+            ],
+        ];
     }
 
     private function buildQueueTimestamp(int $baseMinuteOffset, int $propertyId): string
