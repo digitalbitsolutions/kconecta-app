@@ -816,3 +816,37 @@
   - richer than the baseline Wave 29 candidate row
   - authoritative for manager selection and confirmation state in handoff
 
+## Wave 39 Manager Dashboard Pending Actions Boundary
+
+### Dashboard Pending Actions Layer
+
+- Property / assignment module owns:
+  - pending handoff follow-up detection
+  - queue-item backed pending action serialization
+  - deep-link params for assignment detail or handoff continuation
+- Contract module owns:
+  - contract approval / expiry follow-up detection
+  - contract-backed pending action serialization
+- Dashboard module owns:
+  - additive pending-actions endpoint composition
+  - counts rollup for pending-actions metadata
+  - compatibility with existing dashboard summary and priorities reads
+- Manager mobile module owns:
+  - pending action row presentation
+  - routing from action rows into authoritative existing detail flows
+  - preserving current dashboard summary/priorities rendering when pending-actions are absent
+- Auth session module owns:
+  - `401` recovery
+  - unauthorized and session-expired routing
+
+### Boundary Decision
+
+- Wave 39 keeps pending-action derivation backend-owned.
+- Manager mobile must not compute pending actions by stitching together:
+  - dashboard summary counts
+  - assignment center rows
+  - contract detail snapshots
+- Pending actions are operational shortcuts:
+  - they can deep-link into existing flows
+  - they do not replace assignment detail, handoff, or contract detail as authoritative surfaces
+
