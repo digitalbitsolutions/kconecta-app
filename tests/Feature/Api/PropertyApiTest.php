@@ -792,6 +792,101 @@ class PropertyApiTest extends TestCase
         $this->assertNotEmpty((array) $response->json("data.candidates", []));
     }
 
+    public function test_provider_candidates_include_wave38_fit_preview_and_selection_state_contract(): void
+    {
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/101/provider-candidates");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("meta.contract", "manager-provider-handoff-v1")
+            ->assertJsonPath("meta.flow", "properties_provider_candidates")
+            ->assertJsonPath("meta.reason", "candidates_loaded");
+
+        $candidates = collect($response->json("data.candidates", []));
+        $this->assertNotEmpty($candidates);
+
+        $recommended = $candidates->firstWhere("id", 1);
+        $this->assertIsArray($recommended);
+        $this->assertSame("service_provider", $recommended["role"] ?? null);
+        $this->assertSame("Recommended", $recommended["fit_preview"]["score_label"] ?? null);
+        $this->assertSame("Recommended", $recommended["fit_preview"]["recommendation_badge"] ?? null);
+        $this->assertSame("select_provider", $recommended["fit_preview"]["next_action_hint"] ?? null);
+        $this->assertSame("ready", $recommended["selection_state"]["queue_status"] ?? null);
+        $this->assertTrue((bool) ($recommended["selection_state"]["can_select"] ?? false));
+        $this->assertNull($recommended["selection_state"]["blocked_reason"] ?? null);
+        $this->assertNull($recommended["selection_state"]["confirmation_copy"] ?? null);
+
+        $review = $candidates->firstWhere("id", 3);
+        $this->assertIsArray($review);
+        $this->assertSame("Review before assigning", $review["fit_preview"]["score_label"] ?? null);
+        $this->assertSame("Review", $review["fit_preview"]["recommendation_badge"] ?? null);
+        $this->assertSame("review_provider", $review["fit_preview"]["next_action_hint"] ?? null);
+        $this->assertSame("confirmation_required", $review["selection_state"]["queue_status"] ?? null);
+        $this->assertTrue((bool) ($review["selection_state"]["can_select"] ?? false));
+        $this->assertNull($review["selection_state"]["blocked_reason"] ?? null);
+        $this->assertSame(
+            "Confirm provider selection?",
+            $review["selection_state"]["confirmation_copy"]["title"] ?? null
+        );
+        $this->assertSame(
+            "Select provider",
+            $review["selection_state"]["confirmation_copy"]["confirm_label"] ?? null
+        );
+        $this->assertContains(
+            "Provider base city differs from property city Madrid.",
+            $review["fit_preview"]["warnings"] ?? []
+        );
+    }
+
+    public function test_provider_candidates_mark_current_provider_as_already_assigned_after_assignment(): void
+    {
+        $this
+            ->withHeaders([
+                "Authorization" => "Bearer " . self::API_TOKEN,
+                "X-KCONECTA-MANAGER-ID" => "mgr-wave38",
+            ])
+            ->postJson("/api/properties/101/assign-provider", [
+                "provider_id" => 1,
+                "note" => "Wave 38 assignment fit validation",
+            ])
+            ->assertOk();
+
+        $response = $this
+            ->withHeaders(["Authorization" => "Bearer " . self::API_TOKEN])
+            ->getJson("/api/properties/101/provider-candidates");
+
+        $response->assertOk();
+
+        $candidates = collect($response->json("data.candidates", []));
+        $assigned = $candidates->firstWhere("id", 1);
+        $this->assertIsArray($assigned);
+        $this->assertSame("Already assigned", $assigned["fit_preview"]["score_label"] ?? null);
+        $this->assertSame("Assigned", $assigned["fit_preview"]["recommendation_badge"] ?? null);
+        $this->assertSame("assigned_provider_locked", $assigned["fit_preview"]["next_action_hint"] ?? null);
+        $this->assertSame("already_assigned", $assigned["selection_state"]["queue_status"] ?? null);
+        $this->assertFalse((bool) ($assigned["selection_state"]["can_select"] ?? true));
+        $this->assertSame(
+            "Provider is already assigned to this property.",
+            $assigned["selection_state"]["blocked_reason"] ?? null
+        );
+        $this->assertNull($assigned["selection_state"]["confirmation_copy"] ?? null);
+
+        $replacement = $candidates->firstWhere("id", 3);
+        $this->assertIsArray($replacement);
+        $this->assertSame("confirmation_required", $replacement["selection_state"]["queue_status"] ?? null);
+        $this->assertSame(
+            "Replace current provider?",
+            $replacement["selection_state"]["confirmation_copy"]["title"] ?? null
+        );
+        $this->assertSame(
+            "Replace provider",
+            $replacement["selection_state"]["confirmation_copy"]["confirm_label"] ?? null
+        );
+        $this->assertSame("review_reassignment", $replacement["fit_preview"]["next_action_hint"] ?? null);
+    }
+
     public function test_provider_candidates_endpoint_is_forbidden_for_provider_role(): void
     {
         $response = $this

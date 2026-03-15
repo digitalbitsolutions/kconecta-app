@@ -720,12 +720,16 @@ class PropertyController extends Controller
             "status" => "active",
             "role" => "service_provider",
         ]);
+        $candidates = $this->propertyService->buildProviderCandidatesPayload(
+            $property,
+            array_values($providersPayload["data"] ?? [])
+        );
 
         return response()->json(
             [
                 "data" => [
                     "property_id" => $id,
-                    "candidates" => array_values($providersPayload["data"] ?? []),
+                    "candidates" => $candidates,
                 ],
                 "meta" => [
                     "contract" => "manager-provider-handoff-v1",

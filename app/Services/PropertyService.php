@@ -920,6 +920,19 @@ class PropertyService
     }
 
     /**
+     * Enrich handoff candidates with additive fit preview and selection state metadata.
+     */
+    public function buildProviderCandidatesPayload(array $property, array $candidates): array
+    {
+        return array_values(
+            array_map(
+                fn (array $candidate): array => $this->buildProviderCandidatePayload($property, $candidate),
+                $candidates
+            )
+        );
+    }
+
+    /**
      * Build property detail payload with additive deterministic timeline events.
      */
     public function buildPropertyDetailPayload(array $property): array
@@ -2432,6 +2445,189 @@ class PropertyService
         $payload["updated_at"] = $property["updated_at"] ?? null;
 
         return $payload;
+    }
+
+    private function buildProviderCandidatePayload(array $property, array $candidate): array
+    {
+        $fitPreview = $this->buildProviderCandidateFitPreview($property, $candidate);
+        $selectionState = $this->buildProviderCandidateSelectionState($property, $candidate, $fitPreview);
+
+        return array_merge(
+            $candidate,
+            [
+                "role" => $candidate["role"] ?? "service_provider",
+                "fit_preview" => $fitPreview,
+                "selection_state" => $selectionState,
+            ]
+        );
+    }
+
+    private function buildProviderCandidateFitPreview(array $property, array $candidate): array
+    {
+        $providerId = (int) ($candidate["id"] ?? 0);
+        $assignedProviderId = (int) ($property["provider_id"] ?? 0);
+        $status = strtolower((string) ($candidate["status"] ?? "active"));
+        $propertyStatus = strtolower((string) ($property["status"] ?? self::STATUS_AVAILABLE));
+        $providerCity = strtolower(trim((string) ($candidate["city"] ?? "")));
+        $propertyCity = strtolower(trim((string) ($property["city"] ?? "")));
+        $rating = is_numeric($candidate["rating"] ?? null) ? (float) $candidate["rating"] : null;
+
+        $matchReasons = [];
+        $warnings = [];
+
+        if ($status === "active") {
+            $matchReasons[] = "Provider is active for manager handoff workflows.";
+        } else {
+            $warnings[] = "Provider is currently inactive for assignment workflows.";
+        }
+
+        if ($propertyCity !== "" && $providerCity !== "" && $propertyCity === $providerCity) {
+            $matchReasons[] = "Coverage matches the property city " . ($property["city"] ?? "current area") . ".";
+        } elseif ($propertyCity !== "" && $providerCity !== "" && $propertyCity !== $providerCity) {
+            $warnings[] = "Provider base city differs from property city " . ($property["city"] ?? "requested area") . ".";
+        }
+
+        if ($rating !== null && $rating >= 4.7) {
+            $matchReasons[] = "High customer rating supports confident selection.";
+        } elseif ($rating !== null && $rating < 4.5) {
+            $warnings[] = "Customer rating requires manager review before assignment.";
+        }
+
+        if ($propertyStatus === self::STATUS_AVAILABLE) {
+            $matchReasons[] = "Property is ready for provider handoff.";
+        } elseif ($propertyStatus === self::STATUS_RESERVED) {
+            $warnings[] = "Property is reserved; confirm handoff timing with the portfolio state.";
+        } elseif ($propertyStatus === self::STATUS_MAINTENANCE) {
+            $warnings[] = "Property is in maintenance; provider handoff must stay blocked.";
+        }
+
+        if ($assignedProviderId > 0 && $assignedProviderId === $providerId) {
+            $matchReasons[] = "Provider is already assigned to this property.";
+        } elseif ($assignedProviderId > 0) {
+            $warnings[] = "Selecting this provider would replace the current assignment.";
+        }
+
+        $queueStatus = $this->resolveProviderCandidateQueueStatus($property, $candidate, $warnings);
+        $scoreLabel = match ($queueStatus) {
+            "ready" => "Recommended",
+            "already_assigned" => "Already assigned",
+            "blocked" => "Unavailable",
+            default => "Review before assigning",
+        };
+        $recommendationBadge = match ($queueStatus) {
+            "ready" => "Recommended",
+            "already_assigned" => "Assigned",
+            "blocked" => "Blocked",
+            default => "Review",
+        };
+        $nextActionHint = match ($queueStatus) {
+            "ready" => $assignedProviderId > 0 ? "replace_provider" : "select_provider",
+            "confirmation_required" => $assignedProviderId > 0 ? "review_reassignment" : "review_provider",
+            "already_assigned" => "assigned_provider_locked",
+            default => null,
+        };
+
+        return [
+            "score_label" => $scoreLabel,
+            "recommendation_badge" => $recommendationBadge,
+            "match_reasons" => array_values($matchReasons),
+            "warnings" => array_values($warnings),
+            "next_action_hint" => $nextActionHint,
+        ];
+    }
+
+    private function buildProviderCandidateSelectionState(
+        array $property,
+        array $candidate,
+        array $fitPreview
+    ): array {
+        $queueStatus = $this->resolveProviderCandidateQueueStatus(
+            $property,
+            $candidate,
+            $fitPreview["warnings"] ?? []
+        );
+
+        return [
+            "queue_status" => $queueStatus,
+            "can_select" => in_array($queueStatus, ["ready", "confirmation_required"], true),
+            "blocked_reason" => $this->resolveProviderCandidateBlockedReason($queueStatus, $property, $candidate),
+            "confirmation_copy" => $this->buildProviderCandidateConfirmationCopy(
+                $queueStatus,
+                $property,
+                $fitPreview["warnings"] ?? []
+            ),
+        ];
+    }
+
+    private function resolveProviderCandidateQueueStatus(
+        array $property,
+        array $candidate,
+        array $warnings
+    ): string {
+        $assignedProviderId = (int) ($property["provider_id"] ?? 0);
+        $candidateId = (int) ($candidate["id"] ?? 0);
+        $status = strtolower((string) ($candidate["status"] ?? "active"));
+        $propertyStatus = strtolower((string) ($property["status"] ?? self::STATUS_AVAILABLE));
+
+        if ($assignedProviderId > 0 && $assignedProviderId === $candidateId) {
+            return "already_assigned";
+        }
+
+        if ($status !== "active" || $propertyStatus === self::STATUS_MAINTENANCE) {
+            return "blocked";
+        }
+
+        if ($assignedProviderId > 0 || $warnings !== []) {
+            return "confirmation_required";
+        }
+
+        return "ready";
+    }
+
+    private function resolveProviderCandidateBlockedReason(
+        string $queueStatus,
+        array $property,
+        array $candidate
+    ): ?string {
+        if ($queueStatus === "already_assigned") {
+            return "Provider is already assigned to this property.";
+        }
+
+        if ($queueStatus !== "blocked") {
+            return null;
+        }
+
+        $propertyStatus = strtolower((string) ($property["status"] ?? self::STATUS_AVAILABLE));
+        if ($propertyStatus === self::STATUS_MAINTENANCE) {
+            return "Property is in maintenance and cannot start provider handoff.";
+        }
+
+        return "Provider is currently inactive for assignment workflows.";
+    }
+
+    private function buildProviderCandidateConfirmationCopy(
+        string $queueStatus,
+        array $property,
+        array $warnings
+    ): ?array {
+        if ($queueStatus !== "confirmation_required") {
+            return null;
+        }
+
+        $assignedProviderId = (int) ($property["provider_id"] ?? 0);
+        if ($assignedProviderId > 0) {
+            return [
+                "title" => "Replace current provider?",
+                "body" => "This property already has an assigned provider. Confirm reassignment before continuing.",
+                "confirm_label" => "Replace provider",
+            ];
+        }
+
+        return [
+            "title" => "Confirm provider selection?",
+            "body" => (string) ($warnings[0] ?? "Review provider fit before confirming the handoff."),
+            "confirm_label" => "Select provider",
+        ];
     }
 
     private function resolveDisplayPrice(array $property, bool $includeLegacyPrice = true): ?float
