@@ -839,6 +839,37 @@ Validate end-to-end functional behavior of native app API contracts before relea
   - Wave 34 queue-aware provider profile remains the deep-read surface for assignment decisions.
   - Consumers ignoring `fit_preview` and `selection_state` continue to function with the baseline handoff contract.
 
+## Wave 39 Manager Dashboard Pending Actions Matrix
+
+1. Pending actions success contract (`DEV-196`, `DEV-197`, `DEV-198`, `DEV-195`)
+  - `GET /api/properties/priorities/pending-actions` returns:
+    - `meta.contract=manager-dashboard-pending-actions-v1`
+    - additive `data[*]` nodes:
+      - `id`
+      - `action_type`
+      - `entity_type`
+      - `entity_id`
+      - `title`
+      - `subtitle`
+      - `status_badge`
+      - `priority_badge`
+      - `due_at`
+      - `updated_at`
+      - `deep_link.route`
+      - `deep_link.params.queue_item_id`
+      - `deep_link.params.property_id`
+  - Manager dashboard consumers may route handoff actions to `ManagerToProviderHandoff` and contract follow-up actions to `ManagerAssignmentDetail` using the additive deep-link metadata.
+2. Empty-state and guardrails (`DEV-195`)
+  - Empty dataset returns deterministic `200` envelope with:
+    - `data=[]`
+    - `meta.count=0`
+    - `meta.counts.total=0`
+    - `meta.counts.high_priority=0`
+  - Provider role access returns deterministic `403 ROLE_SCOPE_FORBIDDEN` auth-session envelope.
+  - Invalid token returns deterministic `401 TOKEN_INVALID` auth-session envelope.
+3. Cross-wave compatibility (`DEV-195`)
+  - Wave 24 dashboard summary contract remains stable while pending actions are added as a separate additive endpoint.
+- Wave 31 assignment center and Wave 38 provider handoff fit flows remain the downstream navigation surfaces referenced by pending action deep links.
 ## Entry Criteria
 
 - Target branch synced with latest `main`.
