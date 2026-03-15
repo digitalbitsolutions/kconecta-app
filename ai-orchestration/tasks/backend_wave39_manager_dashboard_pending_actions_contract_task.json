@@ -1,0 +1,25 @@
+{
+  "id": "BE-035",
+  "title": "Implement Wave 39 manager dashboard pending actions contract",
+  "description": "Add a manager-authenticated pending-actions dashboard endpoint that aggregates pending handoff and contract follow-up items with additive metadata while preserving current dashboard consumers.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "routes/api.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "A manager-safe pending-actions endpoint returns additive handoff and contract follow-up items",
+    "Response payload includes stable item type, target id, status summary, and deep-link hint metadata",
+    "Existing dashboard endpoints continue to work unchanged when the new endpoint is ignored"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave39",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-dashboard-pending-actions"
+  }
+}

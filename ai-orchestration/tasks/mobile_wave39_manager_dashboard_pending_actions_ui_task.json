@@ -1,0 +1,24 @@
+{
+  "id": "MOB-036",
+  "title": "Implement Wave 39 manager dashboard pending actions UI",
+  "description": "Add a pending-actions section to the manager dashboard, wire manager-safe navigation into handoff or contract detail routes, and preserve the current summary and priorities presentation.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/screens/ManagerDashboardScreen.tsx",
+    "apps/manager/src/navigation/index.tsx"
+  ],
+  "acceptance_criteria": [
+    "Manager dashboard renders a pending-actions section backed by the new additive endpoint",
+    "Each pending action row exposes stable labels and navigation into the relevant existing flow",
+    "Current dashboard summary, priorities, and handoff entry points continue to work without regression"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave39",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-dashboard-pending-actions"
+  }
+}

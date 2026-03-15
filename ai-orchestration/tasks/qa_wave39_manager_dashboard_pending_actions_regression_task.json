@@ -1,0 +1,23 @@
+{
+  "id": "QA-026",
+  "title": "Add Wave 39 manager dashboard pending actions regression matrix",
+  "description": "Add regression coverage for manager dashboard pending-actions success, empty, and guardrail scenarios while preserving current dashboard summary/priorities and handoff baselines.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/Wave39RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix covers pending-actions success, empty, and manager-role guardrail scenarios",
+    "Assertions verify additive item metadata without breaking current dashboard baseline nodes",
+    "Testing strategy references Wave 39 scope and preserves current handoff/dashboard behavior"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave39",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-dashboard-pending-actions"
+  }
+}
