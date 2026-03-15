@@ -118,6 +118,23 @@ type ProviderCandidatesPayload = {
       category: string | null;
       city: string | null;
       rating: number | null;
+      fit_preview?: {
+        score_label?: string | null;
+        recommendation_badge?: string | null;
+        match_reasons?: string[] | null;
+        warnings?: string[] | null;
+        next_action_hint?: string | null;
+      } | null;
+      selection_state?: {
+        queue_status?: string | null;
+        can_select?: boolean | null;
+        blocked_reason?: string | null;
+        confirmation_copy?: {
+          title?: string | null;
+          body?: string | null;
+          confirm_label?: string | null;
+        } | null;
+      } | null;
     }>;
   };
   meta: {
@@ -432,6 +449,42 @@ export type ProviderCandidate = {
   city: string;
   status: string;
   rating: string;
+  fitPreview: ProviderCandidateFitPreview | null;
+  selectionState: ProviderCandidateSelectionState | null;
+};
+
+export type ProviderCandidateRecommendationBadge =
+  | "recommended"
+  | "consider"
+  | "warning"
+  | "not_recommended";
+
+export type ProviderCandidateQueueStatus =
+  | "ready"
+  | "confirmation_required"
+  | "already_selected"
+  | "already_assigned"
+  | "blocked";
+
+export type ProviderCandidateFitPreview = {
+  scoreLabel: string | null;
+  recommendationBadge: ProviderCandidateRecommendationBadge | null;
+  matchReasons: string[];
+  warnings: string[];
+  nextActionHint: string | null;
+};
+
+export type ProviderCandidateSelectionConfirmationCopy = {
+  title: string | null;
+  body: string | null;
+  confirmLabel: string | null;
+};
+
+export type ProviderCandidateSelectionState = {
+  queueStatus: ProviderCandidateQueueStatus | null;
+  canSelect: boolean;
+  blockedReason: string | null;
+  confirmationCopy: ProviderCandidateSelectionConfirmationCopy | null;
 };
 
 export type ProviderAssignmentResult = {
@@ -823,6 +876,8 @@ function toProviderCandidateViewModel(
   candidate: ProviderCandidatesPayload["data"]["candidates"][number]
 ): ProviderCandidate {
   const ratingValue = typeof candidate.rating === "number" ? candidate.rating.toFixed(1) : "n/a";
+  const fitPreview = mapProviderCandidateFitPreview(candidate);
+  const selectionState = mapProviderCandidateSelectionState(candidate);
   return {
     id: String(candidate.id),
     name: candidate.name,
@@ -830,7 +885,106 @@ function toProviderCandidateViewModel(
     city: candidate.city ?? "Unknown",
     status: candidate.status,
     rating: ratingValue,
+    fitPreview,
+    selectionState,
   };
+}
+
+function mapProviderCandidateFitPreview(
+  candidate: ProviderCandidatesPayload["data"]["candidates"][number]
+): ProviderCandidateFitPreview | null {
+  const fitPreview = candidate.fit_preview;
+  if (!fitPreview) {
+    return null;
+  }
+
+  const warnings = Array.isArray(fitPreview.warnings)
+    ? fitPreview.warnings.filter((warning): warning is string => typeof warning === "string")
+    : [];
+  const matchReasons = Array.isArray(fitPreview.match_reasons)
+    ? fitPreview.match_reasons.filter((reason): reason is string => typeof reason === "string")
+    : [];
+
+  return {
+    scoreLabel: fitPreview.score_label ?? null,
+    recommendationBadge: normalizeProviderCandidateRecommendationBadge(
+      fitPreview.recommendation_badge,
+      candidate.selection_state?.queue_status ?? null,
+      warnings.length
+    ),
+    matchReasons,
+    warnings,
+    nextActionHint: fitPreview.next_action_hint ?? null,
+  };
+}
+
+function normalizeProviderCandidateRecommendationBadge(
+  rawValue: string | null | undefined,
+  rawQueueStatus: string | null | undefined,
+  warningCount: number
+): ProviderCandidateRecommendationBadge | null {
+  const normalized = rawValue?.trim().toLowerCase().replace(/\s+/g, "_") ?? null;
+  if (
+    normalized === "recommended" ||
+    normalized === "consider" ||
+    normalized === "warning" ||
+    normalized === "not_recommended"
+  ) {
+    return normalized;
+  }
+
+  const queueStatus = normalizeProviderCandidateQueueStatus(rawQueueStatus);
+  if (queueStatus === "blocked" || queueStatus === "already_assigned") {
+    return "not_recommended";
+  }
+  if (warningCount > 0 || queueStatus === "confirmation_required") {
+    return "consider";
+  }
+  if (queueStatus === "ready") {
+    return "recommended";
+  }
+  return null;
+}
+
+function mapProviderCandidateSelectionState(
+  candidate: ProviderCandidatesPayload["data"]["candidates"][number]
+): ProviderCandidateSelectionState | null {
+  const selectionState = candidate.selection_state;
+  if (!selectionState) {
+    return null;
+  }
+
+  const queueStatus = normalizeProviderCandidateQueueStatus(selectionState.queue_status);
+  const confirmationCopy = selectionState.confirmation_copy
+    ? {
+        title: selectionState.confirmation_copy.title ?? null,
+        body: selectionState.confirmation_copy.body ?? null,
+        confirmLabel: selectionState.confirmation_copy.confirm_label ?? null,
+      }
+    : null;
+
+  return {
+    queueStatus,
+    canSelect: selectionState.can_select === true,
+    blockedReason: selectionState.blocked_reason ?? null,
+    confirmationCopy,
+  };
+}
+
+function normalizeProviderCandidateQueueStatus(
+  rawValue: string | null | undefined
+): ProviderCandidateQueueStatus | null {
+  const normalized = rawValue?.trim().toLowerCase();
+  if (
+    normalized === "ready" ||
+    normalized === "confirmation_required" ||
+    normalized === "already_selected" ||
+    normalized === "already_assigned" ||
+    normalized === "blocked"
+  ) {
+    return normalized;
+  }
+  return null;
 }
 
 function buildQueryString(query: PropertyListQuery = {}): string {
