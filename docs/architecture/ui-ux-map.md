@@ -1335,4 +1335,3 @@ Define the first production-shaped mobile information architecture for manager a
 2. Backend additive pending-actions aggregation contract (`BE-035`).
 3. Manager dashboard pending-actions UI wiring (`MOB-036`).
 4. Regression matrix for manager dashboard pending-actions parity (`QA-026`).
-

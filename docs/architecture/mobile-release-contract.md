@@ -1768,5 +1768,4 @@ Define the minimum environment and auth contract required for native app release
   - no endpoint removals
   - no mutation contract changes
   - current dashboard summary/priorities widgets remain authoritative for aggregate counts
-  - pending actions are a focused follow-up surface for manager operational triage
-
+- pending actions are a focused follow-up surface for manager operational triage

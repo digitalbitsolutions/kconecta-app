@@ -819,6 +819,7 @@ class ProviderService
             "rating" => $row["rating"] ?? null,
             "availability_summary" => $this->buildAvailabilitySummary($row),
             "services_preview" => array_slice($services, 0, 3),
+            "scorecard_preview" => $this->buildProviderScorecardPreview($row),
         ];
     }
 
@@ -838,6 +839,7 @@ class ProviderService
             "coverage" => $this->resolveCoverage($row),
             "availability_summary" => $this->buildAvailabilitySummary($row),
             "metrics" => $this->buildProviderMetrics($row),
+            "scorecard" => $this->buildProviderScorecard($row),
         ];
     }
 
@@ -894,6 +896,41 @@ class ProviderService
             "response_time_hours" => $this->asFloat($row["response_time_hours"] ?? null) ?? 24.0,
             "customer_score" => $this->asFloat($row["customer_score"] ?? null) ?? $rating,
         ];
+    }
+
+    private function buildProviderScorecardPreview(array $row): array
+    {
+        $metrics = $this->buildProviderMetrics($row);
+        $availabilitySummary = $this->buildAvailabilitySummary($row);
+
+        return [
+            "completed_jobs" => $metrics["completed_jobs"],
+            "customer_score" => $metrics["customer_score"],
+            "response_time_hours" => $metrics["response_time_hours"],
+            "availability_label" => $availabilitySummary["label"] ?? "Unknown",
+            "coverage_count" => count($this->resolveCoverage($row)),
+            "services_count" => count($this->resolveServices($row)),
+        ];
+    }
+
+    private function buildProviderScorecard(array $row): array
+    {
+        $preview = $this->buildProviderScorecardPreview($row);
+
+        return [
+            ...$preview,
+            "status_badge" => $this->resolveProviderStatusBadge($row),
+        ];
+    }
+
+    private function resolveProviderStatusBadge(array $row): string
+    {
+        return match (strtolower((string) ($row["status"] ?? "active"))) {
+            "active" => "Active",
+            "inactive" => "Inactive",
+            "paused" => "Paused",
+            default => "Unknown",
+        };
     }
 
     private function buildAssignmentFit(array $provider, array $queueItem): array

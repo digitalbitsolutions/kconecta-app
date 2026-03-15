@@ -124,9 +124,9 @@ Automation:
 
 ## Next Milestones
 
-1. Open and execute Wave 35 end-to-end.
-2. Keep `AI_EXECUTOR=aider` as operational default; keep OpenClaw as controlled fallback.
-3. Continue manager parity waves with additive assignment decision visibility and timeline semantics.
+1. Open and execute Wave 37 end-to-end.
+2. Keep `AI_EXECUTOR=aider` as operational default; use Google AG for planning/review and keep OpenClaw as controlled fallback.
+3. Continue manager parity waves with provider directory/profile visibility after closing assignment-center parity.
 4. Keep Docker-only backend runtime for tests (no XAMPP path).
    - Mandatory command for test execution: `py ai-orchestration/orchestrator.py backend-test-docker` (never host `php artisan test`).
 5. Maintain PR-only merge discipline on protected `main`.
@@ -135,7 +135,7 @@ Status update:
 
 - Jira environment remains active and board/timeline tracking is stable.
 - Main branch protection is enforced and validated (direct push rejected by rule).
-- Repository baseline now includes merged waves through Wave 34.
+- Repository baseline now includes merged waves through Wave 36.
 - CI blocker from duplicate test methods was fixed in PR `#108`.
 
 ## Wave 35 - Manager Assignment Decision Timeline Parity
@@ -145,3 +145,18 @@ Status update:
 - Backend: extend `GET /api/properties/priorities/queue/{queueItemId}` with additive decision summary and richer timeline metadata.
 - Mobile: render decision summary and richer timeline rows in `ManagerAssignmentDetailScreen` without breaking current actions or evidence flows.
 - QA: add regression coverage for additive decision summary behavior and timeline guardrails while preserving baseline assignment detail behavior.
+## Wave 36 - Manager Assignment Center Decision Rollup Parity
+
+- Goal: surface additive decision rollup metadata in the manager assignment center list so queue items expose latest decision state, evidence count, and recommended next action without opening every detail screen.
+- Architect: define queue-list additive contract and UX states for decision badges, evidence indicators, and recommended next action.
+- Backend: extend `GET /api/properties/priorities/queue` with additive decision rollup fields for provider-assignment items.
+- Mobile: render decision badges and evidence indicators in `ManagerAssignmentCenterScreen` while preserving current filters and navigation.
+- QA: add regression coverage for additive queue item rollup metadata and guardrails while protecting baseline queue behavior.
+
+## Wave 37 - Manager Provider Directory and Scorecard Parity
+
+- Goal: expose a manager-facing provider directory and provider profile scorecard so assignment flows no longer depend on inline candidate cards only.
+- Architect: define additive contract and UX states for searchable provider directory rows, provider profile scorecard blocks, and assignment-entry navigation.
+- Backend: extend `GET /api/providers` and `GET /api/providers/{id}` with manager-safe filters and additive scorecard/profile metadata.
+- Mobile: add manager provider directory/profile screens and wire navigation from dashboard/handoff contexts without breaking existing flows.
+- QA: add regression coverage for provider directory filters, provider profile scorecard payloads, and manager-role guardrails.

@@ -39,6 +39,14 @@ class ProviderApiTest extends TestCase
                         "rating",
                         "availability_summary" => ["label", "next_open_slot"],
                         "services_preview",
+                        "scorecard_preview" => [
+                            "completed_jobs",
+                            "customer_score",
+                            "response_time_hours",
+                            "availability_label",
+                            "coverage_count",
+                            "services_count",
+                        ],
                     ],
                 ],
                 "meta" => [
@@ -111,6 +119,14 @@ class ProviderApiTest extends TestCase
                         "rating",
                         "availability_summary" => ["label", "next_open_slot"],
                         "services_preview",
+                        "scorecard_preview" => [
+                            "completed_jobs",
+                            "customer_score",
+                            "response_time_hours",
+                            "availability_label",
+                            "coverage_count",
+                            "services_count",
+                        ],
                     ],
                 ],
                 "meta" => [
@@ -159,6 +175,15 @@ class ProviderApiTest extends TestCase
                     "coverage",
                     "availability_summary" => ["label", "next_open_slot"],
                     "metrics" => ["completed_jobs", "response_time_hours", "customer_score"],
+                    "scorecard" => [
+                        "completed_jobs",
+                        "customer_score",
+                        "response_time_hours",
+                        "availability_label",
+                        "coverage_count",
+                        "services_count",
+                        "status_badge",
+                    ],
                 ],
                 "meta" => ["contract", "source"],
             ])
@@ -231,6 +256,54 @@ class ProviderApiTest extends TestCase
             ->assertJsonPath("data.assignment_fit.recommended", true)
             ->assertJsonPath("data.assignment_fit.score_label", "Recommended")
             ->assertJsonPath("data.assignment_fit.next_action", "select_provider");
+    }
+
+    public function test_provider_directory_exposes_scorecard_preview_when_wave37_contract_is_ready(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->getJson("/api/providers?city=Madrid&category=Cleaning&search=Clean");
+
+        if (!$this->isWave30ProviderDirectoryReady($response)) {
+            $this->markTestIncomplete(
+                "Wave 30 manager provider directory contract is not merged in this branch yet."
+            );
+            return;
+        }
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("meta.filters.city", "Madrid")
+            ->assertJsonPath("meta.filters.category", "Cleaning")
+            ->assertJsonPath("meta.filters.search", "Clean")
+            ->assertJsonPath("data.0.scorecard_preview.completed_jobs", 124)
+            ->assertJsonPath("data.0.scorecard_preview.availability_label", "Available this week")
+            ->assertJsonPath("data.0.scorecard_preview.coverage_count", 3)
+            ->assertJsonPath("data.0.scorecard_preview.services_count", 3);
+    }
+
+    public function test_provider_detail_exposes_additive_scorecard_when_wave37_contract_is_ready(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->getJson("/api/providers/1");
+
+        if (!$this->isWave30ProviderProfileReady($response)) {
+            $this->markTestIncomplete(
+                "Wave 30 manager provider profile contract is not merged in this branch yet."
+            );
+            return;
+        }
+
+        $response
+            ->assertOk()
+            ->assertJsonPath("data.scorecard.completed_jobs", 124)
+            ->assertJsonPath("data.scorecard.customer_score", 4.8)
+            ->assertJsonPath("data.scorecard.response_time_hours", 4.0)
+            ->assertJsonPath("data.scorecard.availability_label", "Available this week")
+            ->assertJsonPath("data.scorecard.coverage_count", 3)
+            ->assertJsonPath("data.scorecard.services_count", 3)
+            ->assertJsonPath("data.scorecard.status_badge", "Active");
     }
 
     public function test_provider_role_cannot_request_assignment_aware_provider_profile_scorecard(): void

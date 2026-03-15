@@ -1,0 +1,24 @@
+{
+  "id": "BE-033",
+  "title": "Implement Wave 37 manager provider directory scorecard contract",
+  "description": "Extend manager-safe provider list/detail endpoints so they support search/city/category filters and expose additive provider scorecard metadata without breaking current provider consumers.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Http/Controllers/Api/ProviderController.php",
+    "app/Services/ProviderService.php",
+    "tests/Feature/Api/ProviderApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "GET /api/providers accepts additive manager filters for search, city, and category",
+    "GET /api/providers/{id} returns additive scorecard/profile metadata safe for manager flows",
+    "Existing provider consumers continue to work when they ignore the new nodes"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave37",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-directory-scorecard"
+  }
+}

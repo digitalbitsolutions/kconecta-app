@@ -849,4 +849,3 @@
 - Pending actions are operational shortcuts:
   - they can deep-link into existing flows
   - they do not replace assignment detail, handoff, or contract detail as authoritative surfaces
-

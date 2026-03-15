@@ -714,6 +714,39 @@ Validate end-to-end functional behavior of native app API contracts before relea
 3. `DEV-176` -> Backend additive decision summary + timeline metadata implementation.
 4. `DEV-177` -> Mobile assignment detail decision summary + timeline rendering.
 5. `DEV-178` -> Regression matrix + readiness-gated API assertions in `tests/Feature/Api/Wave35RegressionMatrixTest.php`.
+
+## Wave 36 Manager Assignment Center Decision Rollup Matrix
+
+1. Assignment center additive decision rollup contract (`DEV-180`, `DEV-181`, `DEV-182`, `DEV-183`)
+  - `GET /api/properties/priorities/queue?category=provider_assignment`
+    preserves:
+    - `meta.contract=manager-priority-queue-v1`
+    - baseline queue card fields (`id`, `property_id`, `property_title`, `city`, `status`, `severity`, `sla_*`, `action`)
+  - Additive Wave 36 node:
+    - `data.items[*].decision_rollup`
+      - `current_state`
+      - `latest_decision_label`
+      - `latest_decision_at`
+      - `evidence_count`
+      - `has_evidence`
+      - `status_badge`
+      - `next_recommended_action`
+2. Decision rollup semantics (`DEV-181`, `DEV-182`, `DEV-183`)
+  - Provider-assignment queue cards expose deterministic list-level state hints without opening detail.
+  - Reassignment + evidence upload must update rollup state to assigned/evidence-backed semantics.
+  - Completion must update rollup state to terminal completed semantics with no follow-up recommendation.
+3. Guardrails and compatibility (`DEV-182`, `DEV-183`)
+  - Provider role hitting queue list returns `403 ROLE_SCOPE_FORBIDDEN` with `auth-session-v1` envelope.
+  - Invalid token returns deterministic `401 TOKEN_INVALID` envelope.
+  - Baseline queue behavior remains additive: consumers ignoring `decision_rollup` continue to function.
+
+## Wave 36 Ticket Mapping
+
+1. `DEV-179` -> Wave 36 orchestration epic and rollout tracking.
+2. `DEV-180` -> Manager assignment center decision rollup architecture contract and UX state map.
+3. `DEV-182` -> Backend additive queue-list decision rollup implementation.
+4. `DEV-181` -> Mobile assignment center decision rollup UI.
+5. `DEV-183` -> Regression matrix + readiness-gated API assertions in `tests/Feature/Api/Wave36RegressionMatrixTest.php`.
 ## Execution Checklist
 
 1. Ensure Docker services are up and API endpoint is reachable.
@@ -750,6 +783,61 @@ Validate end-to-end functional behavior of native app API contracts before relea
 30. Run Wave 33 assignment media evidence regression suite and record list/upload success envelopes plus guardrail stability.
 31. Run Wave 34 provider profile scorecard regression suite and record queue-aware success, guardrail stability, and baseline provider profile compatibility.
 32. Run Wave 35 assignment decision timeline regression suite and record additive decision summary semantics plus reassignment/evidence/completion/cancellation metadata stability.
+33. Run Wave 36 assignment center decision rollup regression suite and record additive queue-card status/evidence/next-action semantics plus queue-list guardrail stability.
+34. Run Wave 37 manager provider directory scorecard regression suite and record additive list/detail scorecard semantics plus provider directory guardrail stability.
+35. Run Wave 38 manager provider handoff fit regression suite and record additive candidate fit preview/selection-state semantics plus handoff/profile guardrail stability.
+
+## Wave 37 Manager Provider Directory Scorecard Matrix
+
+1. Provider directory success contract (`DEV-185`, `DEV-187`, `DEV-188`)
+  - `GET /api/providers` keeps `meta.contract=manager-provider-directory-v1` while extending each list row with additive `scorecard_preview`:
+    - `completed_jobs`
+    - `customer_score`
+    - `response_time_hours`
+    - `availability_label`
+    - `coverage_count`
+    - `services_count`
+  - Manager-safe filters stay deterministic for `status`, `category`, `city`, and `search`.
+  - Baseline list nodes remain stable: `availability_summary`, `services_preview`, pagination metadata, and filter echoes.
+2. Provider profile scorecard success contract (`DEV-185`, `DEV-187`, `DEV-188`)
+  - `GET /api/providers/{id}` keeps `meta.contract=manager-provider-directory-v1` while extending provider detail with additive `scorecard`:
+    - `completed_jobs`
+    - `customer_score`
+    - `response_time_hours`
+    - `availability_label`
+    - `coverage_count`
+    - `services_count`
+    - `status_badge`
+  - Baseline detail nodes remain stable: `bio`, `phone`, `email`, `services`, `coverage`, `availability_summary`, and `metrics`.
+3. Role/session guardrails and cross-wave baseline safety (`DEV-188`)
+  - Invalid token on provider directory/profile routes returns deterministic `401 TOKEN_INVALID` auth-session envelope.
+  - Invalid role on provider directory/profile routes returns deterministic `403 ROLE_SCOPE_FORBIDDEN` auth-session envelope.
+  - Unknown provider detail keeps deterministic `404` payload with `message=Provider not found` and `provider_id`.
+  - Queue-aware provider profile behavior from Wave 34 remains additive and optional when `queue_item_id` is absent.
+
+## Wave 38 Manager Provider Handoff Candidate Fit Matrix
+
+1. Provider-candidate fit success contract (`DEV-190`, `DEV-191`, `DEV-192`, `DEV-193`)
+  - `GET /api/properties/{id}/provider-candidates` keeps `meta.contract=manager-provider-handoff-v1`
+    while extending each candidate row with additive nodes:
+    - `fit_preview.score_label`
+    - `fit_preview.recommendation_badge`
+    - `fit_preview.match_reasons[]`
+    - `fit_preview.warnings[]`
+    - `fit_preview.next_action_hint`
+    - `selection_state.queue_status`
+    - `selection_state.can_select`
+    - `selection_state.blocked_reason`
+    - `selection_state.confirmation_copy.{title,body,confirm_label}`
+  - Baseline candidate identity fields remain stable: `id`, `name`, `role`, `status`, `category`, `city`, `rating`.
+2. Handoff guardrails (`DEV-193`)
+  - Invalid token on provider-candidates returns deterministic `401 TOKEN_INVALID` auth-session envelope.
+  - Invalid role on provider-candidates returns deterministic `403 ROLE_SCOPE_FORBIDDEN` auth-session envelope.
+  - Unknown property keeps deterministic `404 PROPERTY_NOT_FOUND` payload with `property_id`.
+3. Cross-wave compatibility (`DEV-193`)
+  - Wave 19 assignment mutation remains stable after fit-preview rollout.
+  - Wave 34 queue-aware provider profile remains the deep-read surface for assignment decisions.
+  - Consumers ignoring `fit_preview` and `selection_state` continue to function with the baseline handoff contract.
 
 ## Entry Criteria
 

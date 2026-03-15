@@ -1,0 +1,23 @@
+{
+  "id": "QA-024",
+  "title": "Add Wave 37 manager provider directory scorecard regression matrix",
+  "description": "Add regression coverage for manager provider directory filters, provider profile scorecard payloads, and role guardrails while preserving the baseline provider list/detail contract.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/Wave37RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix covers provider directory success and guardrail scenarios for manager flows",
+    "Assertions verify additive provider scorecard metadata and manager filters without breaking baseline nodes",
+    "Testing strategy references Wave 37 scope and protects current provider list/detail behavior"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave37",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-directory-scorecard"
+  }
+}
