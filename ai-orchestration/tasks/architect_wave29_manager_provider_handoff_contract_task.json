@@ -1,0 +1,24 @@
+{
+  "id": "ARCH-023",
+  "title": "Define Wave 29 manager provider handoff evidence contract",
+  "description": "Extend architecture docs with the additive assignment evidence payload, mobile state map, and module boundaries for manager-to-provider handoff success, retry, unauthorized, and session-expired paths.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Architecture docs define assign-provider success payload with assignment snapshot and latest timeline event",
+    "UI/UX map documents success, retry, unauthorized, and session-expired handoff states",
+    "Module map clarifies backend/mobile ownership for assignment evidence consumption"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave29",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-handoff"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "ARCH-022",
+  "title": "Define Wave 28 manager auth/session UX hardening contract",
+  "description": "Extend architecture docs with the manager login/session UX hardening contract: blank login-first entry, success and failure auth envelope expectations, restore/refresh decision tree, and unauthorized or session-expired recovery states.",
+  "agent": "architect",
+  "priority": "high",
+  "files_scope": [
+    "docs/architecture/mobile-release-contract.md",
+    "docs/architecture/ui-ux-map.md",
+    "docs/architecture/module-map.md"
+  ],
+  "acceptance_criteria": [
+    "Architecture defines manager login-first entry without implicit credential bootstrap defaults",
+    "Contract defines success metadata and failure envelope expectations for login, refresh, and me flows",
+    "UX map includes login idle, validation error, invalid credentials, restoring session, unauthorized, session-expired, and dashboard transitions"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave28",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "suite": "architecture",
+    "domain": "manager-auth-session"
+  }
+}

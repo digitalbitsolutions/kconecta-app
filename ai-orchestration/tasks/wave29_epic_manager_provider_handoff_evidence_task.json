@@ -1,0 +1,26 @@
+{
+  "id": "EPIC-W29",
+  "title": "Wave 29 - Manager provider handoff evidence hardening",
+  "description": "Coordinate architecture, backend, mobile, and QA work for manager-to-provider handoff evidence parity so assignment success can be confirmed without a second property detail fetch and recovery states remain deterministic.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/wave29-manager-provider-handoff-evidence-plan.md",
+    "ai-orchestration/tasks/architect_wave29_manager_provider_handoff_contract_task.json",
+    "ai-orchestration/tasks/backend_wave29_manager_provider_assignment_evidence_task.json",
+    "ai-orchestration/tasks/mobile_wave29_manager_provider_handoff_evidence_task.json",
+    "ai-orchestration/tasks/qa_wave29_manager_provider_handoff_regression_task.json"
+  ],
+  "acceptance_criteria": [
+    "Wave 29 scope is documented for architect/backend/mobile/qa",
+    "Jira epic can be created directly from the task file",
+    "Scope aligns with manager-provider handoff evidence parity"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave29",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-handoff"
+  }
+}

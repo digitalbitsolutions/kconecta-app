@@ -1,0 +1,25 @@
+{
+  "id": "EPIC-W28",
+  "title": "Wave 28 - Manager auth/session UX hardening",
+  "description": "Coordinate Wave 28 delivery for manager auth/session UX hardening: remove dev-first login bootstrap assumptions, normalize auth/session metadata for mobile, and preserve deterministic unauthorized and session-expired recovery flows.",
+  "agent": "devops",
+  "priority": "high",
+  "files_scope": [
+    "docs/roadmap/ai-orchestration-roadmap.md",
+    "docs/roadmap/wave28-manager-auth-session-ux-plan.md",
+    "ai-orchestration/README.md"
+  ],
+  "acceptance_criteria": [
+    "Wave 28 roadmap includes architect, backend, mobile, and QA sequencing with PR strategy",
+    "Epic definition captures manager auth/session UX hardening objective and Docker-only backend policy",
+    "Execution plan records Google AG as planner/reviewer mitigation and Aider as primary executor"
+  ],
+  "commit_type": "docs",
+  "metadata": {
+    "wave": "wave28",
+    "executor_model": "google_ag",
+    "stack": "react-native-with-typescript",
+    "suite": "orchestration",
+    "domain": "manager-auth-session"
+  }
+}

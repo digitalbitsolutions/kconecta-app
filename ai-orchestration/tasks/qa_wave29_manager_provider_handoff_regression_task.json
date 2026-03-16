@@ -1,0 +1,24 @@
+{
+  "id": "QA-028",
+  "title": "Add Wave 29 manager handoff regression matrix",
+  "description": "Expand QA coverage for manager provider assignment evidence, handoff recovery flows, and baseline stability across previous manager parity waves.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/PropertyApiTest.php",
+    "tests/Feature/Api/Wave29RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix covers assignment evidence success, conflict, forbidden, and unauthorized flows",
+    "API tests assert enriched assign-provider payload when the Wave 29 contract is ready",
+    "Existing manager-provider handoff and assignment-context regressions remain stable"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave29",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "stack": "qa-core",
+    "domain": "manager-provider-handoff"
+  }
+}

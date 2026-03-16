@@ -1,0 +1,24 @@
+{
+  "id": "BE-025",
+  "title": "Enrich provider assignment response with assignment evidence",
+  "description": "Update the manager provider assignment endpoint so success payload includes assignment snapshot and latest timeline event while preserving deterministic auth/session and role guardrails.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "app/Http/Controllers/Api/PropertyController.php",
+    "app/Services/PropertyService.php",
+    "tests/Feature/Api/PropertyApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "Assign-provider success response exposes assignment snapshot and latest assignment timeline event",
+    "Forbidden/unauthorized/validation behavior remains deterministic for manager handoff routes",
+    "Feature tests assert the enriched contract without regressing Wave 19 and Wave 21 behavior"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave29",
+    "executor_model": "deepseek-coder:6.7b",
+    "stack": "laravel-api",
+    "domain": "manager-provider-handoff"
+  }
+}

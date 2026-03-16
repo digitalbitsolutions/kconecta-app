@@ -1,0 +1,25 @@
+{
+  "id": "BE-024",
+  "title": "Harden manager auth/session success contract for mobile runtime",
+  "description": "Align backend auth/login, auth/refresh, and auth/me success metadata for manager clients so mobile can render deterministic session UX without relying on dev-first assumptions or ambiguous payload fields.",
+  "agent": "backend",
+  "priority": "high",
+  "files_scope": [
+    "routes/api.php",
+    "app/Http/Controllers/Api/AuthController.php",
+    "app/Services/AuthSessionService.php",
+    "tests/Feature/Api/AuthSessionApiTest.php"
+  ],
+  "acceptance_criteria": [
+    "Login, refresh, and me flows expose deterministic auth-session-v1 metadata for manager runtime",
+    "Success payloads provide stable role and subject identity fields required by mobile session restore",
+    "Auth session API tests cover contract stability for manager success and guardrail paths"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave28",
+    "executor_model": "ollama_chat/deepseek-coder:6.7b",
+    "stack": "laravel-api",
+    "domain": "manager-auth-session"
+  }
+}

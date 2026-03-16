@@ -1,0 +1,27 @@
+{
+  "id": "MOB-025",
+  "title": "Harden manager login and session recovery UX",
+  "description": "Update the manager app auth flow so login starts blank by default, API auth-session feedback is surfaced cleanly, and unauthorized or session-expired states recover predictably without dev bootstrap shortcuts.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/config/env.ts",
+    "apps/manager/src/auth/session.ts",
+    "apps/manager/src/navigation/index.tsx",
+    "apps/manager/src/screens/auth/LoginScreen.tsx",
+    "apps/manager/src/screens/auth/UnauthorizedScreen.tsx",
+    "apps/manager/src/screens/auth/SessionExpiredScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Manager login screen is blank by default unless explicit bootstrap env values are provided",
+    "API invalid credential and session lifecycle feedback is mapped to deterministic user-facing states",
+    "Unauthorized and session-expired screens recover back into login without stale session state"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave28",
+    "executor_model": "ollama_chat/deepseek-coder:6.7b",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-auth-session"
+  }
+}

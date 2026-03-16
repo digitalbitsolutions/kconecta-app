@@ -1,0 +1,24 @@
+{
+  "id": "QA-027",
+  "title": "Add Wave 28 manager auth/session UX regression matrix",
+  "description": "Expand QA coverage for manager login UX hardening, auth session success metadata, invalid credential handling, and unauthorized or session-expired recovery while preserving prior manager parity waves.",
+  "agent": "qa",
+  "priority": "medium",
+  "files_scope": [
+    "docs/testing/functional-testing-strategy.md",
+    "tests/Feature/Api/AuthSessionApiTest.php",
+    "tests/Feature/Api/Wave28RegressionMatrixTest.php"
+  ],
+  "acceptance_criteria": [
+    "Regression matrix covers blank login UX assumptions, invalid credentials, login success, me success, refresh success, and unauthorized/session-expired recovery paths",
+    "API tests assert auth-session-v1 success metadata and error stability for manager flows",
+    "Existing manager parity regressions remain stable after Wave 28 coverage is added"
+  ],
+  "commit_type": "test",
+  "metadata": {
+    "wave": "wave28",
+    "executor_model": "ollama_chat/llama3.1:8b",
+    "stack": "qa-core",
+    "domain": "manager-auth-session"
+  }
+}

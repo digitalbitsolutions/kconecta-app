@@ -1,0 +1,24 @@
+{
+  "id": "MOB-026",
+  "title": "Harden manager handoff UX around assignment evidence and recovery",
+  "description": "Update the manager handoff screen to consume assignment evidence from the mutation response, render success and retry states in place, and provide deterministic navigation back to property detail.",
+  "agent": "mobile",
+  "priority": "high",
+  "files_scope": [
+    "apps/manager/src/api/propertyApi.ts",
+    "apps/manager/src/screens/ManagerToProviderHandoffScreen.tsx",
+    "apps/manager/src/screens/PropertyDetailScreen.tsx"
+  ],
+  "acceptance_criteria": [
+    "Mobile API layer maps enriched assignment evidence payload",
+    "Handoff screen shows assignment confirmation and latest event without extra detail fetch",
+    "Unauthorized/session-expired/conflict flows remain deterministic and visible to managers"
+  ],
+  "commit_type": "feat",
+  "metadata": {
+    "wave": "wave29",
+    "executor_model": "deepseek-coder:6.7b",
+    "stack": "react-native-with-typescript",
+    "domain": "manager-provider-handoff"
+  }
+}
