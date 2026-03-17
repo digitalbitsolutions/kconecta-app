@@ -4,7 +4,7 @@
 
 Build a local AI software factory for the CRM ecosystem with isolated agent execution, controlled merges, and traceable delivery.
 
-## Current Status (2026-03-12)
+## Current Status (2026-03-17)
 
 Completed:
 
@@ -50,10 +50,13 @@ Completed:
 - Waves 10-16 completed and merged to `main` (manager parity foundation).
 - Wave 22 closed and merged (manager portfolio filters + pagination parity).
 - Wave 23 closed and merged (manager property detail + timeline parity).
-- Wave 24 partially closed:
-  - merged: `DEV-119` (architect, PR `#104`)
-  - merged: `DEV-121` (backend, PR `#105`)
-  - pending: mobile + QA closeout
+- Wave 24, 25, 26 closed and merged to `main`.
+- Wave 27 (manager property form parity) planning active.
+- Wave 28 (manager auth/session UX hardening) partially implemented:
+  - done: Architect contract definition
+  - done: Backend success metadata and failure envelopes
+  - done: Mobile session/UX hardening and blank credential default
+  - pending: QA regression matrix update
 - Aider hardening applied in orchestrator:
   - shorter execution prompts per task
   - automatic change partitioning by files scope
@@ -78,7 +81,7 @@ Completed:
 - Add request validation and response resources.
 - Add migration-safe schema updates.
 - Define API auth and role scopes against CRM backend.
-- Current focus: Wave 24 manager dashboard summary/priorities data contract evolution.
+- Current focus: Wave 28 manager auth session success metadata and failure envelopes.
 
 ### Phase 3: Mobile Delivery (In Progress)
 
@@ -86,13 +89,14 @@ Completed:
 - Add shared API client and typed models. (Done for manager property flows)
 - Integrate auth/session handling and role-aware navigation. (Pending)
 - Implement providers, properties, and service-order flows.
-- Current focus: Wave 24 dashboard summary/priorities UI wiring (`MOB-021`).
+- Current focus: Wave 28 manager mobile session UX hardening and recovery navigation.
 
 ### Phase 4: QA + Security (In Progress)
 
 - Add API and mobile smoke tests.
 - Add regression suites for critical business flows.
 - Add security checks for auth and access control.
+- Current focus: Wave 28 manager auth/session regression matrix.
 
 ### Phase 5: Release Orchestration (In Progress)
 
