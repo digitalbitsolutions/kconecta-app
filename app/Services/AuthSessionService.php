@@ -59,6 +59,8 @@ class AuthSessionService
             role: $role,
             providerId: $providerId,
             refreshTokenOverride: null,
+            flow: "login",
+            reason: "login_success",
         );
     }
 
@@ -89,6 +91,8 @@ class AuthSessionService
             role: $role,
             providerId: $providerId,
             refreshTokenOverride: null,
+            flow: "refresh",
+            reason: "refresh_success",
         );
     }
 
@@ -112,10 +116,14 @@ class AuthSessionService
                 "expires_at" => gmdate("c", time() + self::DEFAULT_ACCESS_TTL_SECONDS),
                 "role" => "manager",
                 "provider_id" => null,
+                "subject" => "mobile@kconecta.local",
+                "display_name" => "Manager App",
             ],
             "meta" => [
                 "contract" => self::CONTRACT,
                 "mode" => self::MODE,
+                "flow" => "refresh",
+                "reason" => "session_resolved",
             ],
         ];
     }
@@ -130,6 +138,8 @@ class AuthSessionService
             "meta" => [
                 "contract" => self::CONTRACT,
                 "mode" => self::MODE,
+                "flow" => "logout",
+                "reason" => "session_terminated",
             ],
         ];
     }
@@ -220,7 +230,9 @@ class AuthSessionService
         string $email,
         string $role,
         ?int $providerId,
-        ?string $refreshTokenOverride
+        ?string $refreshTokenOverride,
+        string $flow,
+        string $reason
     ): array {
         $issuedAt = time();
         $accessTtl = (int) env("KC_AUTH_ACCESS_TTL", self::DEFAULT_ACCESS_TTL_SECONDS);
@@ -268,11 +280,15 @@ class AuthSessionService
                 "scope" => $this->scopesForRole($role),
                 "role" => $role,
                 "provider_id" => $providerId,
+                "subject" => $email,
+                "display_name" => $this->resolveDisplayNameFromEmail($email),
                 "issued_at" => gmdate("c", $issuedAt),
             ],
             "meta" => [
                 "contract" => self::CONTRACT,
                 "mode" => self::MODE,
+                "flow" => $flow,
+                "reason" => $reason,
             ],
         ];
     }
@@ -383,6 +399,16 @@ class AuthSessionService
         }
 
         return "manager";
+    }
+
+    public function resolveDisplayNameFromEmail(string $email): string
+    {
+        $normalized = strtolower(trim($email));
+        $localPart = strstr($normalized, "@", true);
+        $raw = $localPart !== false ? $localPart : $normalized;
+        $clean = str_replace(["-", ".", "_"], " ", $raw);
+
+        return Str::title($clean);
     }
 
     private function resolveProviderId(string $email, string $role): ?int

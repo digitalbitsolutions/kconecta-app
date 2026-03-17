@@ -15,6 +15,8 @@ type LoginApiPayload = {
     refresh_token?: string;
     role?: string | null;
     provider_id?: number | string | null;
+    subject?: string | null;
+    display_name?: string | null;
   };
   error?: {
     message?: string;
@@ -86,6 +88,8 @@ const LoginScreen = () => {
           typeof payload.data?.provider_id === "number"
             ? String(payload.data.provider_id)
             : toStringOrNull(payload.data?.provider_id),
+        subject: toStringOrNull(payload.data?.subject),
+        displayName: toStringOrNull(payload.data?.display_name),
         source: "runtime",
       });
 

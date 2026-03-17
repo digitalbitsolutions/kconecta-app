@@ -11,6 +11,8 @@ export type SessionBootstrapResult =
 type SessionClaims = {
   role: string | null;
   providerId: string | null;
+  subject: string | null;
+  displayName: string | null;
 };
 
 type SessionState = {
@@ -26,6 +28,8 @@ type RuntimeSessionInput = {
   source?: SessionTokenSource;
   role?: string | null;
   providerId?: string | null;
+  subject?: string | null;
+  displayName?: string | null;
 };
 
 type RefreshApiPayload = {
@@ -34,6 +38,8 @@ type RefreshApiPayload = {
     refresh_token?: string;
     role?: string | null;
     provider_id?: number | string | null;
+    subject?: string | null;
+    display_name?: string | null;
   };
 };
 
@@ -41,6 +47,8 @@ type MeApiPayload = {
   data?: {
     role?: string | null;
     provider_id?: number | string | null;
+    subject?: string | null;
+    display_name?: string | null;
   };
 };
 
@@ -105,25 +113,29 @@ function decodeBase64Url(value: string): string | null {
 function claimsFromToken(token: string): SessionClaims {
   const segments = token.split(".");
   if (segments.length < 2) {
-    return { role: "manager", providerId: null };
+    return { role: "manager", providerId: null, subject: null, displayName: null };
   }
 
   const decoded = decodeBase64Url(segments[1]);
   if (!decoded) {
-    return { role: "manager", providerId: null };
+    return { role: "manager", providerId: null, subject: null, displayName: null };
   }
 
   try {
     const payload = JSON.parse(decoded) as Record<string, unknown>;
     const role = normalizeString(payload.role) ?? "manager";
     const providerId = asStringOrNull(payload.provider_id);
+    const subject = normalizeString(payload.email ?? payload.sub);
+    const displayName = normalizeString(payload.display_name);
 
     return {
       role,
       providerId,
+      subject,
+      displayName,
     };
   } catch {
-    return { role: "manager", providerId: null };
+    return { role: "manager", providerId: null, subject: null, displayName: null };
   }
 }
 
@@ -168,10 +180,14 @@ function resolveClaims(input: RuntimeSessionInput): SessionClaims {
   const tokenClaims = claimsFromToken(input.accessToken);
   const role = normalizeString(input.role) ?? tokenClaims.role;
   const providerId = asStringOrNull(input.providerId) ?? tokenClaims.providerId;
+  const subject = normalizeString(input.subject) ?? tokenClaims.subject;
+  const displayName = normalizeString(input.displayName) ?? tokenClaims.displayName;
 
   return {
     role,
     providerId,
+    subject,
+    displayName,
   };
 }
 
@@ -258,6 +274,8 @@ export async function refreshSessionTokens(): Promise<boolean> {
       refreshToken: normalizeString(data.refresh_token) ?? refreshToken,
       role: normalizeString(data.role) ?? currentSession?.claims.role,
       providerId: asStringOrNull(data.provider_id) ?? currentSession?.claims.providerId,
+      subject: normalizeString(data.subject) ?? currentSession?.claims.subject,
+      displayName: normalizeString(data.display_name) ?? currentSession?.claims.displayName,
       source: "runtime",
     });
     return true;
@@ -331,6 +349,8 @@ export async function resolveManagerBootstrapState(): Promise<SessionBootstrapRe
         refreshToken: getRefreshToken(),
         role,
         providerId: asStringOrNull(payload?.data?.provider_id),
+        subject: normalizeString(payload?.data?.subject),
+        displayName: normalizeString(payload?.data?.display_name),
         source: "runtime",
       });
 
@@ -367,6 +387,8 @@ export function getSessionSnapshot(): {
   initializedAt: string | null;
   role: string | null;
   providerId: string | null;
+  subject: string | null;
+  displayName: string | null;
 } {
   const hasToken = tokenStore.getToken() !== null;
 
@@ -377,6 +399,8 @@ export function getSessionSnapshot(): {
       initializedAt: null,
       role: null,
       providerId: null,
+      subject: null,
+      displayName: null,
     };
   }
 
@@ -386,5 +410,7 @@ export function getSessionSnapshot(): {
     initializedAt: currentSession.initializedAt,
     role: currentSession.claims.role,
     providerId: currentSession.claims.providerId,
+    subject: currentSession.claims.subject,
+    displayName: currentSession.claims.displayName,
   };
 }

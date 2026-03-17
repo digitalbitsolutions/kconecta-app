@@ -175,6 +175,7 @@ class AuthController extends Controller
                     "email" => $email,
                     "role" => $role,
                     "scope" => array_values($scope),
+                    "display_name" => $this->authSessionService->resolveDisplayNameFromEmail($email),
                     "provider_id" => $providerId,
                     "issued_at" => $issuedAtIso,
                 ],

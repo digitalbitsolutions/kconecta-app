@@ -127,6 +127,8 @@ const ManagerDashboardScreen = () => {
 
   const sessionSnapshot = getSessionSnapshot();
   const roleLabel = sessionSnapshot.role ?? "unknown";
+  const userDisplayName = sessionSnapshot.displayName ?? "Manager";
+  const userEmail = sessionSnapshot.subject ?? "";
 
   const loadDashboard = useCallback(
     async (mode: "initial" | "refresh" = "initial") => {
@@ -288,7 +290,7 @@ const ManagerDashboardScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.title}>Manager Dashboard</Text>
-        <Text style={styles.subtitle}>Track portfolio health and property operations.</Text>
+        <Text style={styles.subtitle}>Welcome back, {userDisplayName}. Track portfolio health and property operations.</Text>
 
         {showLoading ? (
           <View style={styles.loadingWrap}>
@@ -350,6 +352,7 @@ const ManagerDashboardScreen = () => {
             <Text style={styles.diagnosticsTitle}>Environment diagnostics</Text>
             <Text style={styles.diagnosticsItem}>Stage: {managerEnv.stage}</Text>
             <Text style={styles.diagnosticsItem}>API: {managerEnv.apiBaseUrl}</Text>
+            <Text style={styles.diagnosticsItem}>User: {userDisplayName} ({userEmail})</Text>
             <Text style={styles.diagnosticsItem}>Role: {roleLabel}</Text>
             <Text style={styles.diagnosticsItem}>
               Token: {sessionSnapshot.hasToken ? `loaded (${sessionSnapshot.source})` : "missing"}
