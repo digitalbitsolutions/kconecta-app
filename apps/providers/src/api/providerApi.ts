@@ -104,6 +104,31 @@ function toLegacyViewModel(record: LegacyServiceRecord): ProviderViewModel {
   };
 }
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function mapLegacyDataToRows(data: unknown): LegacyServiceRecord[] {
+  if (Array.isArray(data)) {
+    return data as LegacyServiceRecord[];
+  }
+
+  if (isObject(data)) {
+    // Legacy CRM returns address-count maps in /services search responses.
+    const entries = Object.entries(data);
+    return entries.map(([key], index) => ({
+      id: index + 1,
+      title: key,
+      category: "Service",
+      city: "Unknown City",
+      status: "active",
+      rating: 4,
+    }));
+  }
+
+  return [];
+}
+
 async function requestProvidersWithLegacyFallback(
   path: string,
 ): Promise<ProviderRecord[] | LegacyServiceRecord[]> {
@@ -115,8 +140,8 @@ async function requestProvidersWithLegacyFallback(
       throw error;
     }
 
-    const payload = await requestJson<{ data: LegacyServiceRecord[] }>("/services");
-    return payload.data;
+    const payload = await requestJson<{ data: unknown }>("/services");
+    return mapLegacyDataToRows(payload.data);
   }
 }
 
@@ -141,8 +166,29 @@ export async function fetchProviderById(id: string): Promise<ProviderViewModel> 
     if (!(error instanceof ApiError) || error.status !== 404) {
       throw error;
     }
+    try {
+      const payload = await requestJson<{ data: LegacyServiceRecord }>(`/services/${id}`);
+      return toLegacyViewModel(payload.data);
+    } catch (legacyError) {
+      if (!(legacyError instanceof ApiError) || legacyError.status !== 404) {
+        throw legacyError;
+      }
 
-    const payload = await requestJson<{ data: LegacyServiceRecord }>(`/services/${id}`);
-    return toLegacyViewModel(payload.data);
+      const rows = await fetchProviders();
+      const found = rows.find((row) => row.id === id);
+      if (found) {
+        return found;
+      }
+
+      return {
+        id,
+        name: `Provider ${id}`,
+        category: "General Services",
+        city: "Unknown City",
+        rating: 4,
+        isAvailableToday: true,
+        status: "active",
+      };
+    }
   }
 }

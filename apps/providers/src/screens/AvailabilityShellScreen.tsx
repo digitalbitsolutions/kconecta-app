@@ -33,6 +33,7 @@ type AccessState =
   | "identity-mismatch"
   | "revision-conflict"
   | "role-forbidden"
+  | "feature-unavailable"
   | "unauthorized";
 
 const DAY_LABELS: Record<AvailabilityDay, string> = {
@@ -74,6 +75,10 @@ const toAccessState = (error: unknown): AccessState => {
     return "revision-conflict";
   }
 
+  if (error.status === 404) {
+    return "feature-unavailable";
+  }
+
   return "editable";
 };
 
@@ -89,6 +94,9 @@ const toUiError = (error: unknown, state: AccessState): string => {
   }
   if (state === "revision-conflict") {
     return "Your draft is stale. Reload the latest availability before saving again.";
+  }
+  if (state === "feature-unavailable") {
+    return "Current CRM API does not expose provider availability endpoints yet.";
   }
   if (state === "unauthorized") {
     return "Session is unauthorized or expired. Recover session and retry.";
@@ -345,6 +353,8 @@ const AvailabilityShellScreen = () => {
                       ? "Read-only: stale draft detected. Reload latest availability."
                     : accessState === "role-forbidden"
                       ? "Read-only: role scope does not allow availability edits."
+                      : accessState === "feature-unavailable"
+                        ? "Read-only: availability endpoint is not implemented in this CRM."
                       : accessState === "unauthorized"
                         ? "Session unauthorized. Recover to continue editing."
                         : "Session identity is incomplete. Recover to continue editing."}

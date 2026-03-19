@@ -1,56 +1,51 @@
-# Session Handoff (2026-03-12)
+# Session Handoff (2026-03-19)
 
 ## Current State
 
 - Repository: `D:\still\kconecta-app`
-- Branch: `main` synced with `origin/main` at `8b37fb9`
+- Branch: `agent/devops-wave27` at `00f654b`
 - Main protection: enforced (`PR required`, direct push blocked)
 - Backend runtime policy: Docker-only (`NO XAMPP`)
-- Executor stack:
-  - default `AI_EXECUTOR=auto` now resolves to `aider`
-  - runtime fallback `aider -> openclaw` implemented in orchestrator
-  - OpenClaw currently marked as **experimental fallback** (see risks)
+- Local backend validated at: `http://127.0.0.1:8010` (container `kconecta`)
 
-## Wave Status Snapshot
+## Mobile + CRM Integration Status (Today)
 
-- Wave 23: completed and merged.
-- Wave 24:
-  - merged: `DEV-119` (architect, PR `#104`)
-  - merged: `DEV-121` (backend, PR `#105`)
-  - merged: devops platform update (PR `#107`) for `aider -> openclaw` fallback
-  - merged: CI unblock hotfix (PR `#108`) removing duplicate test methods
-  - pending: mobile + QA closeout (`DEV-122`, QA counterpart)
+- CRM mobile endpoints are available in local Docker backend (`D:\still\kconecta.com\web`).
+- Contract smoke validated against local API base (`/api`):
+  - `POST /auth/login` -> OK (manager/admin local users)
+  - `GET /auth/me` -> OK
+  - `GET /properties` -> OK
+  - `GET /properties/summary` -> OK (`source=database`)
+  - `GET /providers` -> OK
+  - `GET /providers/{id}` and `/providers/{id}/availability` -> OK
+- Production host `https://kconecta.com/api/auth/login` currently returns `404` (mobile auth contract not exposed there yet).
 
-- Open PRs: none.
+## Local Accounts Verified (Dev)
 
-## What Was Executed In This Session
+- `manager@kconecta.local` -> role `manager` (smoke OK)
+- `info@sttil.com` -> role `admin` (smoke OK)
 
-1. Merged PRs:
-   - `#104` architect contract
-   - `#105` backend contract implementation
-   - `#107` executor fallback refactor
-   - `#108` test duplicate hotfix
-2. Synced `main` and agent branches after merges.
-3. Added automatic executor policy:
-   - `auto` picks `aider` first
-   - if `aider` execution fails, orchestrator attempts `openclaw`
-4. Verified CI recovery:
-   - fixed `PropertyApiTest` duplicate methods causing `Cannot redeclare` failures.
+Notes:
+- Passwords are intentionally omitted from handoff docs.
+- Credentials are available in team secure channel / local operator context.
 
-## Known Risks / Blockers
+## Working Tree Snapshot
 
-1. OpenClaw reliability as fallback:
-   - fallback activation works,
-   - but this installed OpenClaw variant may attempt edits outside `files_scope` on some prompts.
-   - keep `AI_EXECUTOR=aider` for primary runs until further hardening.
-2. Aider long tasks:
-   - still can timeout for large prompts/scopes.
-   - mitigated by partitioning, shorter prompts, per-agent timeout policies, and recovery mode.
+Tracked modified files:
+- `apps/manager/src/screens/auth/LoginScreen.tsx`
+- `apps/providers/src/api/providerApi.ts`
+- `apps/providers/src/screens/AvailabilityShellScreen.tsx`
+- `apps/providers/src/screens/auth/LoginScreen.tsx`
+- `package-lock.json`
+
+Untracked notable files:
+- `docs/architecture/mobile-crm-integration-audit-2026-03-19.md`
+- local temp screenshots/logs (`.tmp-*`) and local `.env`
 
 ## Guardrails (Do Not Break)
 
 - Never push directly to `main`.
-- Always use `agent/*` branch -> PR -> review -> merge.
+- Always use feature/agent branch -> PR -> review -> merge.
 - Keep `NO XAMPP` policy.
 - Use Docker for backend checks/tests.
 - Never run `php artisan test` directly on host. Use `py ai-orchestration/orchestrator.py backend-test-docker`.
@@ -65,13 +60,12 @@ $env:GIT_CONFIG_KEY_0='safe.directory'
 $env:GIT_CONFIG_VALUE_0='*'
 $env:AI_EXECUTOR='aider'
 py ai-orchestration/orchestrator.py preflight
-gh pr list --state open --limit 20
-py ai-orchestration/orchestrator.py jira-list --status open --max-results 20
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 ```
 
 ## Next Natural Actions
 
-1. Execute `DEV-122` mobile task (`MOB-021`) with `AI_EXECUTOR=aider`.
-2. Open PR draft for mobile result and move Jira status to `In Progress/Review`.
-3. Execute QA ticket for Wave 24 closeout and open QA PR.
-4. Merge mobile + QA PRs and close Wave 24 epic in Jira.
+1. Continue app work in `D:\still\kconecta-app` against local CRM API (`http://10.0.2.2:8010/api` on emulator).
+2. Keep parity checklist local vs production for mobile endpoints before release gate.
+3. Commit only source/docs changes; exclude `.env` and `.tmp-*` artifacts from commits.
+4. Open PR from current working branch once clean commit set is ready.

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Image, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ApiError, requestJson } from "../../api/client";
 import { setRuntimeSession } from "../../auth/session";
 import { providerEnv } from "../../config/env";
 import type { RootStackParamList } from "../../navigation";
@@ -58,25 +59,20 @@ const ProviderLoginScreen = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${providerEnv.apiBaseUrl}/auth/login`, {
+      const payload = await requestJson<LoginApiPayload>("/auth/login", {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+        body: {
           email: normalizedEmail,
           password: normalizedPassword,
-        }),
+        },
       });
 
-      const payload = (await response.json().catch(() => ({}))) as LoginApiPayload;
       const data = payload?.data ?? {};
       const accessToken = toStringOrNull(data.access_token);
       const role = toStringOrNull(data.role) ?? providerEnv.bootstrapRole;
       const providerId = normalizeProviderId(data.provider_id) ?? providerEnv.bootstrapProviderId;
 
-      if (!response.ok || !accessToken) {
+      if (!accessToken) {
         const apiError = toStringOrNull(payload?.error?.message);
         const fallbackMessage = toStringOrNull(payload?.message);
         setError(apiError ?? fallbackMessage ?? "Unable to sign in.");
@@ -106,6 +102,14 @@ const ProviderLoginScreen = () => {
         routes: [{ name: "ProviderDashboard" }],
       });
     } catch (requestError) {
+      if (requestError instanceof ApiError) {
+        if (requestError.status === 404) {
+          setError("This CRM backend does not expose /api/auth/login for mobile yet.");
+          return;
+        }
+        setError(requestError.message);
+        return;
+      }
       const message = requestError instanceof Error ? requestError.message : "Network request failed.";
       setError(message);
     } finally {
